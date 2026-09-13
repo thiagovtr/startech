@@ -87,7 +87,7 @@ De forma geral, o fluxo proposto pode ser representado da seguinte maneira:
 
 A proposta não busca realizar a gestão completa dos estoques de sangue nem substituir os sistemas já utilizados pelos serviços de hemoterapia. Seu foco está no apoio à comunicação, à mobilização e à fidelização dos doadores.
 
-Nesta etapa de concepção ainda não são definidos aspectos relacionados à arquitetura do sistema, tecnologias utilizadas, bancos de dados, protocolos de comunicação ou formato específico dos clientes da aplicação. Essas decisões serão realizadas nas etapas posteriores do projeto.
+Este esboço apresenta uma visão conceitual da solução e não constitui uma especificação funcional ou arquitetural do sistema. Aspectos relacionados à arquitetura, tecnologias, bancos de dados, protocolos de comunicação e clientes da aplicação não fazem parte do escopo deste documento e serão registrados na documentação técnica correspondente à medida que forem definidos.
 
 ## 5. Referências
 
