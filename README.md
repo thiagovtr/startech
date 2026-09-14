@@ -71,4 +71,4 @@ Novos documentos técnicos serão adicionados conforme as decisões de arquitetu
 - [Diovani da Cruz](https://github.com/)
 - [Ezequiel Dominguez](https://github.com/)
 - [Matheus Freire Costa Pimenta](https://github.com/matheuspimenta3)
-- [Thiago Vinícius](https://github.com/)
+- [Thiago Vinícius](https://github.com/thiagovtr)
