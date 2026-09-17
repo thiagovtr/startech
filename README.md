@@ -68,7 +68,7 @@ Novos documentos técnicos serão adicionados conforme as decisões de arquitetu
 
 ## Equipe
 
-- [Diovani da Cruz](https://github.com/)
-- [Ezequiel Dominguez](https://github.com/)
+- [Diovani da Cruz](https://github.com/diovaniMangiajr)
+- [Ezequiel Dominguez](https://github.com/Ez1309)
 - [Matheus Freire Costa Pimenta](https://github.com/matheuspimenta3)
 - [Thiago Vinícius](https://github.com/thiagovtr)
