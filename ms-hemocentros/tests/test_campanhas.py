@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from hemocentros.main import app
 
-client = TestClient(app)
+client = TestClient(app)  # sem lifespan: rotas de campanhas não usam bancos
 
 
 def test_lista_todas():
