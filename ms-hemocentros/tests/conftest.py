@@ -32,3 +32,24 @@ def pg_engine():
         pytest.skip(f"PostgreSQL de teste indisponível em {TEST_PG_URL}")
     yield engine
     asyncio.run(engine.dispose())
+
+
+TEST_MONGO_URL = os.getenv("HEMOCENTROS_TEST_MONGO_URL", "mongodb://127.0.0.1:17017")
+TEST_MONGO_DB = "hemocentros_test"
+
+
+@pytest.fixture
+def mongo_view():
+    """Coleção campanhas_view limpa num MongoDB real; ignora o teste se indisponível."""
+    from pymongo import MongoClient
+
+    client = MongoClient(TEST_MONGO_URL, serverSelectionTimeoutMS=1500)
+    try:
+        client.admin.command("ping")
+    except Exception:
+        pytest.skip(f"MongoDB de teste indisponível em {TEST_MONGO_URL}")
+    colecao = client[TEST_MONGO_DB]["campanhas_view"]
+    colecao.delete_many({})
+    yield colecao
+    client.drop_database(TEST_MONGO_DB)
+    client.close()

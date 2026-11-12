@@ -3,6 +3,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pymongo.errors import PyMongoError
 from sqlalchemy.exc import SQLAlchemyError
 
 PROBLEM_JSON = "application/problem+json"
@@ -25,6 +26,7 @@ def register(app: FastAPI) -> None:
             "A requisição contém campos ausentes ou inválidos.", invalidParams=params,
         )
 
+    @app.exception_handler(PyMongoError)
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
     async def _banco(request: Request, exc: Exception):
