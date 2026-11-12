@@ -76,3 +76,22 @@ def test_timeout_retorna_504():
 def test_erro_500_do_servico_vira_502():
     r = _client(lambda req: httpx.Response(500, text="boom")).get("/bff-web/campanhas")
     assert r.status_code == 502
+
+
+def test_erro_4xx_sem_corpo_json_e_repassado_com_corpo_minimo():
+    r = _client(lambda req: httpx.Response(404, text="não achei")).get("/bff-web/campanhas")
+    assert r.status_code == 404 and r.json()["status"] == 404
+
+
+def test_clientes_reais_do_lifespan_retornam_503_sem_servico(monkeypatch):
+    """Sem overrides: exercita o `lifespan` e o cliente httpx real contra uma porta sem serviço."""
+    from bff_web.config import get_settings
+
+    monkeypatch.setenv("BFF_WEB_HEMOCENTROS_URL", "http://127.0.0.1:1")
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as c:
+            r = c.get("/bff-web/campanhas")
+    finally:
+        get_settings.cache_clear()
+    assert r.status_code == 503

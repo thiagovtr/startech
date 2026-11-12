@@ -64,7 +64,7 @@ async def executar_consumidor(app: FastAPI) -> None:
                 await connection.close()
             raise
         except Exception as exc:
-            logger.warning("Consumidor da projeção: %s. Nova tentativa em 5s", exc)
+            logger.warning("Consumidor da projeção: %s. Nova tentativa em %.0fs", exc, settings.consumidor_reconexao)
             if connection is not None:
                 await connection.close()
-            await asyncio.sleep(5)
+            await asyncio.sleep(settings.consumidor_reconexao)

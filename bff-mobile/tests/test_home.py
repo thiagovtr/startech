@@ -112,3 +112,26 @@ def test_sem_x_user_id_retorna_401_problem_json():
     r = s.client().get("/bff-mobile/home")
     assert r.status_code == 401 and r.headers["content-type"].startswith("application/problem+json")
     assert s.chamadas == []
+
+
+def test_clientes_reais_do_lifespan_degradam_com_servicos_inalcancaveis(monkeypatch):
+    """Sem overrides: exercita o `lifespan` e os clientes httpx reais contra portas sem serviço."""
+    from bff_mobile.config import get_settings
+
+    monkeypatch.setenv("BFF_MOBILE_DOADORES_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("BFF_MOBILE_HEMOCENTROS_URL", "http://127.0.0.1:1")
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as c:
+            r = c.get("/bff-mobile/home", headers={"X-User-Id": "123"})
+    finally:
+        get_settings.cache_clear()
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "degradado" and body["servicosIndisponiveis"] == ["ms-doadores", "ms-hemocentros"]
+
+
+def test_resposta_invalida_do_hemocentros_degrada():
+    s = Servicos(lambda r: httpx.Response(200, json=DOADOR), lambda r: httpx.Response(200, text="<html>"))
+    body = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).json()
+    assert body["servicosIndisponiveis"] == ["ms-hemocentros"] and body["campanhas"] == []

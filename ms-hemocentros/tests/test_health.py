@@ -18,3 +18,20 @@ def test_sobe_e_reporta_degradado_sem_bancos(monkeypatch):
         get_settings.cache_clear()
     assert r.status_code == 200
     assert r.json() == {"status": "degradado", "bancos": {"postgres": "indisponivel", "mongo": "indisponivel"}}
+
+
+def test_health_ok_com_os_dois_bancos(pg_engine, mongo_view, monkeypatch):
+    from tests.conftest import TEST_MONGO_DB, TEST_MONGO_URL, TEST_PG_URL
+
+    monkeypatch.setenv("HEMOCENTROS_POSTGRES_URL", TEST_PG_URL)
+    monkeypatch.setenv("HEMOCENTROS_MONGO_URL", TEST_MONGO_URL)
+    monkeypatch.setenv("HEMOCENTROS_MONGO_DB", TEST_MONGO_DB)
+    from hemocentros.config import get_settings
+
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            r = client.get("/health")
+    finally:
+        get_settings.cache_clear()
+    assert r.json() == {"status": "ok", "bancos": {"postgres": "ok", "mongo": "ok"}}

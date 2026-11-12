@@ -30,11 +30,12 @@ class Settings(BaseSettings):
     rabbitmq_declarar_fila: bool = True
     consumidor_habilitado: bool = True
     consumidor_prefetch: int = 10
+    consumidor_reconexao: float = 5.0  # segundos entre tentativas de conexão ao RabbitMQ
     consumidor_espera_erro: float = 2.0  # segundos antes de devolver à fila uma mensagem que falhou por erro transitório
 
     # Publicador do Outbox (polling)
     outbox_worker_habilitado: bool = True
-    outbox_intervalo: float = 1.0  # segundos entre consultas quando não há eventos pendentes
+    outbox_intervalo: float = 0.5  # segundos entre consultas quando não há eventos pendentes (define o piso da latência)
     outbox_lote: int = 50
 
     # Tempo máximo, em segundos, para checar a conectividade de cada banco
