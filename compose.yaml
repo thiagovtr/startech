@@ -64,6 +64,11 @@ services:
       HEMOCENTROS_POSTGRES_URL: postgresql+asyncpg://hemocentros:${HEMOCENTROS_DB_PASSWORD:-hemocentros}@db-hemocentros:5432/hemocentros
       HEMOCENTROS_MONGO_URL: mongodb://mongo:27017
       HEMOCENTROS_MONGO_DB: hemocentros
+      # Publicador do Outbox. [DEV 1] o serviço `rabbitmq` deve existir; sem ele, o publicador
+      # apenas registra o erro e tenta de novo (o serviço continua no ar).
+      HEMOCENTROS_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
+      HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
     ports:
       - "${HEMOCENTROS_HOST_PORT:-8000}:8000"
     depends_on:

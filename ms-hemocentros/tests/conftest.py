@@ -6,6 +6,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
+# Os testes do app não devem iniciar o publicador do Outbox (ele é testado diretamente).
+os.environ.setdefault("HEMOCENTROS_OUTBOX_WORKER_HABILITADO", "false")
+
 TEST_PG_URL = os.getenv(
     "HEMOCENTROS_TEST_POSTGRES_URL",
     "postgresql+asyncpg://hemocentros:hemocentros@127.0.0.1:15432/hemocentros",
@@ -53,3 +56,22 @@ def mongo_view():
     yield colecao
     client.drop_database(TEST_MONGO_DB)
     client.close()
+
+
+TEST_AMQP_URL = os.getenv("HEMOCENTROS_TEST_RABBITMQ_URL", "amqp://guest:guest@127.0.0.1:15672/")
+
+
+@pytest.fixture
+def amqp_url():
+    """URL de um RabbitMQ real; ignora o teste se indisponível."""
+    import aio_pika
+
+    async def _ping():
+        conn = await aio_pika.connect(TEST_AMQP_URL, timeout=2)
+        await conn.close()
+
+    try:
+        asyncio.run(_ping())
+    except Exception:
+        pytest.skip(f"RabbitMQ de teste indisponível em {TEST_AMQP_URL}")
+    return TEST_AMQP_URL
