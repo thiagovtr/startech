@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     # True: declara a exchange (idempotente, exige mesmo tipo). False: apenas verifica que ela já existe.
     rabbitmq_declarar_exchange: bool = True
 
+    # Consumidor da projeção CQRS (fila e binding; nomes definidos no plano)
+    rabbitmq_queue: str = "hemocentros.cqrs"
+    rabbitmq_binding_key: str = "hemocentros.campanha.*"
+    # True: declara a fila e o binding (idempotente, exige mesmos argumentos). False: só verifica que a fila existe.
+    rabbitmq_declarar_fila: bool = True
+    consumidor_habilitado: bool = True
+    consumidor_prefetch: int = 10
+    consumidor_espera_erro: float = 2.0  # segundos antes de devolver à fila uma mensagem que falhou por erro transitório
+
     # Publicador do Outbox (polling)
     outbox_worker_habilitado: bool = True
     outbox_intervalo: float = 1.0  # segundos entre consultas quando não há eventos pendentes

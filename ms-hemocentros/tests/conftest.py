@@ -8,6 +8,7 @@ from sqlalchemy.pool import NullPool
 
 # Os testes do app não devem iniciar o publicador do Outbox (ele é testado diretamente).
 os.environ.setdefault("HEMOCENTROS_OUTBOX_WORKER_HABILITADO", "false")
+os.environ.setdefault("HEMOCENTROS_CONSUMIDOR_HABILITADO", "false")
 
 TEST_PG_URL = os.getenv(
     "HEMOCENTROS_TEST_POSTGRES_URL",

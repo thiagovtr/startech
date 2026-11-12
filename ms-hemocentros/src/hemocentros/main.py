@@ -8,6 +8,7 @@ from hemocentros.api import campanhas, errors, health
 from hemocentros.config import get_settings
 from hemocentros.db.mongo import create_client, garantir_indices
 from hemocentros.services.outbox_publisher import executar_publicador
+from hemocentros.services.projecao import executar_consumidor
 from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
 
 logger = logging.getLogger(__name__)
@@ -44,13 +45,17 @@ async def lifespan(app: FastAPI):
     app.state.outbox_task = (
         asyncio.create_task(executar_publicador(app)) if settings.outbox_worker_habilitado else None
     )
+    app.state.consumidor_task = (
+        asyncio.create_task(executar_consumidor(app)) if settings.consumidor_habilitado else None
+    )
     try:
         yield
     finally:
         app.state.esquema_task.cancel()
-        if app.state.outbox_task:
-            app.state.outbox_task.cancel()
-            await asyncio.gather(app.state.outbox_task, return_exceptions=True)
+        tarefas = [t for t in (app.state.outbox_task, app.state.consumidor_task) if t]
+        for t in tarefas:
+            t.cancel()
+        await asyncio.gather(*tarefas, return_exceptions=True)
         await app.state.pg_engine.dispose()
         await app.state.mongo_client.close()
 
