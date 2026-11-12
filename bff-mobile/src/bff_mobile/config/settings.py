@@ -14,8 +14,13 @@ class Settings(BaseSettings):
     hemocentros_url: str = "http://ms-hemocentros:8000"
     agendamentos_url: str = "http://ms-agendamentos:8082"
 
-    # Timeout das chamadas aos serviços internos, em segundos
-    http_timeout: float = 3.0
+    # Timeouts das chamadas aos serviços internos, em segundos
+    http_timeout: float = 3.0  # ms-hemocentros
+    doadores_timeout: float = 0.8  # ms-doadores (valor do ADR; falha rápida para degradar)
+
+    # Tipo sanguíneo usado para filtrar campanhas quando o perfil do doador não pôde ser obtido
+    # (fallback do ADR). Vazio = sem filtro.
+    tipo_sanguineo_fallback: str = "O-"
 
 
 @lru_cache

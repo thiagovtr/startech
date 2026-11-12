@@ -1,0 +1,46 @@
+import httpx
+
+
+class ServicoIndisponivel(Exception):
+    """Falha ao consultar um serviço interno (rede, timeout ou resposta de erro)."""
+
+    def __init__(self, servico: str, motivo: str):
+        super().__init__(f"{servico}: {motivo}")
+        self.servico, self.motivo = servico, motivo
+
+
+async def _get(http: httpx.AsyncClient, servico: str, path: str, user_id: str, **params) -> httpx.Response:
+    try:
+        response = await http.get(path, headers={"X-User-Id": user_id}, params=params or None)
+    except httpx.TimeoutException:
+        raise ServicoIndisponivel(servico, "timeout")
+    except httpx.TransportError:
+        raise ServicoIndisponivel(servico, "indisponível")
+    if response.status_code >= 400:
+        raise ServicoIndisponivel(servico, f"HTTP {response.status_code}")
+    return response
+
+
+class DoadoresClient:
+    def __init__(self, http: httpx.AsyncClient):
+        self._http = http
+
+    async def obter(self, doador_id: str) -> dict:
+        r = await _get(self._http, "ms-doadores", f"/api/v1/doadores/{doador_id}", doador_id)
+        try:
+            return r.json()
+        except ValueError:
+            raise ServicoIndisponivel("ms-doadores", "resposta inválida")
+
+
+class HemocentrosClient:
+    def __init__(self, http: httpx.AsyncClient):
+        self._http = http
+
+    async def listar_campanhas(self, user_id: str, tipo_sanguineo: str | None) -> list[dict]:
+        params = {"tipo_sanguineo": tipo_sanguineo} if tipo_sanguineo else {}
+        r = await _get(self._http, "ms-hemocentros", "/api/v1/campanhas", user_id, **params)
+        try:
+            return r.json()
+        except ValueError:
+            raise ServicoIndisponivel("ms-hemocentros", "resposta inválida")
