@@ -36,7 +36,7 @@ def test_campanha_e_evento_na_mesma_transacao(pg_engine):
             c = _campanha()
             s.add(c)
             s.add(OutboxEvent(aggregate_type="campanha", aggregate_id=c.id,
-                              event_type="campanha.criada", payload={"id": c.id}))
+                              routing_key="hemocentros.campanha.criada", payload={"id": c.id}))
         async with factory() as s:
             camps = (await s.scalars(select(CampanhaModel))).all()
             evs = (await s.scalars(select(OutboxEvent))).all()
@@ -45,7 +45,7 @@ def test_campanha_e_evento_na_mesma_transacao(pg_engine):
     camps, evs = _run(go())
     assert len(camps) == 1 and len(evs) == 1
     assert evs[0].aggregate_id == camps[0].id
-    assert evs[0].publicado_em is None and evs[0].tentativas == 0
+    assert evs[0].published is False and evs[0].published_at is None
     assert camps[0].status == "ATIVA" and camps[0].criada_em is not None
 
 
@@ -58,7 +58,7 @@ def test_falha_na_transacao_nao_deixa_evento_orfao(pg_engine):
                 c = _campanha()
                 s.add(c)
                 s.add(OutboxEvent(aggregate_type="campanha", aggregate_id=c.id,
-                                  event_type="campanha.criada", payload={}))
+                                  routing_key="hemocentros.campanha.criada", payload={}))
                 await s.flush()
                 raise RuntimeError("falha após gravar")
         async with factory() as s:

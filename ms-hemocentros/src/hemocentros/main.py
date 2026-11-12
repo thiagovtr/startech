@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from hemocentros.api import campanhas, health
+from hemocentros.api import campanhas, errors, health
 from hemocentros.config import get_settings
 from hemocentros.db.mongo import create_client
 from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title=get_settings().app_name, version="0.1.0", lifespan=lifespan)
+    errors.register(app)
     app.include_router(health.router)
     app.include_router(campanhas.router)
     return app
