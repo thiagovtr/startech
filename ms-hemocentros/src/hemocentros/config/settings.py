@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     outbox_worker_habilitado: bool = True
     outbox_intervalo: float = 0.5  # segundos entre consultas quando não há eventos pendentes (define o piso da latência)
     outbox_lote: int = 50
+    # Retenção: eventos já publicados são removidos após `outbox_retencao_dias` (os pendentes nunca são)
+    outbox_limpeza_habilitada: bool = True
+    outbox_retencao_dias: float = 7.0
+    outbox_limpeza_intervalo: float = 3600.0  # segundos entre execuções da limpeza
+    outbox_limpeza_lote: int = 1000
 
     # Tempo máximo, em segundos, para checar a conectividade de cada banco
     db_check_timeout: float = 2.0

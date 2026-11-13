@@ -49,7 +49,9 @@ class OutboxEvent(Base):
     published: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Acelera o polling do publicador (Bloco 13): só eventos ainda não publicados.
+    # Acelera o polling do publicador: só eventos ainda não publicados.
     __table_args__ = (
         Index("idx_outbox_unpublished", "created_at", postgresql_where=text("published = false")),
+        # Acelera a limpeza de retenção: só eventos já publicados, por data de publicação.
+        Index("idx_outbox_published_at", "published_at", postgresql_where=text("published = true")),
     )
