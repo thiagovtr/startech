@@ -32,7 +32,8 @@ async def home(
     """Agrega perfil do doador e campanhas compatíveis, com degradação graciosa (ADR-005 §5.2).
 
     O tipo sanguíneo vem do perfil, então o perfil é consultado primeiro. Se `ms-doadores` falhar,
-    o BFF não retorna 500: devolve o perfil mínimo marcado como degradado e as campanhas do tipo de fallback.
+    o BFF não retorna 500: devolve o perfil mínimo marcado como degradado e as campanhas vigentes sem
+    filtro de tipo (o app sinaliza que não estão personalizadas). Ver decisão P10.
     """
     if not x_user_id:
         return JSONResponse(
@@ -62,5 +63,6 @@ async def home(
         "servicosIndisponiveis": indisponiveis,
         "doador": doador,
         "tipoSanguineoCampanhas": tipo,
+        "campanhasPersonalizadas": tipo is not None,
         "campanhas": campanhas,
     }

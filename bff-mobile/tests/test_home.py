@@ -77,8 +77,10 @@ def test_doadores_fora_nao_gera_500_e_entrega_campanhas_degradado(falha):
     body = r.json()
     assert body["status"] == "degradado" and body["servicosIndisponiveis"] == ["ms-doadores"]
     assert body["doador"] == {"id": "123", "statusDegradado": True}
-    assert body["campanhas"] == CAMPANHAS_O  # fallback O- do ADR
-    assert s.chamadas[-1][1] == {"vigentes": "true", "tipo_sanguineo": "O-"}
+    # sem perfil, sem filtro de tipo: todas as campanhas vigentes, sinalizadas como não personalizadas
+    assert body["campanhas"] == CAMPANHAS_A + CAMPANHAS_O
+    assert body["tipoSanguineoCampanhas"] is None and body["campanhasPersonalizadas"] is False
+    assert s.chamadas[-1][1] == {"vigentes": "true"}
 
 
 def test_hemocentros_fora_mantem_perfil_e_degrada():
@@ -96,10 +98,24 @@ def test_ambos_fora_ainda_responde_200_degradado():
     assert r.status_code == 200 and r.json()["servicosIndisponiveis"] == ["ms-doadores", "ms-hemocentros"]
 
 
-def test_perfil_sem_tipo_sanguineo_usa_fallback():
+def test_perfil_sem_tipo_sanguineo_lista_todas_as_vigentes():
     s = Servicos(lambda r: httpx.Response(200, json={"id": "123"}), _campanhas_por_tipo)
     r = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"})
-    assert r.json()["status"] == "ok" and s.chamadas[-1][1] == {"vigentes": "true", "tipo_sanguineo": "O-"}
+    assert r.json()["status"] == "ok" and r.json()["campanhasPersonalizadas"] is False
+    assert s.chamadas[-1][1] == {"vigentes": "true"}
+
+
+def test_fallback_configuravel_continua_disponivel(monkeypatch):
+    from bff_mobile.config import get_settings
+
+    monkeypatch.setenv("BFF_MOBILE_TIPO_SANGUINEO_FALLBACK", "O-")
+    get_settings.cache_clear()
+    try:
+        s = Servicos(_erro(httpx.ConnectError("x")), _campanhas_por_tipo)
+        body = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).json()
+    finally:
+        get_settings.cache_clear()
+    assert body["tipoSanguineoCampanhas"] == "O-" and body["campanhas"] == CAMPANHAS_O
 
 
 def test_aceita_tipo_sanguineo_em_snake_case():
@@ -135,6 +151,11 @@ def test_resposta_invalida_do_hemocentros_degrada():
     s = Servicos(lambda r: httpx.Response(200, json=DOADOR), lambda r: httpx.Response(200, text="<html>"))
     body = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).json()
     assert body["servicosIndisponiveis"] == ["ms-hemocentros"] and body["campanhas"] == []
+
+
+def test_perfil_ok_personaliza_as_campanhas():
+    s = Servicos(lambda r: httpx.Response(200, json=DOADOR), _campanhas_por_tipo)
+    assert s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).json()["campanhasPersonalizadas"] is True
 
 
 def test_home_pede_apenas_campanhas_vigentes():

@@ -18,9 +18,10 @@ class Settings(BaseSettings):
     http_timeout: float = 3.0  # ms-hemocentros
     doadores_timeout: float = 0.8  # ms-doadores (valor do ADR; falha rápida para degradar)
 
-    # Tipo sanguíneo usado para filtrar campanhas quando o perfil do doador não pôde ser obtido
-    # (fallback do ADR). Vazio = sem filtro.
-    tipo_sanguineo_fallback: str = "O-"
+    # Tipo sanguíneo usado quando o perfil não traz o tipo (ou ms-doadores está fora).
+    # Padrão vazio = sem filtro: mostra todas as campanhas vigentes (decisão P10). Um tipo fixo, como O-,
+    # pediria a um doador de tipo desconhecido uma doação que ele provavelmente não pode fazer.
+    tipo_sanguineo_fallback: str = ""
 
 
 @lru_cache
