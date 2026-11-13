@@ -51,7 +51,7 @@ def test_erro_400_do_servico_e_repassado():
     problema = {"type": "urn:startech:error:payload-invalido", "title": "Payload inválido", "status": 400,
                 "invalidParams": [{"name": "tipo_sanguineo", "reason": "inválido"}]}
     c = _client(lambda req: httpx.Response(400, json=problema, headers={"content-type": "application/problem+json"}))
-    r = c.post("/bff-web/campanhas", json={})
+    r = c.post("/bff-web/campanhas", json=PAYLOAD)
     assert r.status_code == 400
     assert r.headers["content-type"].startswith("application/problem+json")
     assert r.json() == problema
@@ -118,4 +118,56 @@ def test_sem_filtros_nao_envia_parametros_e_sem_total_nao_envia_cabecalho():
 
 
 def test_limite_invalido_e_rejeitado_no_bff():
-    assert _client(lambda req: httpx.Response(200, json=[])).get("/bff-web/campanhas", params={"limit": 500}).status_code == 422
+    r = _client(lambda req: httpx.Response(200, json=[])).get("/bff-web/campanhas", params={"limit": 500})
+    assert r.status_code == 400 and r.json()["invalidParams"][0]["name"] == "limit"
+
+
+def test_payload_sem_campo_obrigatorio_e_barrado_no_bff_com_400_e_nao_chega_ao_servico():
+    chamadas = []
+    c = _client(lambda req: chamadas.append(req) or httpx.Response(201, json=CAMPANHA))
+    r = c.post("/bff-web/campanhas", json={k: v for k, v in PAYLOAD.items() if k != "titulo"})
+    assert r.status_code == 400 and r.headers["content-type"].startswith("application/problem+json")
+    assert [p["name"] for p in r.json()["invalidParams"]] == ["titulo"]
+    assert chamadas == []
+
+
+def test_tipo_errado_e_data_invalida_sao_barrados_no_bff():
+    r = _client(lambda req: httpx.Response(201, json=CAMPANHA)).post(
+        "/bff-web/campanhas", json={**PAYLOAD, "data_inicio": "ontem", "titulo": 123})
+    assert r.status_code == 400
+    assert {p["name"] for p in r.json()["invalidParams"]} == {"titulo", "data_inicio"}
+
+
+def test_regra_de_dominio_fica_no_servico_e_o_bff_nao_a_duplica():
+    """Valor fora da lista de tipos passa pelo BFF; quem rejeita (400) é o ms-hemocentros, e o erro é repassado."""
+    recebido = {}
+
+    def handler(req: httpx.Request):
+        import json
+        recebido.update(json.loads(req.content))
+        return httpx.Response(400, json={"status": 400, "title": "Payload inválido"})
+
+    r = _client(handler).post("/bff-web/campanhas", json={**PAYLOAD, "tipo_sanguineo": "X+"})
+    assert r.status_code == 400 and recebido["tipo_sanguineo"] == "X+"
+
+
+def test_repassa_o_corpo_com_datas_iso_e_campos_extras():
+    recebido = {}
+
+    def handler(req: httpx.Request):
+        import json
+        recebido.update(json.loads(req.content))
+        return httpx.Response(201, json={**CAMPANHA, "campo_novo": 1})
+
+    r = _client(handler).post("/bff-web/campanhas", json={**PAYLOAD, "extra": "x"})
+    assert recebido["data_inicio"] == "2026-11-10" and recebido["extra"] == "x"
+    assert r.status_code == 201 and r.json()["campo_novo"] == 1  # a resposta também não perde campos
+
+
+def test_openapi_documenta_o_corpo_e_a_resposta():
+    schema = _client(lambda req: httpx.Response(200, json=[])).get("/openapi.json").json()
+    post = schema["paths"]["/bff-web/campanhas"]["post"]
+    corpo = schema["components"]["schemas"]["CampanhaCriar"]
+    assert post["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith("/CampanhaCriar")
+    assert set(corpo["required"]) == {"titulo", "hemocentro", "tipo_sanguineo", "data_inicio", "data_fim"}
+    assert "example" in corpo and "201" in post["responses"] and "400" in post["responses"]

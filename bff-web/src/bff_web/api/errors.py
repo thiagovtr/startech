@@ -1,6 +1,7 @@
 """Tradução de falhas dos serviços internos para application/problem+json (RFC 7807)."""
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from bff_web.clients.hemocentros import RespostaDoServico, ServicoIndisponivel
@@ -14,6 +15,18 @@ def _problem(request: Request, status: int, type_: str, title: str, detail: str)
 
 
 def register(app: FastAPI) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def _validacao(request: Request, exc: RequestValidationError):
+        # Mesmo formato (400 + invalidParams) do ms-hemocentros, para o painel tratar um só erro.
+        params = [
+            {"name": ".".join(str(p) for p in e["loc"] if p not in ("body", "query")), "reason": e["msg"]}
+            for e in exc.errors()
+        ]
+        corpo = {"type": "urn:startech:error:payload-invalido", "title": "Payload inválido", "status": 400,
+                 "detail": "A requisição contém campos ausentes ou inválidos.", "instance": request.url.path,
+                 "invalidParams": params}
+        return JSONResponse(corpo, status_code=400, media_type=PROBLEM_JSON)
+
     @app.exception_handler(ServicoIndisponivel)
     async def _indisponivel(request: Request, exc: ServicoIndisponivel):
         if exc.timeout:

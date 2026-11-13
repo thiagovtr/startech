@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
 
 from bff_web.clients.hemocentros import HemocentrosClient, get_hemocentros_client
+from bff_web.models import Campanha, CampanhaCriar
 
 router = APIRouter(prefix="/bff-web", tags=["campanhas"])
 
@@ -10,14 +11,19 @@ Client = Annotated[HemocentrosClient, Depends(get_hemocentros_client)]
 UserId = Annotated[str | None, Header(alias="X-User-Id")]
 
 
-@router.post("/campanhas", status_code=status.HTTP_201_CREATED)
-async def criar_campanha(client: Client, x_user_id: UserId = None, dados: dict = Body(...)) -> dict:
+@router.post(
+    "/campanhas",
+    status_code=status.HTTP_201_CREATED,
+    response_model=Campanha,
+    responses={400: {"description": "Payload inválido (application/problem+json com `invalidParams`)"}},
+)
+async def criar_campanha(client: Client, dados: CampanhaCriar, x_user_id: UserId = None) -> dict:
     """Repassa o comando ao ms-hemocentros. A resposta traz a campanha criada, o que garante
     Read-Your-Own-Writes no painel sem depender da view de leitura (eventualmente consistente)."""
-    return await client.criar_campanha(dados, x_user_id)
+    return await client.criar_campanha(dados.model_dump(mode="json"), x_user_id)
 
 
-@router.get("/campanhas")
+@router.get("/campanhas", response_model=list[Campanha])
 async def listar_campanhas(
     client: Client,
     response: Response,
