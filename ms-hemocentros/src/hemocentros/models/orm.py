@@ -48,6 +48,8 @@ class OutboxEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Correlation id da requisição que gerou o evento (observabilidade ponta a ponta).
+    correlation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Acelera o polling do publicador: só eventos ainda não publicados.
     __table_args__ = (

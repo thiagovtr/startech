@@ -44,6 +44,7 @@ async def publicar_pendentes(
                 content_type="application/json",
                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
                 message_id=evento.id,
+                correlation_id=evento.correlation_id,
             )
             try:
                 await exchange.publish(mensagem, routing_key=evento.routing_key)  # aguarda o confirm do broker

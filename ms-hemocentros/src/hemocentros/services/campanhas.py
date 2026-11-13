@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from hemocentros.models.campanha import CampanhaCriar
 from hemocentros.models.orm import CampanhaModel, OutboxEvent
+from hemocentros.observabilidade import request_id_var
 
 ROUTING_KEY_CAMPANHA_CRIADA = "hemocentros.campanha.criada"
 
@@ -27,6 +28,7 @@ async def criar_campanha(factory: async_sessionmaker[AsyncSession], dados: Campa
                 aggregate_id=campanha.id,
                 routing_key=ROUTING_KEY_CAMPANHA_CRIADA,
                 payload=payload,
+                correlation_id=request_id_var.get(),
             )
         )
     return campanha

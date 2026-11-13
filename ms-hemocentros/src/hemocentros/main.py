@@ -8,6 +8,7 @@ from hemocentros.api import campanhas, errors, health
 from hemocentros.config import get_settings
 from hemocentros.db.mongo import create_client, garantir_indices
 from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
+from hemocentros.observabilidade import RequestIdMiddleware, configurar_logs
 from hemocentros.services.outbox_limpeza import executar_limpeza
 from hemocentros.services.outbox_publisher import executar_publicador
 from hemocentros.services.projecao import executar_consumidor
@@ -65,10 +66,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    configurar_logs()
     app = FastAPI(title=get_settings().app_name, version="0.1.0", lifespan=lifespan)
     errors.register(app)
     app.include_router(health.router)
     app.include_router(campanhas.router)
+    app.add_middleware(RequestIdMiddleware)
     return app
 
 

@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 
 from hemocentros.config import Settings
 from hemocentros.messaging.rabbitmq import conectar_consumidor
+from hemocentros.observabilidade import request_id_var
 from hemocentros.repositories import campanhas_view_escrita
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,15 @@ async def tratar_mensagem(message, mongo: AsyncMongoClient, db_name: str, espera
     - mensagem inválida (JSON/estrutura): reject sem requeue (reentregar não resolveria);
     - erro transitório (ex.: MongoDB fora): aguarda e devolve à fila (nack com requeue).
     """
+    # o mesmo correlation id do POST que originou o evento aparece nos logs da projeção
+    token = request_id_var.set(getattr(message, "correlation_id", None))
+    try:
+        await _tratar(message, mongo, db_name, espera_erro)
+    finally:
+        request_id_var.reset(token)
+
+
+async def _tratar(message, mongo: AsyncMongoClient, db_name: str, espera_erro: float) -> None:
     try:
         payload = json.loads(message.body)
         if not isinstance(payload, dict) or "id" not in payload:
