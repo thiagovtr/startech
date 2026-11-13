@@ -49,6 +49,7 @@ def test_cria_campanha_e_evento_outbox(client, pg_engine):
     assert ev.aggregate_type == "Campanha" and ev.aggregate_id == body["id"]
     assert ev.published is False
     assert ev.payload["tipo_sanguineo"] == "O-" and ev.payload["id"] == body["id"]
+    assert ev.payload["versao"] == 1  # projeção versionada (P11c)
 
 
 @pytest.mark.parametrize(

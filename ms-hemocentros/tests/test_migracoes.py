@@ -48,7 +48,7 @@ def test_banco_vazio_vai_ate_a_ultima_revisao(banco_vazio):
     tabelas, indices, versao = asyncio.run(_estado(banco_vazio))
     assert {"campanhas", "outbox_events", "alembic_version"} <= tabelas
     assert {"idx_outbox_unpublished", "idx_outbox_published_at"} <= indices
-    assert versao == "0003"
+    assert versao == "0004"
 
 
 def test_migracoes_correspondem_aos_modelos(banco_vazio):
@@ -78,7 +78,7 @@ def test_banco_legado_do_create_all_e_adotado_sem_perder_dados(banco_vazio):
         return n, await _estado(banco_vazio)
 
     n, (_, indices, versao) = asyncio.run(go())
-    assert n == 1 and versao == "0003" and "idx_outbox_published_at" in indices
+    assert n == 1 and versao == "0004" and "idx_outbox_published_at" in indices
 
 
 def test_idempotente_e_seguro_com_replicas_concorrentes(banco_vazio):
@@ -87,4 +87,4 @@ def test_idempotente_e_seguro_com_replicas_concorrentes(banco_vazio):
         await aplicar_migracoes(banco_vazio)
         return await _estado(banco_vazio)
 
-    assert asyncio.run(go())[2] == "0003"
+    assert asyncio.run(go())[2] == "0004"

@@ -19,6 +19,7 @@ async def criar_campanha(factory: async_sessionmaker[AsyncSession], dados: Campa
         "status": campanha.status,
         "data_inicio": campanha.data_inicio.isoformat(),
         "data_fim": campanha.data_fim.isoformat(),
+        "versao": campanha.versao,
     }
     async with factory() as session, session.begin():
         session.add(campanha)

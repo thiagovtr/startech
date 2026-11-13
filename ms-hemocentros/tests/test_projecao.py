@@ -37,18 +37,38 @@ def _mongo(url=TEST_MONGO_URL):
     return AsyncMongoClient(url, serverSelectionTimeoutMS=500)
 
 
-def test_upsert_idempotente_e_atualiza(mongo_view):
+def _upserts(*eventos):
     async def go():
         mongo = _mongo()
-        await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, PAYLOAD)
-        await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, PAYLOAD)  # reprocessamento
-        await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, {**PAYLOAD, "titulo": "Novo título"})
+        mudou = [await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, e) for e in eventos]
         docs, _ = await campanhas_view.listar(mongo, TEST_MONGO_DB)
         await mongo.close()
-        return docs
+        return mudou, docs
 
-    docs = asyncio.run(go())
-    assert len(docs) == 1 and docs[0]["id"] == "c1" and docs[0]["titulo"] == "Novo título"
+    return asyncio.run(go())
+
+
+def test_upsert_idempotente_e_atualiza_com_versao_maior(mongo_view):
+    v1 = {**PAYLOAD, "versao": 1}
+    mudou, docs = _upserts(v1, v1, {**PAYLOAD, "titulo": "Novo título", "versao": 2})
+    assert mudou == [True, False, True]  # o reprocessamento da mesma versão não altera nada
+    assert len(docs) == 1 and docs[0]["titulo"] == "Novo título" and docs[0]["versao"] == 2
+
+
+def test_evento_fora_de_ordem_nao_sobrescreve_estado_mais_novo(mongo_view):
+    mudou, docs = _upserts({**PAYLOAD, "titulo": "v3", "versao": 3}, {**PAYLOAD, "titulo": "v2 atrasada", "versao": 2})
+    assert mudou == [True, False] and docs[0]["titulo"] == "v3" and docs[0]["versao"] == 3
+
+
+def test_documento_legado_sem_versao_e_atualizado(mongo_view):
+    mongo_view.insert_one({"_id": "c1", "titulo": "legado", "tipo_sanguineo": "O-"})
+    mudou, docs = _upserts({**PAYLOAD, "versao": 1})
+    assert mudou == [True] and docs[0]["titulo"] == "Alerta O-"
+
+
+def test_evento_sem_versao_conta_como_zero(mongo_view):
+    mudou, docs = _upserts({**PAYLOAD, "versao": 1}, {**PAYLOAD, "titulo": "sem versao"})
+    assert mudou == [True, False] and docs[0]["titulo"] == "Alerta O-"
 
 
 def test_tratar_mensagem_ack_so_apos_gravar(mongo_view):

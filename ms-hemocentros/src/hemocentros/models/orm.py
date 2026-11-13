@@ -3,7 +3,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Index, String, func, text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -28,10 +28,13 @@ class CampanhaModel(Base):
     data_inicio: Mapped[date] = mapped_column(Date)
     data_fim: Mapped[date] = mapped_column(Date)
     criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Versão do estado da campanha: incrementar a cada alteração e enviar no evento (projeção versionada).
+    versao: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     def __init__(self, **kwargs):
         # O id precisa existir antes do flush para ser referenciado no evento do Outbox.
         kwargs.setdefault("id", _novo_id())
+        kwargs.setdefault("versao", 1)
         super().__init__(**kwargs)
 
 

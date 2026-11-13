@@ -40,7 +40,8 @@ async def _tratar(message, mongo: AsyncMongoClient, db_name: str, espera_erro: f
         await message.reject(requeue=False)
         return
     try:
-        await campanhas_view_escrita.upsert(mongo, db_name, payload)
+        if not await campanhas_view_escrita.upsert(mongo, db_name, payload):
+            logger.info("Evento da campanha %s ignorado: a view já tem versão igual ou mais nova", payload["id"])
     except Exception as exc:
         logger.warning("Falha ao projetar campanha %s: %s. Devolvendo à fila.", payload["id"], exc)
         await asyncio.sleep(espera_erro)
