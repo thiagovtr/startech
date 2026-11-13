@@ -9,9 +9,7 @@ from hemocentros.config import get_settings
 from hemocentros.db.mongo import create_client, garantir_indices
 from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
 from hemocentros.observabilidade import RequestIdMiddleware, configurar_logs
-from hemocentros.services.outbox_limpeza import executar_limpeza
-from hemocentros.services.outbox_publisher import executar_publicador
-from hemocentros.services.projecao import executar_consumidor
+from hemocentros.services.workers import iniciar_workers, parar_workers
 
 logger = logging.getLogger(__name__)
 
@@ -44,23 +42,13 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = create_session_factory(app.state.pg_engine)
     app.state.mongo_client = create_client(settings)
     app.state.esquema_task = asyncio.create_task(_inicializar_bancos(app))
-    app.state.outbox_task = (
-        asyncio.create_task(executar_publicador(app)) if settings.outbox_worker_habilitado else None
-    )
-    app.state.limpeza_task = (
-        asyncio.create_task(executar_limpeza(app)) if settings.outbox_limpeza_habilitada else None
-    )
-    app.state.consumidor_task = (
-        asyncio.create_task(executar_consumidor(app)) if settings.consumidor_habilitado else None
-    )
+    # Com API_EXECUTA_WORKERS=false os workers rodam à parte (python -m hemocentros.worker).
+    app.state.workers = iniciar_workers(app) if settings.api_executa_workers else []
     try:
         yield
     finally:
         app.state.esquema_task.cancel()
-        tarefas = [t for t in (app.state.outbox_task, app.state.limpeza_task, app.state.consumidor_task) if t]
-        for t in tarefas:
-            t.cancel()
-        await asyncio.gather(*tarefas, return_exceptions=True)
+        await parar_workers(app.state.workers)
         await app.state.pg_engine.dispose()
         await app.state.mongo_client.close()
 

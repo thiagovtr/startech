@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # segundos antes de devolver à fila uma mensagem que falhou por erro transitório
     consumidor_espera_erro: float = 2.0
 
+    # False: a API não roda nenhum worker (eles ficam no processo `python -m hemocentros.worker`).
+    api_executa_workers: bool = True
+
     # Publicador do Outbox (polling)
     outbox_worker_habilitado: bool = True
     # segundos entre consultas quando não há eventos pendentes (define o piso da latência)

@@ -70,6 +70,7 @@ def configurar_logs() -> None:
     raiz.addHandler(handler)
     raiz.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
     logging.getLogger("uvicorn.access").disabled = True  # o middleware abaixo já registra cada requisição
+    logging.getLogger("alembic").setLevel(logging.WARNING)  # "setup plugin ..." a cada migração
 
 
 class RequestIdMiddleware:
