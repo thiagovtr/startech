@@ -3,10 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 
+from bff_mobile.autorizacao import exigir_papel
 from bff_mobile.clients.servicos import DoadoresClient, HemocentrosClient, ServicoIndisponivel
 from bff_mobile.config import get_settings
 
-router = APIRouter(prefix="/bff-mobile", tags=["home"])
+router = APIRouter(prefix="/bff-mobile", tags=["home"], dependencies=[Depends(exigir_papel)])
 
 
 def get_doadores(request: Request) -> DoadoresClient:

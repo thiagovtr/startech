@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     app_name: str = "bff-mobile"
     port: int = 8001
 
+    # Autorização por papel (X-User-Roles do Gateway). Desligada até o Gateway injetar o cabeçalho.
+    exigir_papel: bool = False
+    papel_exigido: str = "doador"
+
     # URLs dos serviços internos (sobrescritas por variável de ambiente)
     doadores_url: str = "http://ms-doadores:8081"
     hemocentros_url: str = "http://ms-hemocentros:8000"

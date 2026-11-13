@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
+from bff_web import autorizacao
 from bff_web.api import campanhas, errors, health
 from bff_web.clients.hemocentros import HemocentrosClient
 from bff_web.config import get_settings
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     configurar_logs()
     app = FastAPI(title=get_settings().app_name, version="0.1.0", lifespan=lifespan)
+    autorizacao.registrar(app)
     errors.register(app)
     app.include_router(health.router)
     app.include_router(campanhas.router)

@@ -2,10 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Response, status
 
+from bff_web.autorizacao import exigir_papel
 from bff_web.clients.hemocentros import HemocentrosClient, get_hemocentros_client
 from bff_web.models import Campanha, CampanhaCriar
 
-router = APIRouter(prefix="/bff-web", tags=["campanhas"])
+router = APIRouter(prefix="/bff-web", tags=["campanhas"], dependencies=[Depends(exigir_papel)])
 
 Client = Annotated[HemocentrosClient, Depends(get_hemocentros_client)]
 UserId = Annotated[str | None, Header(alias="X-User-Id")]
