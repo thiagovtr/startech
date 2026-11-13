@@ -13,3 +13,8 @@ def test_health_ok():
 def test_urls_configuraveis_por_env(monkeypatch):
     monkeypatch.setenv("BFF_MOBILE_DOADORES_URL", "http://localhost:9999")
     assert Settings().doadores_url == "http://localhost:9999"
+
+
+def test_ready_ok_sem_depender_de_servicos_internos():
+    r = TestClient(app).get("/ready")
+    assert r.status_code == 200 and r.json() == {"status": "ok"}
