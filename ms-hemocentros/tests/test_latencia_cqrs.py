@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from hemocentros.config import get_settings
 from hemocentros.main import app
-from tests.conftest import TEST_AMQP_URL, TEST_MONGO_DB, TEST_MONGO_URL, TEST_PG_URL
+from tests.conftest import TEST_MONGO_DB, TEST_MONGO_URL, TEST_PG_URL
 
 LIMITE_S = 2.0
 AMOSTRAS = 20

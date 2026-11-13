@@ -42,11 +42,13 @@ class Settings(BaseSettings):
     consumidor_habilitado: bool = True
     consumidor_prefetch: int = 10
     consumidor_reconexao: float = 5.0  # segundos entre tentativas de conexão ao RabbitMQ
-    consumidor_espera_erro: float = 2.0  # segundos antes de devolver à fila uma mensagem que falhou por erro transitório
+    # segundos antes de devolver à fila uma mensagem que falhou por erro transitório
+    consumidor_espera_erro: float = 2.0
 
     # Publicador do Outbox (polling)
     outbox_worker_habilitado: bool = True
-    outbox_intervalo: float = 0.5  # segundos entre consultas quando não há eventos pendentes (define o piso da latência)
+    # segundos entre consultas quando não há eventos pendentes (define o piso da latência)
+    outbox_intervalo: float = 0.5
     outbox_lote: int = 50
     # Retenção: eventos já publicados são removidos após `outbox_retencao_dias` (os pendentes nunca são)
     outbox_limpeza_habilitada: bool = True
@@ -63,7 +65,8 @@ def get_settings() -> Settings:
     try:
         return Settings()
     except ValidationError as exc:
-        faltando = [f"{Settings.model_config['env_prefix']}{e['loc'][0]}".upper() for e in exc.errors() if e["type"] == "missing"]
+        prefixo = Settings.model_config["env_prefix"]
+        faltando = [f"{prefixo}{e['loc'][0]}".upper() for e in exc.errors() if e["type"] == "missing"]
         if not faltando:
             raise
         raise RuntimeError(

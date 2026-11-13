@@ -12,10 +12,10 @@ class ServicoIndisponivel(Exception):
 async def _get(http: httpx.AsyncClient, servico: str, path: str, user_id: str, **params) -> httpx.Response:
     try:
         response = await http.get(path, headers={"X-User-Id": user_id}, params=params or None)
-    except httpx.TimeoutException:
-        raise ServicoIndisponivel(servico, "timeout")
-    except httpx.TransportError:
-        raise ServicoIndisponivel(servico, "indisponível")
+    except httpx.TimeoutException as exc:
+        raise ServicoIndisponivel(servico, "timeout") from exc
+    except httpx.TransportError as exc:
+        raise ServicoIndisponivel(servico, "indisponível") from exc
     if response.status_code >= 400:
         raise ServicoIndisponivel(servico, f"HTTP {response.status_code}")
     return response
@@ -29,8 +29,8 @@ class DoadoresClient:
         r = await _get(self._http, "ms-doadores", f"/api/v1/doadores/{doador_id}", doador_id)
         try:
             return r.json()
-        except ValueError:
-            raise ServicoIndisponivel("ms-doadores", "resposta inválida")
+        except ValueError as exc:
+            raise ServicoIndisponivel("ms-doadores", "resposta inválida") from exc
 
 
 class HemocentrosClient:
@@ -45,5 +45,5 @@ class HemocentrosClient:
         r = await _get(self._http, "ms-hemocentros", "/api/v1/campanhas", user_id, **params)
         try:
             return r.json()
-        except ValueError:
-            raise ServicoIndisponivel("ms-hemocentros", "resposta inválida")
+        except ValueError as exc:
+            raise ServicoIndisponivel("ms-hemocentros", "resposta inválida") from exc

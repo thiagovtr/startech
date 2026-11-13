@@ -3,8 +3,8 @@ from datetime import date
 from fastapi import APIRouter, Query, Request, Response, status
 
 from hemocentros.models.campanha import Campanha, CampanhaCriar
-from hemocentros.services import campanhas as campanhas_service
 from hemocentros.repositories import campanhas_view
+from hemocentros.services import campanhas as campanhas_service
 
 router = APIRouter(prefix="/api/v1/campanhas", tags=["campanhas"])
 

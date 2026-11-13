@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from sqlalchemy import inspect, select
 
-from hemocentros.db.postgres import criar_esquema, create_session_factory
+from hemocentros.db.postgres import create_session_factory, criar_esquema
 from hemocentros.models.orm import CampanhaModel, OutboxEvent
 
 

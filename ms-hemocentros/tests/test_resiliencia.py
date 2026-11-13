@@ -5,6 +5,7 @@ import uuid
 from datetime import date
 from types import SimpleNamespace
 
+from pymongo import AsyncMongoClient
 from sqlalchemy import select
 
 from hemocentros.config import Settings
@@ -15,7 +16,6 @@ from hemocentros.models.orm import OutboxEvent
 from hemocentros.services.campanhas import criar_campanha
 from hemocentros.services.outbox_publisher import executar_publicador
 from hemocentros.services.projecao import executar_consumidor
-from pymongo import AsyncMongoClient
 from tests.conftest import TEST_MONGO_DB, TEST_MONGO_URL
 
 URL_INALCANCAVEL = "amqp://guest:guest@127.0.0.1:1/"

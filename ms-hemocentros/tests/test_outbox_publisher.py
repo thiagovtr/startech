@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import aio_pika
 import pytest
@@ -15,7 +15,7 @@ from hemocentros.services.outbox_publisher import publicar_pendentes
 
 
 def _eventos(n: int) -> list[OutboxEvent]:
-    base = datetime.now(timezone.utc)
+    base = datetime.now(UTC)
     return [
         OutboxEvent(
             aggregate_type="Campanha", aggregate_id=f"c{i}", routing_key="hemocentros.campanha.criada",
@@ -70,7 +70,7 @@ def test_publica_pendentes_em_ordem_e_marca_como_publicados(pg_engine, amqp_url)
     assert (n, n2) == (5, 0)
     assert [json.loads(m.body)["id"] for m in msgs] == [f"c{i}" for i in range(5)]  # ordem de criação
     assert all(m.routing_key == "hemocentros.campanha.criada" for m in msgs)
-    assert all(m.message_id == e.id for m, e in zip(msgs, estado))
+    assert all(m.message_id == e.id for m, e in zip(msgs, estado, strict=True))
     assert all(e.published and e.published_at is not None for e in estado)
 
 
@@ -127,11 +127,11 @@ def test_tipo_da_exchange_e_configuravel(amqp_url):
 
     asyncio.run(declarar("topic"))
     asyncio.run(declarar("topic"))  # mesmo tipo: idempotente
-    with pytest.raises(Exception):
+    with pytest.raises(aio_pika.exceptions.AMQPError):
         asyncio.run(declarar("direct"))  # tipo divergente: PRECONDITION_FAILED
 
 
 def test_exchange_inexistente_sem_declarar_falha_claramente(amqp_url):
     settings = Settings(rabbitmq_url=amqp_url, rabbitmq_exchange="nao.existe.xyz", rabbitmq_declarar_exchange=False)
-    with pytest.raises(Exception):
+    with pytest.raises(aio_pika.exceptions.AMQPError):
         asyncio.run(conectar(settings))

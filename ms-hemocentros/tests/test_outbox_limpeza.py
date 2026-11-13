@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -7,7 +7,7 @@ from hemocentros.db.postgres import create_session_factory
 from hemocentros.models.orm import OutboxEvent
 from hemocentros.services.outbox_limpeza import limpar_publicados
 
-AGORA = datetime.now(timezone.utc)
+AGORA = datetime.now(UTC)
 
 
 def _evento(id_: str, published: bool, published_ha: timedelta | None) -> OutboxEvent:

@@ -77,6 +77,12 @@ jobs:
       - name: Instalar dependências
         run: pip install ".[dev]"
 
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Tipagem (mypy)
+        run: mypy src
+
       - name: Testes (falha se houver skip)
         shell: bash
         run: |

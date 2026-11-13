@@ -7,10 +7,10 @@ from fastapi import FastAPI
 from hemocentros.api import campanhas, errors, health
 from hemocentros.config import get_settings
 from hemocentros.db.mongo import create_client, garantir_indices
+from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
 from hemocentros.services.outbox_limpeza import executar_limpeza
 from hemocentros.services.outbox_publisher import executar_publicador
 from hemocentros.services.projecao import executar_consumidor
-from hemocentros.db.postgres import create_engine, create_session_factory, criar_esquema
 
 logger = logging.getLogger(__name__)
 

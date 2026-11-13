@@ -30,7 +30,8 @@ async def limpar_publicados(
                 .limit(lote)
                 .with_for_update(skip_locked=True)
             )
-            apagados = (await session.execute(delete(OutboxEvent).where(OutboxEvent.id.in_(ids)))).rowcount
+            resultado = await session.execute(delete(OutboxEvent).where(OutboxEvent.id.in_(ids)))
+            apagados = resultado.rowcount  # type: ignore[attr-defined]  # CursorResult em DELETE
         total += apagados
         if apagados < lote:
             return total

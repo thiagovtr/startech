@@ -1,4 +1,5 @@
 import pytest
+
 from hemocentros.config import get_settings
 
 
@@ -28,7 +29,8 @@ def test_so_uma_variavel_ausente_e_nomeada(monkeypatch):
 
 
 def test_nao_ha_credencial_padrao_no_codigo():
-    import pathlib, re
+    import pathlib
+    import re
 
     fonte = pathlib.Path(__file__).parents[1] / "src"
     achados = [

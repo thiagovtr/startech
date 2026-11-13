@@ -44,6 +44,8 @@ for svc in "${SERVICOS[@]}"; do
       export PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
       pip install -q --root-user-action=ignore ".[dev]"
       python --version
+      ruff check src tests
+      mypy src
       pytest -q -rs -p no:cacheprovider | tee /tmp/saida.txt
       if grep -qiE "[0-9]+ skipped" /tmp/saida.txt; then echo "FALHA: há testes ignorados (skip)"; exit 1; fi
     '

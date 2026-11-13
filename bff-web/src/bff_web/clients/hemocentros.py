@@ -24,10 +24,10 @@ class HemocentrosClient:
         headers = {"X-User-Id": user_id} if user_id else {}
         try:
             response = await self._http.request(method, path, headers=headers, **kwargs)
-        except httpx.TimeoutException:
-            raise ServicoIndisponivel("ms-hemocentros", timeout=True)
-        except httpx.TransportError:
-            raise ServicoIndisponivel("ms-hemocentros", timeout=False)
+        except httpx.TimeoutException as exc:
+            raise ServicoIndisponivel("ms-hemocentros", timeout=True) from exc
+        except httpx.TransportError as exc:
+            raise ServicoIndisponivel("ms-hemocentros", timeout=False) from exc
         if response.status_code >= 400:
             raise RespostaDoServico("ms-hemocentros", response)
         return response
