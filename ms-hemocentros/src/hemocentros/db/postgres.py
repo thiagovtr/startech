@@ -17,8 +17,7 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
 
 
 async def criar_esquema(engine: AsyncEngine) -> None:
-    """Cria as tabelas se não existirem (idempotente)."""
-    from hemocentros.models.orm import Base
+    """Aplica as migrações do Alembic até a última revisão (idempotente)."""
+    from hemocentros.db.migracoes import aplicar_migracoes
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await aplicar_migracoes(engine)
