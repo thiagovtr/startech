@@ -1,0 +1,101 @@
+# CI dos serviços Python do Dev 3: ms-hemocentros, bff-mobile, bff-web.
+# Roda em Python 3.12 (mesma versão dos Dockerfiles) com PostgreSQL, MongoDB e RabbitMQ reais,
+# e FALHA se algum teste for ignorado (skip): sem os serviços de apoio, a suíte não pode passar "verde".
+name: CI Python (Dev 3)
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths: &caminhos
+      - "ms-hemocentros/**"
+      - "bff-mobile/**"
+      - "bff-web/**"
+      - ".github/workflows/dev3-python.yml"
+  pull_request:
+    paths: *caminhos
+
+concurrency:
+  group: dev3-python-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes:
+    name: testes (${{ matrix.servico }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - servico: ms-hemocentros
+            pacote: hemocentros
+          - servico: bff-mobile
+            pacote: bff_mobile
+          - servico: bff-web
+            pacote: bff_web
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hemocentros
+          POSTGRES_PASSWORD: hemocentros
+          POSTGRES_DB: hemocentros
+        ports: ["15432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hemocentros" --health-interval 2s --health-timeout 3s --health-retries 20
+      mongo:
+        image: mongo:7
+        ports: ["17017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'" --health-interval 3s --health-timeout 5s --health-retries 20
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        ports: ["15672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 3s --health-timeout 5s --health-retries 30
+
+    env:
+      # Credenciais descartáveis, só dos containers de teste acima.
+      HEMOCENTROS_TEST_POSTGRES_URL: postgresql+asyncpg://hemocentros:hemocentros@127.0.0.1:15432/hemocentros
+      HEMOCENTROS_TEST_MONGO_URL: mongodb://127.0.0.1:17017
+      HEMOCENTROS_TEST_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:15672/
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.servico }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ${{ matrix.servico }}/pyproject.toml
+
+      - name: Instalar dependências
+        run: pip install ".[dev]"
+
+      - name: Testes (falha se houver skip)
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q -rs --cov=${{ matrix.pacote }} --cov-report=term-missing | tee saida.txt
+          if grep -qE "[0-9]+ skipped" saida.txt; then
+            echo "::error::Há testes ignorados (skip): algum serviço de apoio não estava disponível."
+            exit 1
+          fi
+
+  docker:
+    name: build da imagem (${{ matrix.servico }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        servico: [ms-hemocentros, bff-mobile, bff-web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build multi-stage
+        run: docker build -t startech/${{ matrix.servico }}:ci ${{ matrix.servico }}
