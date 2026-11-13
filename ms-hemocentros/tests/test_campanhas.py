@@ -45,6 +45,51 @@ def test_tipo_sem_campanhas_retorna_lista_vazia(client):
     assert client.get("/api/v1/campanhas", params={"tipo_sanguineo": "AB-"}).json() == []
 
 
+def test_paginacao_limit_offset_e_total(client):
+    r = client.get("/api/v1/campanhas", params={"limit": 2})
+    assert [c["id"] for c in r.json()] == ["c1", "c3"]  # ordem por data_inicio
+    assert r.headers["X-Total-Count"] == "3"
+    r = client.get("/api/v1/campanhas", params={"limit": 2, "offset": 2})
+    assert [c["id"] for c in r.json()] == ["c2"]
+    assert r.headers["X-Total-Count"] == "3"
+
+
+def test_total_respeita_o_filtro_de_tipo(client):
+    r = client.get("/api/v1/campanhas", params={"tipo_sanguineo": "O-", "limit": 1})
+    assert [c["id"] for c in r.json()] == ["c1"]
+    assert r.headers["X-Total-Count"] == "2"
+
+
+def test_limites_invalidos_retornam_400(client):
+    assert client.get("/api/v1/campanhas", params={"limit": 0}).status_code == 400
+    assert client.get("/api/v1/campanhas", params={"limit": 201}).status_code == 400
+    assert client.get("/api/v1/campanhas", params={"offset": -1}).status_code == 400
+
+
+def test_filtro_por_status(client, mongo_view):
+    mongo_view.update_one({"_id": "c2"}, {"$set": {"status": "ENCERRADA"}})
+    assert [c["id"] for c in client.get("/api/v1/campanhas", params={"status": "ENCERRADA"}).json()] == ["c2"]
+    assert {c["id"] for c in client.get("/api/v1/campanhas", params={"status": "ATIVA"}).json()} == {"c1", "c3"}
+
+
+def test_vigentes_exclui_encerradas_e_mantem_as_que_terminam_hoje(client, mongo_view, monkeypatch):
+    from datetime import date
+
+    from hemocentros.api import campanhas as api
+
+    class _Hoje(date):
+        @classmethod
+        def today(cls):
+            return date(2026, 12, 5)
+
+    monkeypatch.setattr(api, "date", _Hoje)
+    r = client.get("/api/v1/campanhas", params={"vigentes": "true"})
+    assert {c["id"] for c in r.json()} == {"c2", "c3"}  # c1 terminou em 30/11; c3 termina hoje
+    assert r.headers["X-Total-Count"] == "2"
+    # sem o filtro, as encerradas continuam aparecendo
+    assert len(client.get("/api/v1/campanhas").json()) == 3
+
+
 def test_mongo_indisponivel_retorna_503(monkeypatch):
     monkeypatch.setenv("HEMOCENTROS_MONGO_URL", "mongodb://127.0.0.1:1")
     monkeypatch.setenv("HEMOCENTROS_DB_CHECK_TIMEOUT", "0.5")

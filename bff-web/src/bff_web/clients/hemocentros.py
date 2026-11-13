@@ -35,9 +35,15 @@ class HemocentrosClient:
     async def criar_campanha(self, dados: dict, user_id: str | None) -> dict:
         return (await self._request("POST", "/api/v1/campanhas", user_id, json=dados)).json()
 
-    async def listar_campanhas(self, tipo_sanguineo: str | None, user_id: str | None) -> list[dict]:
-        params = {"tipo_sanguineo": tipo_sanguineo} if tipo_sanguineo else None
-        return (await self._request("GET", "/api/v1/campanhas", user_id, params=params)).json()
+    async def listar_campanhas(
+        self, tipo_sanguineo: str | None, user_id: str | None, **filtros: str | int | bool | None
+    ) -> tuple[list[dict], str | None]:
+        """Devolve (campanhas, X-Total-Count). `filtros`: status, vigentes, limit, offset."""
+        params = {k: v for k, v in {"tipo_sanguineo": tipo_sanguineo, **filtros}.items() if v is not None}
+        if isinstance(params.get("vigentes"), bool):
+            params["vigentes"] = str(params["vigentes"]).lower()
+        r = await self._request("GET", "/api/v1/campanhas", user_id, params=params or None)
+        return r.json(), r.headers.get("X-Total-Count")
 
 
 def get_hemocentros_client(request: Request) -> HemocentrosClient:

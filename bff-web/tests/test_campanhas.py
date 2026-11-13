@@ -95,3 +95,27 @@ def test_clientes_reais_do_lifespan_retornam_503_sem_servico(monkeypatch):
     finally:
         get_settings.cache_clear()
     assert r.status_code == 503
+
+
+def test_repassa_paginacao_e_filtros_e_devolve_total():
+    def handler(req: httpx.Request):
+        assert dict(req.url.params) == {"status": "ATIVA", "vigentes": "true", "limit": "10", "offset": "20"}
+        return httpx.Response(200, json=[CAMPANHA], headers={"X-Total-Count": "31"})
+
+    r = _client(handler).get(
+        "/bff-web/campanhas", params={"status": "ATIVA", "vigentes": "true", "limit": 10, "offset": 20}
+    )
+    assert r.status_code == 200 and r.headers["X-Total-Count"] == "31"
+
+
+def test_sem_filtros_nao_envia_parametros_e_sem_total_nao_envia_cabecalho():
+    def handler(req: httpx.Request):
+        assert dict(req.url.params) == {}
+        return httpx.Response(200, json=[])
+
+    r = _client(handler).get("/bff-web/campanhas")
+    assert r.status_code == 200 and "x-total-count" not in r.headers
+
+
+def test_limite_invalido_e_rejeitado_no_bff():
+    assert _client(lambda req: httpx.Response(200, json=[])).get("/bff-web/campanhas", params={"limit": 500}).status_code == 422

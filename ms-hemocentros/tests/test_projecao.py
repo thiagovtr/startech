@@ -43,7 +43,7 @@ def test_upsert_idempotente_e_atualiza(mongo_view):
         await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, PAYLOAD)
         await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, PAYLOAD)  # reprocessamento
         await campanhas_view_escrita.upsert(mongo, TEST_MONGO_DB, {**PAYLOAD, "titulo": "Novo título"})
-        docs = await campanhas_view.listar(mongo, TEST_MONGO_DB)
+        docs, _ = await campanhas_view.listar(mongo, TEST_MONGO_DB)
         await mongo.close()
         return docs
 
@@ -99,12 +99,12 @@ def test_fluxo_completo_postgres_outbox_rabbitmq_mongo(pg_engine, mongo_view, am
             await exchange.publish(aio_pika.Message(body=b'{"id": "%s"}' % camp.id.encode()),
                                    routing_key="hemocentros.campanha.criada")
             for _ in range(40):  # aguarda a projeção (consistência eventual)
-                docs = await campanhas_view.listar(mongo, TEST_MONGO_DB, "O-")
+                docs, _ = await campanhas_view.listar(mongo, TEST_MONGO_DB, "O-")
                 if docs:
                     break
                 await asyncio.sleep(0.1)
             await asyncio.sleep(0.5)
-            return camp, await campanhas_view.listar(mongo, TEST_MONGO_DB)
+            return camp, (await campanhas_view.listar(mongo, TEST_MONGO_DB))[0]
         finally:
             await pub_conn.close()
             await consumo.close()

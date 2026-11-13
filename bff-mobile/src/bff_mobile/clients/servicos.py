@@ -38,7 +38,10 @@ class HemocentrosClient:
         self._http = http
 
     async def listar_campanhas(self, user_id: str, tipo_sanguineo: str | None) -> list[dict]:
-        params = {"tipo_sanguineo": tipo_sanguineo} if tipo_sanguineo else {}
+        # o app só exibe campanhas que ainda não terminaram
+        params = {"vigentes": "true"}
+        if tipo_sanguineo:
+            params["tipo_sanguineo"] = tipo_sanguineo
         r = await _get(self._http, "ms-hemocentros", "/api/v1/campanhas", user_id, **params)
         try:
             return r.json()
