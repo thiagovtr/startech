@@ -66,7 +66,7 @@ services:
       HEMOCENTROS_MONGO_DB: hemocentros
       # Publicador do Outbox. [DEV 1] o serviço `rabbitmq` deve existir; sem ele, o publicador
       # apenas registra o erro e tenta de novo (o serviço continua no ar).
-      HEMOCENTROS_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      HEMOCENTROS_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
       HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
     ports:

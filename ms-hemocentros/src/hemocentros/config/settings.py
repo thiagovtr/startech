@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,15 +10,19 @@ class Settings(BaseSettings):
     app_name: str = "ms-hemocentros"
     port: int = 8000
 
-    # PostgreSQL (modelo de escrita) - driver assíncrono asyncpg
-    postgres_url: str = "postgresql+asyncpg://hemocentros:hemocentros@db-hemocentros:5432/hemocentros"
+    # Credenciais NÃO têm valor padrão no código: vêm do ambiente (.env no Compose, Secret no Kubernetes).
+    # Sem elas o serviço não sobe (falha rápida, em vez de rodar silenciosamente com senha conhecida).
+
+    # PostgreSQL (modelo de escrita) - URL SQLAlchemy com driver assíncrono (postgresql+asyncpg), usuário e senha
+    postgres_url: str
 
     # MongoDB (modelo de leitura / view CQRS)
     mongo_url: str = "mongodb://mongo:27017"
     mongo_db: str = "hemocentros"
 
     # RabbitMQ (barramento de eventos). Nome da exchange definido no plano; tipo assumido como `topic`.
-    rabbitmq_url: str = "amqp://guest:guest@rabbitmq:5672/"
+    # URL AMQP (amqp://...) com usuário e senha
+    rabbitmq_url: str
     rabbitmq_exchange: str = "startech.events.exchange"
     rabbitmq_exchange_type: str = "topic"  # topic | direct | fanout | headers
     # True: declara a exchange (idempotente, exige mesmo tipo). False: apenas verifica que ela já existe.
@@ -55,4 +60,13 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    try:
+        return Settings()
+    except ValidationError as exc:
+        faltando = [f"{Settings.model_config['env_prefix']}{e['loc'][0]}".upper() for e in exc.errors() if e["type"] == "missing"]
+        if not faltando:
+            raise
+        raise RuntimeError(
+            "Configuração obrigatória ausente: defina as variáveis de ambiente " + ", ".join(faltando)
+            + " (Compose: arquivo .env, ver .env.example; Kubernetes: Secret)."
+        ) from None

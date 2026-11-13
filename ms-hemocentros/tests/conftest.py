@@ -10,6 +10,10 @@ from sqlalchemy.pool import NullPool
 os.environ.setdefault("HEMOCENTROS_OUTBOX_WORKER_HABILITADO", "false")
 os.environ.setdefault("HEMOCENTROS_CONSUMIDOR_HABILITADO", "false")
 os.environ.setdefault("HEMOCENTROS_OUTBOX_LIMPEZA_HABILITADA", "false")
+# As credenciais não têm padrão no código; os testes que sobem o app sem se importar com elas usam
+# endereços inalcançáveis (os que precisam de serviços reais sobrescrevem estas variáveis).
+os.environ.setdefault("HEMOCENTROS_POSTGRES_URL", "postgresql+asyncpg://teste:teste@127.0.0.1:1/teste")
+os.environ.setdefault("HEMOCENTROS_RABBITMQ_URL", "amqp://teste:teste@127.0.0.1:1/")
 
 TEST_PG_URL = os.getenv(
     "HEMOCENTROS_TEST_POSTGRES_URL",
