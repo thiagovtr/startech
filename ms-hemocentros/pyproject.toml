@@ -31,6 +31,9 @@ where = ["src"]
 "hemocentros.migrations" = ["script.py.mako"]
 
 [tool.pytest.ini_options]
+# O Starlette sugere `httpx2` para o TestClient; a troca depende do FastAPI suportá-lo. Até lá, o aviso
+# é ruído (não afeta o comportamento) e fica silenciado só aqui.
+filterwarnings = ["ignore::DeprecationWarning:fastapi.testclient", "ignore:Using `httpx` with `starlette.testclient`"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 

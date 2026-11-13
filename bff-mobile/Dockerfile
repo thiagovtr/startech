@@ -11,6 +11,8 @@ RUN pip wheel --wheel-dir /wheels .
 # ---- Stage 2: runtime slim, sem compiladores ----
 FROM python:3.12-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+# Aplica as correções de segurança da distro publicadas depois da imagem base (varredura Trivy no CI).
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --no-create-home app
 COPY --from=builder /wheels /wheels
 RUN pip install --no-index --find-links=/wheels bff-mobile && rm -rf /wheels

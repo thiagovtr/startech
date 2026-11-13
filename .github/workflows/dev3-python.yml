@@ -105,3 +105,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build multi-stage
         run: docker build -t startech/${{ matrix.servico }}:ci ${{ matrix.servico }}
+
+      # Falha se houver vulnerabilidade CRITICAL/HIGH com correção disponível (SO e pacotes Python).
+      - name: Varredura de vulnerabilidades (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: startech/${{ matrix.servico }}:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
