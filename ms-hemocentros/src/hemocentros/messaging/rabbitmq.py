@@ -23,6 +23,17 @@ async def conectar(settings: Settings) -> tuple[AbstractRobustConnection, Abstra
     return connection, exchange
 
 
+async def _declarar_dlq(channel, settings: Settings) -> dict:
+    """Declara a DLX (direct) e a DLQ e devolve os argumentos que ligam a fila principal a elas."""
+    dlx = await channel.declare_exchange(settings.rabbitmq_dlx_exchange, aio_pika.ExchangeType.DIRECT, durable=True)
+    dlq = await channel.declare_queue(settings.rabbitmq_dlq_queue, durable=True)
+    await dlq.bind(dlx, routing_key=settings.rabbitmq_dlq_routing_key)
+    return {
+        "x-dead-letter-exchange": settings.rabbitmq_dlx_exchange,
+        "x-dead-letter-routing-key": settings.rabbitmq_dlq_routing_key,
+    }
+
+
 async def conectar_consumidor(settings: Settings):
     """Conecta, garante exchange/fila/binding e devolve (connection, queue) com prefetch configurado."""
     connection = await aio_pika.connect_robust(settings.rabbitmq_url)
@@ -33,7 +44,8 @@ async def conectar_consumidor(settings: Settings):
             exchange = await channel.declare_exchange(
                 settings.rabbitmq_exchange, aio_pika.ExchangeType(settings.rabbitmq_exchange_type), durable=True
             ) if settings.rabbitmq_declarar_exchange else await channel.get_exchange(settings.rabbitmq_exchange)
-            queue = await channel.declare_queue(settings.rabbitmq_queue, durable=True)
+            argumentos = await _declarar_dlq(channel, settings) if settings.rabbitmq_dlq_habilitada else None
+            queue = await channel.declare_queue(settings.rabbitmq_queue, durable=True, arguments=argumentos)
             await queue.bind(exchange, routing_key=settings.rabbitmq_binding_key)
         else:
             queue = await channel.get_queue(settings.rabbitmq_queue, ensure=True)

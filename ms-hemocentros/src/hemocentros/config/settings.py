@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     rabbitmq_binding_key: str = "hemocentros.campanha.*"
     # True: declara a fila e o binding (idempotente, exige mesmos argumentos). False: só verifica que a fila existe.
     rabbitmq_declarar_fila: bool = True
+    # Dead-letter (mensagens inválidas, rejeitadas sem requeue). Desligado por padrão: argumentos de fila
+    # não podem mudar numa fila já existente (PRECONDITION_FAILED). Ver antigravity/docs/dlq-rabbitmq-para-dev1.md.
+    rabbitmq_dlq_habilitada: bool = False
+    rabbitmq_dlx_exchange: str = "startech.events.dlx"
+    rabbitmq_dlq_queue: str = "hemocentros.cqrs.dlq"
+    rabbitmq_dlq_routing_key: str = "hemocentros.cqrs.dead"
     consumidor_habilitado: bool = True
     consumidor_prefetch: int = 10
     consumidor_reconexao: float = 5.0  # segundos entre tentativas de conexão ao RabbitMQ
