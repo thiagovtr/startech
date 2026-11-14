@@ -10,11 +10,26 @@
 name: startech
 
 services:
-  # ---------------------------------------------------------------------------
-  # [DEV 1] Parte do Dev 1 deve ser inserida aqui:
-  #   rabbitmq (5672/15672), keycloak (8089), gateway (8080).
-  #   Os BFFs do Dev 3 devem passar a ser acessados apenas pelo gateway.
-  # ---------------------------------------------------------------------------
+  # ===========================================================================
+  # [DEV 1] Infraestrutura Core e Borda (RabbitMQ, Keycloak, API Gateway)
+  # ===========================================================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [startech-net-api]
 
   # ---------------------------------------------------------------------------
   # [DEV 2] Parte do Dev 2 deve ser inserida aqui:
@@ -69,12 +84,15 @@ services:
       HEMOCENTROS_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
       HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
+      HEMOCENTROS_RABBITMQ_DLQ_HABILITADA: "true"
     ports:
       - "${HEMOCENTROS_HOST_PORT:-8000}:8000"
     depends_on:
       db-hemocentros:
         condition: service_healthy
       mongo:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks: [startech-net-db, startech-net-api]
 
@@ -110,5 +128,6 @@ networks:
 
 # Volumes persistentes. [DEV 1/2/4] adicionam os volumes dos seus serviços aqui.
 volumes:
+  rabbitmq-data:
   db-hemocentros-data:
   mongo-data:
