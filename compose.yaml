@@ -56,6 +56,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
     ports:
@@ -64,6 +65,28 @@ services:
       db-keycloak:
         condition: service_healthy
     networks: [startech-net-db, startech-net-api]
+
+  gateway:
+    build: ./gateway
+    environment:
+      GATEWAY_PORT: 8080
+      GATEWAY_JWK_SET_URI: http://keycloak:8080/realms/startech/protocol/openid-connect/certs
+      GATEWAY_BFF_MOBILE_URI: http://bff-mobile:8001
+      GATEWAY_BFF_WEB_URI: http://bff-web:8002
+      GATEWAY_KEYCLOAK_URI: http://keycloak:8080
+      GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
+      GATEWAY_RATE_LIMIT_CAPACITY: ${GATEWAY_RATE_LIMIT_CAPACITY:-60}
+      GATEWAY_RATE_LIMIT_REFILL_PER_SEC: ${GATEWAY_RATE_LIMIT_REFILL_PER_SEC:-30}
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      bff-mobile:
+        condition: service_healthy
+      bff-web:
+        condition: service_healthy
+    networks: [startech-net-api]
 
   # ---------------------------------------------------------------------------
   # [DEV 2] Parte do Dev 2 deve ser inserida aqui:
@@ -119,8 +142,6 @@ services:
       HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
       HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
       HEMOCENTROS_RABBITMQ_DLQ_HABILITADA: "true"
-    ports:
-      - "${HEMOCENTROS_HOST_PORT:-8000}:8000"
     depends_on:
       db-hemocentros:
         condition: service_healthy
@@ -134,8 +155,7 @@ services:
     build: ./bff-mobile
     environment:
       BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
-    ports:
-      - "${BFF_MOBILE_HOST_PORT:-8001}:8001"
+      BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
         condition: service_healthy
@@ -145,8 +165,7 @@ services:
     build: ./bff-web
     environment:
       BFF_WEB_HEMOCENTROS_URL: http://ms-hemocentros:8000
-    ports:
-      - "${BFF_WEB_HOST_PORT:-8002}:8002"
+      BFF_WEB_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
         condition: service_healthy
