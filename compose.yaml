@@ -31,6 +31,40 @@ services:
       start_period: 10s
     networks: [startech-net-api]
 
+  db-keycloak:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: keycloak
+    volumes:
+      - db-keycloak-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  keycloak:
+    build: ./keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_HOST_PORT:-8089}:8080"
+    depends_on:
+      db-keycloak:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
   # ---------------------------------------------------------------------------
   # [DEV 2] Parte do Dev 2 deve ser inserida aqui:
   #   ms-doadores (8081), ms-agendamentos, db-doadores, db-agendamentos.
@@ -129,5 +163,6 @@ networks:
 # Volumes persistentes. [DEV 1/2/4] adicionam os volumes dos seus serviços aqui.
 volumes:
   rabbitmq-data:
+  db-keycloak-data:
   db-hemocentros-data:
   mongo-data:
