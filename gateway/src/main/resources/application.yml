@@ -1,0 +1,54 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Busca as chaves publicas RSA (RS256) diretamente no container do Keycloak na rede interna
+          jwk-set-uri: ${GATEWAY_JWK_SET_URI:http://keycloak:8080/realms/startech/protocol/openid-connect/certs}
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 2000
+        # Timeout de 6s (> 4s exigidos pelo BFF Mobile para nao cortar respostas com degradacao graciosa)
+        response-timeout: 6s
+      routes:
+        - id: bff-mobile
+          uri: ${GATEWAY_BFF_MOBILE_URI:http://bff-mobile:8001}
+          predicates:
+            - Path=/api/mobile/**
+          filters:
+            - RewritePath=/api/mobile/(?<segment>.*), /bff-mobile/${segment}
+
+        - id: bff-web
+          uri: ${GATEWAY_BFF_WEB_URI:http://bff-web:8002}
+          predicates:
+            - Path=/api/web/**
+          filters:
+            - RewritePath=/api/web/(?<segment>.*), /bff-web/${segment}
+
+        - id: keycloak-realms
+          uri: ${GATEWAY_KEYCLOAK_URI:http://keycloak:8080}
+          predicates:
+            - Path=/realms/**
+
+startech:
+  gateway:
+    rate-limit:
+      enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
+      capacity: ${GATEWAY_RATE_LIMIT_CAPACITY:60}
+      refill-per-second: ${GATEWAY_RATE_LIMIT_REFILL_PER_SEC:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
