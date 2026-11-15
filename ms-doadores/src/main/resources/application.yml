@@ -1,0 +1,16 @@
+server:
+  port: ${MS_DOADORES_PORT:8081}
+
+spring:
+  application:
+    name: ms-doadores
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
