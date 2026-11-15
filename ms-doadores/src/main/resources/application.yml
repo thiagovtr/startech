@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: ms-doadores
+  datasource:
+    url: ${MS_DOADORES_DB_URL}
+    username: ${MS_DOADORES_DB_USERNAME}
+    password: ${MS_DOADORES_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
 
 management:
   endpoints:
