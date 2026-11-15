@@ -94,6 +94,59 @@ services:
   #   Quando existir ms-doadores, o bff-mobile deve receber BFF_MOBILE_DOADORES_URL
   #   e passar a depender dele.
   # ---------------------------------------------------------------------------
+  db-doadores:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: doadores
+      POSTGRES_PASSWORD: ${DOADORES_DB_PASSWORD:-doadores}
+      POSTGRES_DB: doadores
+    volumes:
+      - db-doadores-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doadores -d doadores"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  ms-doadores:
+    build: ./ms-doadores
+    environment:
+      MS_DOADORES_PORT: 8081
+      MS_DOADORES_DB_URL: jdbc:postgresql://db-doadores:5432/doadores
+      MS_DOADORES_DB_USERNAME: doadores
+      MS_DOADORES_DB_PASSWORD: ${DOADORES_DB_PASSWORD:-doadores}
+    depends_on:
+      db-doadores:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
+  db-agendamentos:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agendamentos
+      POSTGRES_PASSWORD: ${AGENDAMENTOS_DB_PASSWORD:-agendamentos}
+      POSTGRES_DB: agendamentos
+    volumes:
+      - db-agendamentos-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agendamentos -d agendamentos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  ms-agendamentos:
+    build: ./ms-agendamentos
+    environment:
+      MS_AGENDAMENTOS_PORT: 8082
+      MS_AGENDAMENTOS_DB_URL: jdbc:postgresql://db-agendamentos:5432/agendamentos
+      MS_AGENDAMENTOS_DB_USERNAME: agendamentos
+      MS_AGENDAMENTOS_DB_PASSWORD: ${AGENDAMENTOS_DB_PASSWORD:-agendamentos}
+    depends_on:
+      db-agendamentos:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
 
   # ---------------------------------------------------------------------------
   # [DEV 4] Parte do Dev 4 deve ser inserida aqui:
@@ -155,6 +208,7 @@ services:
     build: ./bff-mobile
     environment:
       BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
+      BFF_MOBILE_DOADORES_URL: http://ms-doadores:8081
       BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
@@ -185,3 +239,5 @@ volumes:
   db-keycloak-data:
   db-hemocentros-data:
   mongo-data:
+  db-doadores-data:
+  db-agendamentos-data:
