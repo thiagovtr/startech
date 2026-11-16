@@ -1,0 +1,57 @@
+# PostgreSQL próprio do orquestrador (Database per Service): StatefulSet com volume persistente + Service headless.
+# Só os pods do serviço dono o acessam (ClusterIP, sem exposição externa).
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-orquestrador
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: db-orquestrador, app.kubernetes.io/component: database}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: db-orquestrador}
+  ports:
+    - {name: postgres, port: 5432, targetPort: 5432}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-orquestrador
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: db-orquestrador, app.kubernetes.io/component: database}
+spec:
+  serviceName: db-orquestrador
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: db-orquestrador}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: db-orquestrador, app.kubernetes.io/component: database}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - {name: postgres, containerPort: 5432}
+          envFrom:
+            - secretRef: {name: db-orquestrador}  # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+          env:
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}  # subdiretório: o volume pode ter lost+found
+          readinessProbe:
+            exec: {command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]}
+            periodSeconds: 5
+          livenessProbe:
+            exec: {command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: dados, mountPath: /var/lib/postgresql/data}
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 1Gi}
