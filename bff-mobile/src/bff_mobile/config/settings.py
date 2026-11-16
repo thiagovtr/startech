@@ -17,10 +17,16 @@ class Settings(BaseSettings):
     doadores_url: str = "http://ms-doadores:8081"
     hemocentros_url: str = "http://ms-hemocentros:8000"
     agendamentos_url: str = "http://ms-agendamentos:8082"
+    orquestrador_url: str = "http://ms-orquestrador:8003"
 
     # Timeouts das chamadas aos serviços internos, em segundos
     http_timeout: float = 3.0  # ms-hemocentros
     doadores_timeout: float = 0.8  # ms-doadores (valor do ADR; falha rápida para degradar)
+    orquestrador_timeout: float = 3.0  # ms-orquestrador (só grava a SAGA e responde 202)
+
+    # Prefixo público das rotas do BFF (o Gateway reescreve /api/mobile/** para /bff-mobile/**): usado nos links
+    # devolvidos ao app, para que apontem para o Gateway e não para o endereço interno do BFF.
+    prefixo_publico: str = "/api/mobile"
 
     # Tipo sanguíneo usado quando o perfil não traz o tipo (ou ms-doadores está fora).
     # Padrão vazio = sem filtro: mostra todas as campanhas vigentes (decisão P10). Um tipo fixo, como O-,
