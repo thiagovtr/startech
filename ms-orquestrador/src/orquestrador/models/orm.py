@@ -7,15 +7,15 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from orquestrador.saga.estados import STATUS_TERMINAIS
+
 
 class Base(DeclarativeBase):
     pass
 
 
-# Status finais da SAGA: fora deles a SAGA está "em andamento" (índices parciais abaixo).
-# Os demais status e as transições ficam em `orquestrador.saga` (máquina de estados).
-STATUS_TERMINAIS = ("CONFIRMED", "REJECTED", "COMPENSATED", "COMPENSATION_FAILED")
-_EM_ANDAMENTO = text("status NOT IN ('CONFIRMED', 'REJECTED', 'COMPENSATED', 'COMPENSATION_FAILED')")
+# Fora dos status finais a SAGA está "em andamento" (índices parciais abaixo). Mesma lista da migração 0001.
+_EM_ANDAMENTO = text("status NOT IN (" + ", ".join(f"'{s}'" for s in sorted(STATUS_TERMINAIS)) + ")")
 
 
 def _novo_id() -> str:
