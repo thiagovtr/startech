@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     fila_compensacoes_dlq: str = "saga.compensations.dlq"
     binding_compensacoes_dlq: str = "saga.compensacao.falhou"
 
+    # Consumidor das respostas do ms-comunicacao (passo 3)
+    consumidor_habilitado: bool = True
+    consumidor_prefetch: int = 10
+    consumidor_reconexao: float = 5.0  # segundos entre tentativas de conexão ao RabbitMQ
+    consumidor_espera_erro: float = 2.0  # segundos antes de devolver à fila uma mensagem com erro transitório
+
     # Publicador do Outbox (polling)
     outbox_worker_habilitado: bool = True
     outbox_intervalo: float = 0.2  # segundos entre consultas quando não há mensagens (piso da latência)

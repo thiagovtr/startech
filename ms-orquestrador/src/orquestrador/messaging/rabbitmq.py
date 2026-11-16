@@ -53,3 +53,20 @@ async def conectar(settings: Settings) -> tuple[AbstractRobustConnection, Abstra
         await connection.close()
         raise
     return connection, exchange
+
+
+async def conectar_consumidor(settings: Settings) -> tuple[AbstractRobustConnection, AbstractQueue]:
+    """Conecta, garante a topologia e devolve (connection, fila de respostas) com prefetch configurado."""
+    connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+    try:
+        channel = await connection.channel()
+        await channel.set_qos(prefetch_count=settings.consumidor_prefetch)
+        exchange = await _exchange(channel, settings)
+        if settings.rabbitmq_declarar_filas:
+            fila = await declarar_topologia(channel, exchange, settings)
+        else:
+            fila = await channel.get_queue(settings.fila_respostas, ensure=True)
+    except Exception:
+        await connection.close()
+        raise
+    return connection, fila
