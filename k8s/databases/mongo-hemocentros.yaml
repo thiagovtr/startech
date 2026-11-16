@@ -1,0 +1,55 @@
+# MongoDB do ms-hemocentros (visão de leitura do CQRS): StatefulSet com volume persistente + Service headless.
+# O nome do Service é `mongo`, o mesmo host usado no Compose.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: mongo, app.kubernetes.io/component: database}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: mongo}
+  ports:
+    - {name: mongo, port: 27017, targetPort: 27017}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: mongo, app.kubernetes.io/component: database}
+spec:
+  serviceName: mongo
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: mongo}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: mongo, app.kubernetes.io/component: database}
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - {name: mongo, containerPort: 27017}
+          readinessProbe:
+            exec: {command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]}
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec: {command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]}
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}
+          volumeMounts:
+            - {name: dados, mountPath: /data/db}
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 1Gi}

@@ -2,7 +2,7 @@
 
 ---
 
-Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 005**) do projeto **StarTech**, documentando formalmente as escolhas de engenharia, o alinhamento ao protótipo oficial da equipe, a análise de trade-offs (*"Por que fizemos desta forma e não de outra?"*) e a conformidade integral com os requisitos da disciplina **GCC129 — Sistemas Distribuídos (UFLA 2026/2 — Parte 2: Arquitetura)**.
+Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 006**) do projeto **StarTech**, documentando formalmente as escolhas de engenharia, o alinhamento ao protótipo oficial da equipe, a análise de trade-offs (*"Por que fizemos desta forma e não de outra?"*) e a conformidade integral com os requisitos da disciplina **GCC129 — Sistemas Distribuídos (UFLA 2026/2 — Parte 2: Arquitetura)**.
 
 > * **Projeto:** StarTech — Plataforma Distribuída de Mobilização e Fidelização de Doadores de Sangue  
 > * **Disciplina:** GCC129 — Sistemas Distribuídos (UFLA 2026/2)  
@@ -14,10 +14,11 @@ Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 005
 | ADR | Título da Decisão | Status | Data | Componentes e Stack Envolvidos | Requisito GCC129   |
 | :---- | :---- | :---- | :---- | :---- | :---- |
 | **ADR-001** | Decomposição em 4 Microsserviços de Domínio e Padronização de Stack em Java (Spring Boot) e Python (FastAPI) | Aceito | 2026-10-21 | doadores (Java), hemocentros (Python), agendamentos (Java), comunicacao (Python) \+ IA com RAG (Parte 4\) | Decomposição em Microsserviços (Item 4.1) |
-| **ADR-002** | Adoção de SAGA Orquestrada no Serviço agendamentos Integrada via RabbitMQ | Aceito | 2026-10-21 | agendamentos (Orquestrador Java), doadores (Java), comunicacao (Python) e RabbitMQ | Padrão SAGA Distribuído (Item 4.6) |
+| **ADR-002** | Adoção de SAGA Orquestrada no Serviço agendamentos Integrada via RabbitMQ | Aceito — local do orquestrador substituído pelo ADR-006 | 2026-10-21 | agendamentos (Orquestrador Java), doadores (Java), comunicacao (Python) e RabbitMQ | Padrão SAGA Distribuído (Item 4.6) |
 | **ADR-003** | Database per Service e Prevenção de Dual-Write com Transactional Outbox Polling e RabbitMQ | Aceito | 2026-10-21 | PostgreSQL (todos os serviços), MongoDB (hemocentros) e RabbitMQ | Database per Service & Outbox (Item 4.5) |
 | **ADR-004** | Aplicação do Padrão CQRS no Serviço hemocentros (PostgreSQL Command/Outbox \+ RabbitMQ \+ MongoDB Query View) | Aceito | 2026-10-21 | hemocentros (Python FastAPI \+ PostgreSQL \+ RabbitMQ \+ MongoDB) | Padrão CQRS (Item 4.7) |
 | **ADR-005** | Adoção de Keycloak para Auth, API Gateway e 2 BFFs em Python (FastAPI) para Clientes React | Aceito | 2026-10-21 | Keycloak, API Gateway, BFF Mobile (FastAPI), BFF Web (FastAPI) e Frontends em React | Gateway & BFF (Itens 4.3 e 4.4) |
+| **ADR-006** | Extração do Orquestrador da SAGA para um Microsserviço Dedicado (ms-orquestrador) com Transactional Outbox Próprio | Aceito | 2026-11-16 | ms-orquestrador (Python FastAPI), agendamentos, doadores, comunicacao, BFF Mobile e RabbitMQ | Padrão SAGA Distribuído (Item 4.6) e Outbox (Item 4.5) |
 
 # ---
 
@@ -106,7 +107,7 @@ A disciplina GCC129 (Seção 4.1) exige a decomposição em **ao menos 4 micross
 
 > * ---
 
->   **Status:** Aceito  
+>   **Status:** Aceito — local do orquestrador substituído pelo ADR-006  
 > * **Data:** 2026-10-21  
 > * **Autores:** Diovani da Cruz, Ezequiel Dominguez, Matheus Freire Costa Pimenta, Thiago Vinícius  
 > * **Contexto da Disciplina:** GCC129 — Sistemas Distribuídos (Parte 2 — Arquitetura, Seção 4.6)  
@@ -472,3 +473,125 @@ Se o serviço doadores estiver temporariamente indisponível, o BFF Mobile não 
 > 1. **NEWMAN, Sam.** *Backends For Frontends*. SamNewman.io, 2015\.  
 > 2. **NYGARD, Michael T.** *Release It\!: Design and Deploy Production-Ready Software*. 2\. ed. Pragmatic Bookshelf, 2018\.  
 > 3. **KEYCLOAK.** *Keycloak Documentation: Securing Applications and Services Guide (OIDC / JWT)*. 2026\.
+
+# ---
+
+**ADR-006: Extração do Orquestrador da SAGA para um Microsserviço Dedicado (ms-orquestrador) com Transactional Outbox Próprio**
+
+> * ---
+
+>   **Status:** Aceito (substitui parcialmente o ADR-002 quanto ao local do orquestrador)  
+> * **Data:** 2026-11-16  
+> * **Autores:** Diovani da Cruz, Ezequiel Dominguez, Matheus Freire Costa Pimenta, Thiago Vinícius  
+> * **Contexto da Disciplina:** GCC129 — Sistemas Distribuídos (Seções 4.5 e 4.6; Parte 4 — Sistema em Funcionamento)  
+> * **Microsserviço(s) Afetado(s):** ms-orquestrador (novo), agendamentos, doadores, comunicacao, BFF Mobile e RabbitMQ
+
+## **1\. Contexto e Problema**
+
+O ADR-002 definiu a SAGA Orquestrada de agendamento com o serviço **agendamentos** acumulando dois papéis: **participante** (dono dos slots e dos agendamentos) e **coordenador** da transação distribuída (tabela saga\_execution\_state, chamadas a doadores, comandos a comunicacao e compensações).
+
+Na revisão da arquitetura para a Parte 4, o professor solicitou que o orquestrador fosse um **microsserviço à parte**. Manter a coordenação dentro de agendamentos traz os seguintes problemas:
+
+> 1. **Responsabilidade misturada:** o mesmo serviço decide a SAGA e executa um dos passos dela. A compensação do Passo 1 (liberar a vaga) vira uma chamada local, tratada de forma diferente das compensações remotas, o que esconde o protocolo da SAGA;  
+> 2. **Acoplamento de evolução:** mudanças no fluxo (novo passo, novo timeout, nova política de retentativa) exigem novo deploy do serviço de domínio agendamentos;  
+> 3. **Escala e falha acopladas:** uma queda de agendamentos derruba também a recuperação das SAGAs em andamento de todos os participantes;  
+> 4. **Rastreabilidade:** o estado da SAGA fica misturado ao banco de domínio de agendamentos, em vez de ter um ponto único e auditável de inspeção.
+
+## **2\. Forças e Critérios de Decisão (Drivers Arquiteturais)**
+
+> * **Separação de responsabilidades:** participantes executam ações locais e idempotentes; somente o orquestrador conhece a sequência e as compensações;  
+> * **Tratamento uniforme dos passos:** todos os participantes (inclusive agendamentos) são chamados pela mesma interface (ação positiva \+ compensação \+ chave de idempotência);  
+> * **Recuperação após queda (*Crash Recovery*):** o estado deve ser persistido antes de cada ação, para retomar a SAGA do passo em que parou;  
+> * **Sem Dual-Write no orquestrador:** a mudança de estado da SAGA e o envio de comandos ao RabbitMQ precisam ser atômicos (ADR-003);  
+> * **Database per Service:** o orquestrador não acessa bancos de outros serviços;  
+> * **Demonstrabilidade:** o caminho feliz e a compensação precisam ser visíveis ao vivo na Parte 4.
+
+## **3\. Alternativas Consideradas**
+
+### **Opção 1: Microsserviço Dedicado ms-orquestrador com Banco Próprio e Transactional Outbox (Opção Escolhida)**
+
+> * **Descrição Técnica:** Novo serviço **ms-orquestrador** (Python 3.12 / FastAPI), com PostgreSQL exclusivo (db-orquestrador) contendo saga\_execution\_state, saga\_step\_log, outbox\_events e processed\_messages. Os passos 1, 2 e a confirmação final são chamadas HTTP síncronas com Idempotency-Key; o Passo 3 (comunicacao) é um comando assíncrono publicado via Outbox no RabbitMQ, com evento de resposta;  
+> * **Vantagens (Prós):** responsabilidade única; participantes simples e testáveis isoladamente; máquina de estados centralizada e auditável; o orquestrador escala e é implantado de forma independente; evidencia ao vivo os padrões SAGA e Outbox em um mesmo componente;  
+> * **Desvantagens (Contras / Trade-offs aceitos):** mais um serviço, banco, Deployment e pipeline de CI; um salto de rede extra no Passo 1 (antes local); o orquestrador se torna componente crítico do fluxo de agendamento (mitigado por estado persistido, réplicas seguras com SKIP LOCKED e retomada automática).
+
+### **Opção 2: Manter o Orquestrador Embutido em agendamentos (ADR-002 Original)**
+
+> * **Vantagens (Prós):** menos componentes; Passo 1 e início da SAGA na mesma transação local;  
+> * **Motivo do Descarte:** mistura coordenação e domínio, não atende à solicitação do professor e mantém os problemas listados na Seção 1\.
+
+### **Opção 3: SAGA Coreografada**
+
+> * **Motivo do Descarte:** já descartada no ADR-002 (lógica de controle e de rollback espalhada entre 3 serviços, sem ponto central de inspeção). Extrair o orquestrador reforça a escolha pela orquestração em vez de abandoná-la.
+
+### **Opção 4: Motor de Workflow Pronto (Temporal, Camunda/Zeebe, Netflix Conductor)**
+
+> * **Vantagens (Prós):** retentativas, timers e histórico prontos;  
+> * **Motivo do Descarte:** infraestrutura pesada para o ambiente local da disciplina (cluster próprio, banco e workers), curva de aprendizado alta e esconde a máquina de estados e o Outbox, que são justamente os conceitos avaliados.
+
+## **4\. Decisão Tomada**
+
+*Decidimos adotar a Opção 1: extrair a coordenação da SAGA de agendamento para o microsserviço dedicado ms-orquestrador, com banco PostgreSQL exclusivo e Transactional Outbox próprio. O agendamentos passa a ser apenas participante. Os passos, as compensações e as chaves de idempotência do ADR-002 permanecem válidos; muda apenas quem coordena.*
+
+## **5\. Especificação Técnica**
+
+### **5.1 Fluxo e Ponto de Entrada**
+
+> 1. O App Mobile chama POST /api/mobile/agendamentos no Gateway, que encaminha ao BFF Mobile;  
+> 2. O BFF Mobile chama POST /api/v1/sagas/agendamento no ms-orquestrador, que gera sagaId e agendamentoId, persiste a SAGA como STARTED e responde **202 Accepted** com Location: /api/v1/sagas/{sagaId};  
+> 3. O cliente acompanha o resultado por GET /api/v1/sagas/{sagaId} (estado atual, passos executados e motivo de recusa em problem+json).
+
+### **5.2 Matriz de Passos (atualiza o ADR-002, Seção 5.2)**
+
+| Passo | Participante | Transporte | Ação Positiva | Compensação | Idempotência |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| **1** | agendamentos | HTTP síncrono | POST /api/v1/slots/{slotId}/reservas → CRIADO\_PROVISORIO | DELETE /api/v1/slots/{slotId}/reservas/{agendamentoId} → CANCELADO\_COMPENSACAO\_SAGA | Idempotency-Key: saga-{sagaId}-step1 |
+| **2** | doadores | HTTP síncrono | POST /api/v1/doadores/{id}/reservas-elegibilidade (RN01; 422 se inapto) | DELETE /api/v1/doadores/{id}/reservas-elegibilidade/{agendamentoId} | Idempotency-Key: saga-{sagaId}-step2 |
+| **3** | comunicacao | RabbitMQ via Outbox | Comando saga.comando.comunicacao.programar-lembrete; resposta comunicacao.lembrete.programado ou .falhou | Comando saga.comando.comunicacao.cancelar-lembrete | message\_id \= saga-{sagaId}-step3 |
+| **4** | agendamentos | HTTP síncrono | POST /api/v1/agendamentos/{id}/confirmacao → CONFIRMADO (passo final, sem compensação) | — | Idempotency-Key: saga-{sagaId}-step4 |
+
+O Passo 4 é novo em relação ao ADR-002: com o orquestrador fora de agendamentos, a transição CRIADO\_PROVISORIO → CONFIRMADO passa a ser uma chamada explícita.
+
+### **5.3 Máquina de Estados**
+
+STARTED → SLOT\_RESERVED → AWAITING\_COMUNICACAO → CONFIRMING → **CONFIRMED**
+
+O sucesso do Passo 2 grava, na mesma transação, o comando do Passo 3 no Outbox e já leva a SAGA a AWAITING\_COMUNICACAO; por isso não há um status intermediário DONOR\_VALIDATED (citado no ADR-002). Enquanto o ms-comunicacao não existir, a configuração ORQUESTRADOR\_PASSO3\_AGUARDAR\_RESPOSTA=false considera o Passo 3 concluído ao gravar o comando no Outbox, cuja entrega é garantida, e segue direto para CONFIRMING.
+
+> * Recusa de negócio no Passo 1 (409 slot esgotado ou RN09): **REJECTED**, sem nada a compensar;  
+> * Recusa ou falha nos Passos 2 ou 3 (422 RN01, resposta lembrete.falhou ou timeout da resposta): **COMPENSATING**, desfazendo os passos concluídos em ordem reversa, até **COMPENSATED**;  
+> * Recusas de negócio (409/422) não são retentadas; falhas técnicas (timeout, 5xx, conexão) são retentadas antes de compensar;  
+> * Falha na compensação: Exponential Backoff \+ Jitter (T \= 2^retry \* 500 ms), até 5 tentativas; depois **COMPENSATION\_FAILED** e envio para saga.compensations.dlq (protocolo do ADR-002, Seção 5.3).
+
+### **5.4 Transactional Outbox no Orquestrador**
+
+Cada transição de estado é uma única transação local no db-orquestrador:
+
+`BEGIN;`  
+  `UPDATE saga_execution_state SET status = 'AWAITING_COMUNICACAO', current_step = 'STEP3', version = version + 1`  
+  `WHERE saga_id = :id AND version = :versao;`  
+  `INSERT INTO saga_step_log (saga_id, step, acao, resultado) VALUES (:id, 'STEP3', 'FORWARD', 'ENVIADO');`  
+  `INSERT INTO outbox_events (aggregate_type, aggregate_id, routing_key, payload)`  
+  `VALUES ('Saga', :id, 'saga.comando.comunicacao.programar-lembrete', :payload);`  
+`COMMIT;`
+
+O worker de Outbox Polling (FOR UPDATE SKIP LOCKED, confirmação do broker) publica o comando, como no ADR-003. Respostas de comunicacao são deduplicadas pela tabela processed\_messages. Um worker de recuperação seleciona SAGAs não finalizadas com next\_attempt\_at vencido (FOR UPDATE SKIP LOCKED) e retoma retentativas, timeouts do Passo 3 e SAGAs interrompidas por queda do processo. Por isso várias réplicas do orquestrador podem rodar em paralelo com segurança.
+
+### **5.5 Prevenção de Agendamento Duplo (RN09)**
+
+Dupla proteção: índice único parcial em saga\_execution\_state(doador\_id) para SAGAs não finalizadas (o orquestrador recusa com 409 no início) e o índice idx\_unico\_agendamento\_ativo já existente em agendamentos.
+
+## **6\. Consequências e Impactos**
+
+> * **agendamentos:** remove a lógica de coordenação e expõe os endpoints de reserva, liberação e confirmação (Seção 5.2), todos idempotentes;  
+> * **doadores:** acrescenta o DELETE de compensação da reserva de elegibilidade;  
+> * **comunicacao:** consome os comandos da SAGA e publica o evento de resposta;  
+> * **RabbitMQ:** novas filas comunicacao.saga.comandos e orquestrador.saga.respostas; a fila agendamentos.saga deixa de ser necessária;  
+> * **BFF Mobile:** novo endpoint de criação de agendamento, que encaminha ao orquestrador;  
+> * **Contratos de API:** POST /api/v1/agendamentos (202) é substituído por POST /api/v1/sagas/agendamento no ms-orquestrador; o GET /api/v1/agendamentos/{id} com HATEOAS permanece em agendamentos;  
+> * **Infraestrutura:** novo serviço e novo banco no compose.yaml e nos manifestos Kubernetes; novo job no CI.
+
+## **7\. Referências**
+
+> 1. **RICHARDSON, Chris.** *Microservices Patterns: With examples in Java*. Manning Publications, 2018\. (Capítulo 4: Managing transactions with sagas).  
+> 2. **GARCIA-MOLINA, Hector; SALEM, Kenneth.** *Sagas*. In: ACM SIGMOD Record, v. 16, n. 3, p. 249-259, 1987\.  
+> 3. **MICROSOFT.** *Saga distributed transactions pattern*. Azure Architecture Center. Disponível em: https://learn.microsoft.com/azure/architecture/patterns/saga.

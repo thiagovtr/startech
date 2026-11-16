@@ -1,0 +1,7 @@
+# Namespace único da StarTech. Compartilhado por todos os serviços (se o Dev 4 já criou, este arquivo é o mesmo).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: startech
+  labels:
+    app.kubernetes.io/part-of: startech

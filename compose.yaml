@@ -204,11 +204,44 @@ services:
         condition: service_healthy
     networks: [startech-net-db, startech-net-api]
 
+  db-orquestrador:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orquestrador
+      POSTGRES_PASSWORD: ${ORQUESTRADOR_DB_PASSWORD:-orquestrador}
+      POSTGRES_DB: orquestrador
+    volumes:
+      - db-orquestrador-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orquestrador -d orquestrador"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  # Orquestrador da SAGA de agendamento (ADR-006): sem porta no host, acessado pelo bff-mobile.
+  ms-orquestrador:
+    build: ./ms-orquestrador
+    environment:
+      ORQUESTRADOR_POSTGRES_URL: postgresql+asyncpg://orquestrador:${ORQUESTRADOR_DB_PASSWORD:-orquestrador}@db-orquestrador:5432/orquestrador
+      ORQUESTRADOR_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      ORQUESTRADOR_AGENDAMENTOS_URL: http://ms-agendamentos:8082
+      ORQUESTRADOR_DOADORES_URL: http://ms-doadores:8081
+      # [DEV 4] enquanto o ms-comunicacao não existir, o passo 3 conclui quando o comando é publicado.
+      ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "false"
+    depends_on:
+      db-orquestrador:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
   bff-mobile:
     build: ./bff-mobile
     environment:
       BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
       BFF_MOBILE_DOADORES_URL: http://ms-doadores:8081
+      BFF_MOBILE_ORQUESTRADOR_URL: http://ms-orquestrador:8003
       BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
@@ -241,3 +274,4 @@ volumes:
   mongo-data:
   db-doadores-data:
   db-agendamentos-data:
+  db-orquestrador-data:

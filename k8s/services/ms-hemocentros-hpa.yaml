@@ -1,0 +1,22 @@
+# Escalabilidade (Etapa 3): o ms-hemocentros escala horizontalmente para picos de leitura documental
+# (ex.: alerta crítico de sangue O-). Requer o metrics-server (minikube addons enable metrics-server).
+# Sem ele, a demonstração pode ser manual: kubectl -n startech scale deployment ms-hemocentros --replicas=3
+# Várias réplicas são seguras: o publicador do Outbox usa SKIP LOCKED e a projeção no MongoDB é idempotente.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ms-hemocentros
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-hemocentros}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ms-hemocentros
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}

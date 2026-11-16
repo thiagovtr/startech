@@ -1,0 +1,75 @@
+# BFF Mobile (sem estado e sem banco). Recebe tráfego só do API Gateway.
+# Imagem local: docker build -t startech/bff-mobile:dev ./bff-mobile  (minikube: minikube image load startech/bff-mobile:dev;
+# kind: kind load docker-image startech/bff-mobile:dev)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bff-mobile
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: bff-mobile, app.kubernetes.io/component: bff}
+data:
+  BFF_MOBILE_HEMOCENTROS_URL: "http://ms-hemocentros:8000"
+  BFF_MOBILE_DOADORES_URL: "http://ms-doadores:8081"
+  BFF_MOBILE_ORQUESTRADOR_URL: "http://ms-orquestrador:8003"
+  BFF_MOBILE_EXIGIR_PAPEL: "true"
+  LOG_FORMAT: "json"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff-mobile
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: bff-mobile, app.kubernetes.io/component: bff}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: bff-mobile}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: bff-mobile, app.kubernetes.io/component: bff}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001  # usuário `app` criado no Dockerfile
+      containers:
+        - name: bff-mobile
+          image: startech/bff-mobile:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8001}
+          envFrom:
+            - configMapRef: {name: bff-mobile}
+          # liveness: o processo está vivo (sempre 200, não depende de banco);
+          # readiness: tira o pod do Service enquanto uma dependência obrigatória estiver fora
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 96Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bff-mobile
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: bff-mobile, app.kubernetes.io/component: bff}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: bff-mobile}
+  ports:
+    - {name: http, port: 8001, targetPort: http}

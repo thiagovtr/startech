@@ -34,6 +34,8 @@ async def home(
     O tipo sanguíneo vem do perfil, então o perfil é consultado primeiro. Se `ms-doadores` falhar,
     o BFF não retorna 500: devolve o perfil mínimo marcado como degradado e as campanhas vigentes sem
     filtro de tipo (o app sinaliza que não estão personalizadas). Ver decisão P10.
+    Doador sem cadastro (404 no ms-doadores) não é falha: `status` segue `ok`, o perfil mínimo vem com
+    `cadastrado: false` (o app pode convidar a completar o cadastro) e as campanhas vêm sem filtro de tipo.
     """
     if not x_user_id:
         return JSONResponse(
@@ -45,8 +47,13 @@ async def home(
     indisponiveis: list[str] = []
 
     try:
-        doador = await doadores.obter(x_user_id)
-        tipo = _tipo_sanguineo(doador) or settings.tipo_sanguineo_fallback or None
+        perfil = await doadores.obter(x_user_id)
+        if perfil is None:  # ms-doadores no ar, mas o usuário ainda não tem cadastro de doador
+            doador = {"id": x_user_id, "cadastrado": False}
+            tipo = settings.tipo_sanguineo_fallback or None
+        else:
+            doador = perfil
+            tipo = _tipo_sanguineo(doador) or settings.tipo_sanguineo_fallback or None
     except ServicoIndisponivel as exc:
         indisponiveis.append(exc.servico)
         doador = {"id": x_user_id, "statusDegradado": True}
