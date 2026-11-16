@@ -1,55 +1,84 @@
 #!/usr/bin/env bash
-# E2E do CQRS (Dev 3), pela borda dos BFFs, com serviços reais:
-#   POST bff-web -> ms-hemocentros -> PostgreSQL+Outbox -> RabbitMQ -> consumidor -> MongoDB -> GET bff-web/bff-mobile
-# Mede o atraso escrita->leitura (meta: < 2 s). Usa um RabbitMQ descartável enquanto o do Dev 1
-# não estiver no compose.yaml; se o compose já tiver o serviço `rabbitmq`, ele é usado (EXTERNAL_RABBIT=1).
+# E2E da plataforma StarTech pela borda publica do API Gateway (com Keycloak, BFFs, CQRS e RabbitMQ):
+#   1. Autentica no Keycloak (doador1 / mobile e operador1 / web) via Gateway (/realms/startech/...)
+#   2. Valida bloqueio RBAC/Audience de rota cruzada (403 Forbidden) e Header Stripping
+#   3. Mede atraso escrita->leitura CQRS (POST /api/web/campanhas -> PostgreSQL+Outbox -> RabbitMQ -> MongoDB -> GET)
+#   4. Valida degradacao graciosa no BFF Mobile (GET /api/mobile/home -> 200 degradado)
 #
-# Uso: scripts/e2e-cqrs.sh [N_AMOSTRAS]    (padrão: 20)
+# Uso: scripts/e2e-cqrs.sh [N_AMOSTRAS]    (padrao: 20)
 set -euo pipefail
-export LC_ALL=C  # separador decimal "." em printf/sort/bc
+export LC_ALL=C
 
 N="${1:-20}"
-export HEMOCENTROS_HOST_PORT="${HEMOCENTROS_HOST_PORT:-18000}"
-export BFF_MOBILE_HOST_PORT="${BFF_MOBILE_HOST_PORT:-18001}"
-export BFF_WEB_HOST_PORT="${BFF_WEB_HOST_PORT:-18002}"
-RABBIT_NAME="startech-e2e-rabbitmq"
+export GATEWAY_HOST_PORT="${GATEWAY_HOST_PORT:-18080}"
+export KEYCLOAK_HOST_PORT="${KEYCLOAK_HOST_PORT:-18089}"
+export RABBITMQ_AMQP_PORT="${RABBITMQ_AMQP_PORT:-15672}"
+export RABBITMQ_MGMT_PORT="${RABBITMQ_MGMT_PORT:-25672}"
 LIMITE=2.0
 cd "$(dirname "$0")/.."
 
 cleanup() {
-  [ "${EXTERNAL_RABBIT:-0}" = "1" ] || docker stop "$RABBIT_NAME" >/dev/null 2>&1 || true
   docker compose down -v >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
-echo ">> subindo a stack"
+echo ">> subindo a stack completa via Docker Compose"
 docker compose up -d --build --wait >/dev/null
-if [ "${EXTERNAL_RABBIT:-0}" != "1" ]; then
-  echo ">> subindo RabbitMQ descartável na rede startech-net-api (alias: rabbitmq)"
-  docker run -d --rm --name "$RABBIT_NAME" --network startech-net-api --network-alias rabbitmq \
-    rabbitmq:3.13-alpine >/dev/null
-fi
 
+GATEWAY="http://localhost:${GATEWAY_HOST_PORT}"
+TOKEN_URL="${GATEWAY}/realms/startech/protocol/openid-connect/token"
 BODY='{"titulo":"E2E %s","hemocentro":"Lavras","tipo_sanguineo":"O-","urgencia":"CRITICO","data_inicio":"2026-11-10","data_fim":"2026-11-30"}'
-WEB="localhost:${BFF_WEB_HOST_PORT}"
 agora() { date +%s.%N; }
+
+echo ">> obtendo tokens JWT RS256 no Keycloak (via proxy do Gateway)"
+RESP_DOADOR=$(curl -s -X POST "$TOKEN_URL" -d "client_id=mobile&grant_type=password&username=doador1&password=doador123")
+TOKEN_DOADOR=$(echo "$RESP_DOADOR" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+RESP_OPERADOR=$(curl -s -X POST "$TOKEN_URL" -d "client_id=web&grant_type=password&username=operador1&password=operador123")
+TOKEN_OPERADOR=$(echo "$RESP_OPERADOR" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+
+[ -n "$TOKEN_DOADOR" ] || { echo "FALHA: token do doador vazio (resposta: $RESP_DOADOR)"; exit 1; }
+[ -n "$TOKEN_OPERADOR" ] || { echo "FALHA: token do operador vazio (resposta: $RESP_OPERADOR)"; exit 1; }
+
+echo ">> validando RBAC, Audience e Header Stripping no API Gateway"
+status_sem_token=$(curl -s -o /dev/null -w "%{http_code}" "$GATEWAY/api/mobile/home")
+[ "$status_sem_token" = "401" ] || { echo "FALHA: esperado 401 sem token, veio $status_sem_token"; exit 1; }
+
+status_cruzado_web=$(curl -s -o /dev/null -w "%{http_code}" "$GATEWAY/api/web/campanhas" \
+  -H "Authorization: Bearer $TOKEN_DOADOR" -H "X-User-Roles: operador")
+[ "$status_cruzado_web" = "403" ] || { echo "FALHA: doador acessou /api/web (status $status_cruzado_web)"; exit 1; }
+
+status_cruzado_mobile=$(curl -s -o /dev/null -w "%{http_code}" "$GATEWAY/api/mobile/home" \
+  -H "Authorization: Bearer $TOKEN_OPERADOR" -H "X-User-Roles: doador")
+[ "$status_cruzado_mobile" = "403" ] || { echo "FALHA: operador acessou /api/mobile (status $status_cruzado_mobile)"; exit 1; }
+echo "   ok: 401 sem token e 403 em acessos cruzados (mesmo com X-User-Roles forjado)"
 
 echo ">> aguardando os workers conectarem ao RabbitMQ (aquecimento)"
 ok=0
 for _ in $(seq 1 40); do
-  id=$(curl -s -X POST "$WEB/bff-web/campanhas" -H 'content-type: application/json' -d "$(printf "$BODY" warmup)" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+  id=$(curl -s -X POST "$GATEWAY/api/web/campanhas" \
+    -H "Authorization: Bearer $TOKEN_OPERADOR" \
+    -H "Content-Type: application/json" \
+    -d "$(printf "$BODY" warmup)" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
   sleep 1
-  if curl -s "$WEB/bff-web/campanhas?tipo_sanguineo=O-" | grep -q "$id"; then ok=1; break; fi
+  if curl -s "$GATEWAY/api/web/campanhas?tipo_sanguineo=O-" \
+    -H "Authorization: Bearer $TOKEN_OPERADOR" | grep -q "$id"; then
+    ok=1
+    break
+  fi
 done
-[ "$ok" = 1 ] || { echo "FALHA: a campanha não chegou ao MongoDB (RabbitMQ/consumidor indisponível?)"; exit 1; }
+[ "$ok" = 1 ] || { echo "FALHA: a campanha não chegou ao MongoDB"; exit 1; }
 
-echo ">> medindo $N escritas"
+echo ">> medindo $N escritas via Gateway -> BFF Web -> MS-Hemocentros -> Outbox -> RabbitMQ -> MongoDB"
 lat=()
 for i in $(seq 1 "$N"); do
   t0=$(agora)
-  id=$(curl -s -X POST "$WEB/bff-web/campanhas" -H 'content-type: application/json' -d "$(printf "$BODY" "$i")" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+  id=$(curl -s -X POST "$GATEWAY/api/web/campanhas" \
+    -H "Authorization: Bearer $TOKEN_OPERADOR" \
+    -H "Content-Type: application/json" \
+    -d "$(printf "$BODY" "$i")" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
   [ -n "$id" ] || { echo "FALHA: POST sem id"; exit 1; }
-  until curl -s "$WEB/bff-web/campanhas?tipo_sanguineo=O-" | grep -q "$id"; do
+  until curl -s "$GATEWAY/api/web/campanhas?tipo_sanguineo=O-" \
+    -H "Authorization: Bearer $TOKEN_OPERADOR" | grep -q "$id"; do
     [ "$(echo "$(agora) - $t0 > 10" | bc)" = 1 ] && { echo "FALHA: $id não apareceu em 10 s"; exit 1; }
     sleep 0.02
   done
@@ -58,10 +87,12 @@ done
 
 sorted=($(printf '%s\n' "${lat[@]}" | sort -n))
 med=${sorted[$((N / 2))]}; max=${sorted[$((N - 1))]}
-printf ">> latência POST->visível no GET (via BFF Web): n=%s mediana=%.3fs max=%.3fs (limite %.1fs)\n" "$N" "$med" "$max" "$LIMITE"
+printf ">> latência POST->visível no GET (via Gateway + BFF Web): n=%s mediana=%.3fs max=%.3fs (limite %.1fs)\n" "$N" "$med" "$max" "$LIMITE"
 [ "$(echo "$max < $LIMITE" | bc)" = 1 ] || { echo "FALHA: acima de ${LIMITE}s"; exit 1; }
 
-echo ">> BFF Mobile (sem ms-doadores): degradação graciosa"
-curl -s "localhost:${BFF_MOBILE_HOST_PORT}/bff-mobile/home" -H 'X-User-Id: 123' | grep -q '"status":"degradado"' \
-  && echo "   ok: 200 degradado, sem erro 500"
+echo ">> BFF Mobile via Gateway (sem ms-doadores): degradação graciosa + injeção de X-User-Id do JWT"
+resp_mobile=$(curl -s "$GATEWAY/api/mobile/home" -H "Authorization: Bearer $TOKEN_DOADOR")
+echo "$resp_mobile" | grep -q '"status":"degradado"' || { echo "FALHA: BFF Mobile não retornou status degradado"; exit 1; }
+echo "$resp_mobile" | grep -q '11111111-1111-1111-1111-111111111111' || { echo "FALHA: X-User-Id (sub do JWT) não propagou ao BFF Mobile"; exit 1; }
+echo "   ok: 200 degradado com X-User-Id=11111111-1111-1111-1111-111111111111"
 echo ">> E2E OK"

@@ -1,0 +1,219 @@
+{
+  "id": "startech",
+  "realm": "startech",
+  "displayName": "StarTech Identity & Access Management",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "realm": [
+      {
+        "name": "doador",
+        "description": "Doador de sangue autenticado no aplicativo movel (acesso ao BFF Mobile)",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "operador",
+        "description": "Operador/gestor de hemocentro autenticado no painel administrativo (acesso ao BFF Web)",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "clientScopes": [
+    {
+      "name": "startech-roles-thin",
+      "description": "Thin Token: inclui apenas o identificador opaco (sub) e os papeis do realm (realm_access.roles), sem expor dados pessoais sensiveis (LGPD)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "subject-id-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "startech:mobile",
+      "description": "Escopo exclusivo do aplicativo movel de doadores — injeta audience (aud = bff-mobile)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-bff-mobile",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "bff-mobile",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "startech:web",
+      "description": "Escopo exclusivo do painel web dos hemocentros — injeta audience (aud = bff-web)",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-bff-web",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "bff-web",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "mobile",
+      "name": "StarTech App Mobile (Doadores)",
+      "description": "Cliente OIDC publico para o aplicativo React Native / PWA dos doadores",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "http://localhost:*",
+        "startech://*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "defaultClientScopes": [
+        "startech-roles-thin",
+        "startech:mobile"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "web",
+      "name": "StarTech Painel Web (Hemocentros)",
+      "description": "Cliente OIDC para a SPA React dos operadores de hemocentro",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "defaultClientScopes": [
+        "startech-roles-thin",
+        "startech:web"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "scopeMappings": [
+    {
+      "client": "mobile",
+      "roles": [
+        "doador"
+      ]
+    },
+    {
+      "client": "web",
+      "roles": [
+        "operador"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "username": "doador1",
+      "firstName": "Doador",
+      "lastName": "StarTech",
+      "email": "doador1@startech.local",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "doador123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "doador"
+      ]
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "username": "operador1",
+      "firstName": "Operador",
+      "lastName": "Hemominas",
+      "email": "operador1@startech.local",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "operador123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "operador"
+      ]
+    }
+  ]
+}

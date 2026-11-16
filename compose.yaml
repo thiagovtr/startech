@@ -10,11 +10,83 @@
 name: startech
 
 services:
-  # ---------------------------------------------------------------------------
-  # [DEV 1] Parte do Dev 1 deve ser inserida aqui:
-  #   rabbitmq (5672/15672), keycloak (8089), gateway (8080).
-  #   Os BFFs do Dev 3 devem passar a ser acessados apenas pelo gateway.
-  # ---------------------------------------------------------------------------
+  # ===========================================================================
+  # [DEV 1] Infraestrutura Core e Borda (RabbitMQ, Keycloak, API Gateway)
+  # ===========================================================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [startech-net-api]
+
+  db-keycloak:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: keycloak
+    volumes:
+      - db-keycloak-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  keycloak:
+    build: ./keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_HOST_PORT:-8089}:8080"
+    depends_on:
+      db-keycloak:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
+  gateway:
+    build: ./gateway
+    environment:
+      GATEWAY_PORT: 8080
+      GATEWAY_JWK_SET_URI: http://keycloak:8080/realms/startech/protocol/openid-connect/certs
+      GATEWAY_BFF_MOBILE_URI: http://bff-mobile:8001
+      GATEWAY_BFF_WEB_URI: http://bff-web:8002
+      GATEWAY_KEYCLOAK_URI: http://keycloak:8080
+      GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
+      GATEWAY_RATE_LIMIT_CAPACITY: ${GATEWAY_RATE_LIMIT_CAPACITY:-60}
+      GATEWAY_RATE_LIMIT_REFILL_PER_SEC: ${GATEWAY_RATE_LIMIT_REFILL_PER_SEC:-30}
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      bff-mobile:
+        condition: service_healthy
+      bff-web:
+        condition: service_healthy
+    networks: [startech-net-api]
 
   # ---------------------------------------------------------------------------
   # [DEV 2] Parte do Dev 2 deve ser inserida aqui:
@@ -69,12 +141,13 @@ services:
       HEMOCENTROS_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
       HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
-    ports:
-      - "${HEMOCENTROS_HOST_PORT:-8000}:8000"
+      HEMOCENTROS_RABBITMQ_DLQ_HABILITADA: "true"
     depends_on:
       db-hemocentros:
         condition: service_healthy
       mongo:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks: [startech-net-db, startech-net-api]
 
@@ -82,8 +155,7 @@ services:
     build: ./bff-mobile
     environment:
       BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
-    ports:
-      - "${BFF_MOBILE_HOST_PORT:-8001}:8001"
+      BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
         condition: service_healthy
@@ -93,8 +165,7 @@ services:
     build: ./bff-web
     environment:
       BFF_WEB_HEMOCENTROS_URL: http://ms-hemocentros:8000
-    ports:
-      - "${BFF_WEB_HOST_PORT:-8002}:8002"
+      BFF_WEB_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
         condition: service_healthy
@@ -110,5 +181,7 @@ networks:
 
 # Volumes persistentes. [DEV 1/2/4] adicionam os volumes dos seus serviços aqui.
 volumes:
+  rabbitmq-data:
+  db-keycloak-data:
   db-hemocentros-data:
   mongo-data:
