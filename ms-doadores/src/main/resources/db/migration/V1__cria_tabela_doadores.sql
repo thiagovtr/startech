@@ -1,0 +1,10 @@
+CREATE TABLE doadores (
+    id UUID PRIMARY KEY,
+    tipo_sanguineo VARCHAR(3) NOT NULL CHECK (tipo_sanguineo IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    criado_em TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO doadores (id, tipo_sanguineo)
+VALUES ('11111111-1111-1111-1111-111111111111', 'O-')
+ON CONFLICT (id) DO NOTHING;
