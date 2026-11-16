@@ -65,10 +65,11 @@ def test_home_ok_filtra_campanhas_pelo_tipo_do_doador():
         _erro(httpx.ConnectError("recusada")),
         _erro(httpx.ReadTimeout("lento")),
         lambda r: httpx.Response(500, text="boom"),
-        lambda r: httpx.Response(404, json={"title": "não encontrado"}),
+        lambda r: httpx.Response(503, json={"title": "banco indisponível"}),
+        lambda r: httpx.Response(400, json={"title": "identificador inválido"}),
         lambda r: httpx.Response(200, text="<html>não é json</html>"),
     ],
-    ids=["conexao", "timeout", "http-500", "http-404", "resposta-invalida"],
+    ids=["conexao", "timeout", "http-500", "http-503", "http-400", "resposta-invalida"],
 )
 def test_doadores_fora_nao_gera_500_e_entrega_campanhas_degradado(falha):
     s = Servicos(falha, _campanhas_por_tipo)
@@ -81,6 +82,32 @@ def test_doadores_fora_nao_gera_500_e_entrega_campanhas_degradado(falha):
     assert body["campanhas"] == CAMPANHAS_A + CAMPANHAS_O
     assert body["tipoSanguineoCampanhas"] is None and body["campanhasPersonalizadas"] is False
     assert s.chamadas[-1][1] == {"vigentes": "true"}
+
+
+def test_doador_sem_cadastro_nao_e_indisponibilidade():
+    """404 do ms-doadores: o serviço respondeu; o usuário só não é doador cadastrado."""
+    problema = {"type": "urn:startech:error:doador-nao-encontrado", "title": "Doador não encontrado", "status": 404}
+    s = Servicos(lambda r: httpx.Response(404, json=problema), _campanhas_por_tipo)
+    r = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok" and body["servicosIndisponiveis"] == []
+    assert body["doador"] == {"id": "123", "cadastrado": False}
+    assert body["campanhas"] == CAMPANHAS_A + CAMPANHAS_O and body["campanhasPersonalizadas"] is False
+    assert s.chamadas[-1][1] == {"vigentes": "true"}
+
+
+def test_doador_sem_cadastro_usa_o_fallback_configurado(monkeypatch):
+    from bff_mobile.config import get_settings
+
+    monkeypatch.setenv("BFF_MOBILE_TIPO_SANGUINEO_FALLBACK", "O-")
+    get_settings.cache_clear()
+    try:
+        s = Servicos(lambda r: httpx.Response(404), _campanhas_por_tipo)
+        body = s.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).json()
+    finally:
+        get_settings.cache_clear()
+    assert body["status"] == "ok" and body["tipoSanguineoCampanhas"] == "O-" and body["campanhas"] == CAMPANHAS_O
 
 
 def test_hemocentros_fora_mantem_perfil_e_degrada():

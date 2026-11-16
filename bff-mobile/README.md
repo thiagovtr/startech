@@ -1,6 +1,6 @@
 # bff-mobile
 
-Backend for Frontend (Python 3.12 / FastAPI), sem banco e sem estado. App móvel do doador. `GET /bff-mobile/home` agrega o perfil (`ms-doadores`) e as campanhas vigentes do tipo sanguíneo (`ms-hemocentros`), com **degradação graciosa**: se um serviço cair, responde 200 com `status: degradado`.
+Backend for Frontend (Python 3.12 / FastAPI), sem banco e sem estado. App móvel do doador. `GET /bff-mobile/home` agrega o perfil (`ms-doadores`) e as campanhas vigentes do tipo sanguíneo (`ms-hemocentros`), com **degradação graciosa**: se um serviço cair, responde 200 com `status: degradado`. Usuário sem cadastro de doador (404 no `ms-doadores`) não é falha: `status: ok`, perfil mínimo com `cadastrado: false` e campanhas sem filtro de tipo.
 
 ## Executar
 

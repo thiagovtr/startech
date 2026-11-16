@@ -25,8 +25,21 @@ class DoadoresClient:
     def __init__(self, http: httpx.AsyncClient):
         self._http = http
 
-    async def obter(self, doador_id: str) -> dict:
-        r = await _get(self._http, "ms-doadores", f"/api/v1/doadores/{doador_id}", doador_id)
+    async def obter(self, doador_id: str) -> dict | None:
+        """Perfil do doador; None se ele não estiver cadastrado (404, contratos §2).
+
+        404 é resposta de negócio do ms-doadores, não indisponibilidade: o serviço está no ar.
+        """
+        try:
+            r = await self._http.get(f"/api/v1/doadores/{doador_id}", headers={"X-User-Id": doador_id})
+        except httpx.TimeoutException as exc:
+            raise ServicoIndisponivel("ms-doadores", "timeout") from exc
+        except httpx.TransportError as exc:
+            raise ServicoIndisponivel("ms-doadores", "indisponível") from exc
+        if r.status_code == 404:
+            return None
+        if r.status_code >= 400:
+            raise ServicoIndisponivel("ms-doadores", f"HTTP {r.status_code}")
         try:
             return r.json()
         except ValueError as exc:
