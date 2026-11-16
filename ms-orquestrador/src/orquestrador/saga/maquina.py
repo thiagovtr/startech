@@ -50,7 +50,7 @@ def inicial() -> EstadoSaga:
     return EstadoSaga(StatusSaga.STARTED, Passo.STEP1)
 
 
-def proxima_acao(estado: EstadoSaga) -> Acao | None:
+def proxima_acao(estado: EstadoSaga) -> ExecutarPasso | CompensarPasso | None:
     """Chamada externa pendente no estado atual (None: aguardando resposta ou SAGA finalizada)."""
     if estado.status in STATUS_TERMINAIS or estado.status == StatusSaga.AWAITING_COMUNICACAO:
         return None

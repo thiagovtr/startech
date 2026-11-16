@@ -11,6 +11,7 @@ from orquestrador.api.errors import problem
 from orquestrador.models import saga as dto
 from orquestrador.observabilidade import request_id_var
 from orquestrador.repositories import sagas as repo
+from orquestrador.services.workers import disparar
 
 router = APIRouter(prefix="/api/v1/sagas", tags=["sagas"])
 
@@ -52,6 +53,8 @@ async def iniciar_agendamento(
             request, 422, "urn:startech:error:idempotency-key-reutilizada", "Idempotency-Key reutilizada",
             "Esta Idempotency-Key já foi usada em uma solicitação com outro doador ou slot.",
         )
+    if criacao.criada:  # o passo 1 começa já; o worker de recuperação garante a retomada se algo falhar
+        disparar(request.app, state.executor.avancar(saga.saga_id))
     resposta = dto.criada(saga)
     return JSONResponse(
         resposta.model_dump(mode="json", by_alias=True), status_code=status.HTTP_202_ACCEPTED,

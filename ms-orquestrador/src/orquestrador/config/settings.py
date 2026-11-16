@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     # False: a API não roda nenhum worker (publicador do Outbox, consumidor de respostas, recuperação).
     api_executa_workers: bool = True
 
+    # Reivindicação: por quanto tempo (s) quem executa um passo fica com a SAGA. Se o processo cair, outra
+    # réplica a retoma depois disso. Deve passar com folga o tempo de uma chamada HTTP (http_timeout).
+    prazo_reivindicacao: float = 15.0
+    # Worker de recuperação (retentativas, prazo do passo 3, SAGAs interrompidas)
+    recuperacao_habilitada: bool = True
+    recuperacao_intervalo: float = 1.0  # segundos entre ciclos quando não há SAGA vencida
+    recuperacao_lote: int = 20
+
     # Tempo máximo, em segundos, para checar a conectividade do banco
     db_check_timeout: float = 2.0
 

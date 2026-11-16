@@ -57,7 +57,7 @@ def estado_de(saga: SagaExecucao) -> EstadoSaga:
     return EstadoSaga(StatusSaga(saga.status), Passo(saga.current_step), saga.retry_count)
 
 
-def _jitter_padrao(espera_ms: int) -> int:
+def jitter_padrao(espera_ms: int) -> int:
     return int(espera_ms * 0.2 * random.random())  # até +20% para não sincronizar retentativas
 
 
@@ -178,7 +178,7 @@ async def aplicar_transicao(
     *,
     agora: datetime,
     mensagem_processada: str | None = None,
-    jitter: Callable[[int], int] = _jitter_padrao,
+    jitter: Callable[[int], int] = jitter_padrao,
 ) -> SagaExecucao:
     """Grava a transição numa única transação e devolve a SAGA atualizada.
 

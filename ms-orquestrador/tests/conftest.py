@@ -10,6 +10,8 @@ from sqlalchemy.pool import NullPool
 # endereços inalcançáveis (os que precisam de serviços reais sobrescrevem estas variáveis).
 os.environ.setdefault("ORQUESTRADOR_POSTGRES_URL", "postgresql+asyncpg://teste:teste@127.0.0.1:1/teste")
 os.environ.setdefault("ORQUESTRADOR_RABBITMQ_URL", "amqp://teste:teste@127.0.0.1:1/")
+# Os testes do app não iniciam os workers (eles são testados diretamente).
+os.environ.setdefault("ORQUESTRADOR_API_EXECUTA_WORKERS", "false")
 
 # Banco próprio dos testes, no mesmo servidor PostgreSQL usado pelos testes do ms-hemocentros (CI e
 # scripts/test-docker.sh). Um banco separado evita colisão de tabelas e da `alembic_version` entre os serviços.

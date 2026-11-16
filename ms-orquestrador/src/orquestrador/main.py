@@ -11,6 +11,9 @@ from orquestrador.clients.doadores import DoadoresClient
 from orquestrador.config import get_settings
 from orquestrador.db.postgres import create_engine, create_session_factory, criar_esquema
 from orquestrador.observabilidade import RequestIdMiddleware, configurar_logs
+from orquestrador.saga.estados import Politica
+from orquestrador.saga.executor import Executor
+from orquestrador.services.workers import iniciar_workers, parar_workers
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,13 @@ async def _migrar_com_tentativas(app: FastAPI, tentativas: int = 5, espera: floa
             await asyncio.sleep(espera)
 
 
+def politica_de(settings) -> Politica:
+    return Politica(
+        max_retries=settings.max_retries, backoff_base_ms=settings.backoff_base_ms,
+        aguardar_resposta_passo3=settings.passo3_aguardar_resposta, timeout_passo3=settings.timeout_passo3,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -38,10 +48,17 @@ async def lifespan(app: FastAPI):
     http_doadores = httpx.AsyncClient(base_url=settings.doadores_url, timeout=timeout)
     app.state.agendamentos_client = AgendamentosClient(http_agendamentos)
     app.state.doadores_client = DoadoresClient(http_doadores)
+    app.state.executor = Executor(
+        app.state.session_factory, app.state.agendamentos_client, app.state.doadores_client,
+        politica_de(settings), settings.prazo_reivindicacao,
+    )
+    app.state.tarefas_saga = set()  # SAGAs disparadas pelo POST e ainda em execução
+    app.state.workers = iniciar_workers(app) if settings.api_executa_workers else []
     try:
         yield
     finally:
         app.state.esquema_task.cancel()
+        await parar_workers(app.state.workers + list(app.state.tarefas_saga))
         await http_agendamentos.aclose()
         await http_doadores.aclose()
         await app.state.pg_engine.dispose()

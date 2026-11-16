@@ -19,12 +19,21 @@ URL = "/api/v1/sagas/agendamento"
 CORPO = {"doadorId": "doador-1", "slotId": "slot-1"}
 
 
+class _ExecutorParado:
+    def __init__(self):
+        self.disparadas = []
+
+    async def avancar(self, saga_id, reivindicada=False):
+        self.disparadas.append(saga_id)
+
+
 @pytest.fixture
 def client(pg_engine, monkeypatch):
     monkeypatch.setenv("ORQUESTRADOR_POSTGRES_URL", TEST_PG_URL)
     get_settings.cache_clear()
     try:
         with TestClient(app) as c:
+            app.state.executor = _ExecutorParado()  # aqui só a API; o executor é testado em test_executor.py
             yield c
     finally:
         get_settings.cache_clear()
@@ -62,11 +71,12 @@ def test_segunda_solicitacao_do_mesmo_doador_e_409_rn09(client):
     assert r.json()["type"] == "urn:startech:error:agendamento-ativo"
 
 
-def test_mesma_idempotency_key_devolve_a_mesma_saga(client):
+def test_mesma_idempotency_key_devolve_a_mesma_saga_e_dispara_uma_vez(client):
     a = client.post(URL, json=CORPO, headers={"Idempotency-Key": "app-123"})
     b = client.post(URL, json=CORPO, headers={"Idempotency-Key": "app-123"})
     assert a.status_code == b.status_code == 202
     assert a.json() == b.json()
+    assert app.state.executor.disparadas == [uuid.UUID(a.json()["sagaId"])]
 
 
 def test_idempotency_key_reutilizada_com_outro_slot_e_422(client):
