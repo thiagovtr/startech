@@ -1,0 +1,114 @@
+# StarTech - Docker Compose raiz.
+# Subida completa: docker compose up -d --build
+#
+# Este arquivo é compartilhado. Cada Dev insere sua parte nos locais marcados:
+#   [DEV 1] infraestrutura core e borda (RabbitMQ, Keycloak, API Gateway)
+#   [DEV 2] ms-doadores, ms-agendamentos e seus PostgreSQL
+#   [DEV 4] Ollama, ms-comunicacao e seu PostgreSQL
+# Os serviços do Dev 3 (ms-hemocentros, bff-mobile, bff-web e bancos) já estão abaixo.
+
+name: startech
+
+services:
+  # ---------------------------------------------------------------------------
+  # [DEV 1] Parte do Dev 1 deve ser inserida aqui:
+  #   rabbitmq (5672/15672), keycloak (8089), gateway (8080).
+  #   Os BFFs do Dev 3 devem passar a ser acessados apenas pelo gateway.
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # [DEV 2] Parte do Dev 2 deve ser inserida aqui:
+  #   ms-doadores (8081), ms-agendamentos, db-doadores, db-agendamentos.
+  #   Quando existir ms-doadores, o bff-mobile deve receber BFF_MOBILE_DOADORES_URL
+  #   e passar a depender dele.
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # [DEV 4] Parte do Dev 4 deve ser inserida aqui:
+  #   ollama, ms-comunicacao, db-comunicacao.
+  # ---------------------------------------------------------------------------
+
+  # ===========================================================================
+  # [DEV 3] Hemocentros, BFFs e bancos
+  # ===========================================================================
+  db-hemocentros:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hemocentros
+      POSTGRES_PASSWORD: ${HEMOCENTROS_DB_PASSWORD:-hemocentros}
+      POSTGRES_DB: hemocentros
+    volumes:
+      - db-hemocentros-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hemocentros -d hemocentros"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [startech-net-db]
+
+  ms-hemocentros:
+    build: ./ms-hemocentros
+    environment:
+      HEMOCENTROS_POSTGRES_URL: postgresql+asyncpg://hemocentros:${HEMOCENTROS_DB_PASSWORD:-hemocentros}@db-hemocentros:5432/hemocentros
+      HEMOCENTROS_MONGO_URL: mongodb://mongo:27017
+      HEMOCENTROS_MONGO_DB: hemocentros
+      # Publicador do Outbox. [DEV 1] o serviço `rabbitmq` deve existir; sem ele, o publicador
+      # apenas registra o erro e tenta de novo (o serviço continua no ar).
+      HEMOCENTROS_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      HEMOCENTROS_RABBITMQ_EXCHANGE: startech.events.exchange
+      HEMOCENTROS_RABBITMQ_EXCHANGE_TYPE: topic
+    ports:
+      - "${HEMOCENTROS_HOST_PORT:-8000}:8000"
+    depends_on:
+      db-hemocentros:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
+  bff-mobile:
+    build: ./bff-mobile
+    environment:
+      BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
+    ports:
+      - "${BFF_MOBILE_HOST_PORT:-8001}:8001"
+    depends_on:
+      ms-hemocentros:
+        condition: service_healthy
+    networks: [startech-net-api]
+
+  bff-web:
+    build: ./bff-web
+    environment:
+      BFF_WEB_HEMOCENTROS_URL: http://ms-hemocentros:8000
+    ports:
+      - "${BFF_WEB_HOST_PORT:-8002}:8002"
+    depends_on:
+      ms-hemocentros:
+        condition: service_healthy
+    networks: [startech-net-api]
+
+# Redes compartilhadas (nomes definidos no plano: startech-net-db e startech-net-api).
+# [DEV 1] pode ajustar/estender as redes aqui.
+networks:
+  startech-net-db:
+    name: startech-net-db
+  startech-net-api:
+    name: startech-net-api
+
+# Volumes persistentes. [DEV 1/2/4] adicionam os volumes dos seus serviços aqui.
+volumes:
+  db-hemocentros-data:
+  mongo-data:
