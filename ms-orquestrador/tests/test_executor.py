@@ -383,12 +383,14 @@ def test_workers_iniciam_conforme_configuracao():
     from orquestrador.services.workers import iniciar_workers, parar_workers
 
     async def go():
-        ligado = SimpleNamespace(state=SimpleNamespace(settings=SimpleNamespace(recuperacao_habilitada=True)))
-        desligado = SimpleNamespace(state=SimpleNamespace(settings=SimpleNamespace(recuperacao_habilitada=False)))
-        tarefas = iniciar_workers(ligado)
+        def app(ativo):
+            flags = {k: ativo for k in ("recuperacao_habilitada", "outbox_worker_habilitado", "outbox_limpeza_habilitada")}
+            return SimpleNamespace(state=SimpleNamespace(settings=SimpleNamespace(**flags)))
+
+        tarefas = iniciar_workers(app(True))
         nomes = [t.get_name() for t in tarefas]
         await parar_workers(tarefas)
-        return nomes, iniciar_workers(desligado)
+        return nomes, iniciar_workers(app(False))
 
     nomes, nenhuma = _run(go())
-    assert nomes == ["saga-recuperacao"] and nenhuma == []
+    assert nomes == ["saga-recuperacao", "outbox-publicador", "outbox-limpeza"] and nenhuma == []

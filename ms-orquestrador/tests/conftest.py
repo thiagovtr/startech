@@ -60,3 +60,22 @@ def pg_engine():
         pytest.skip(f"PostgreSQL de teste indisponível em {TEST_PG_URL}")
     yield engine
     asyncio.run(engine.dispose())
+
+
+TEST_AMQP_URL = os.getenv("ORQUESTRADOR_TEST_RABBITMQ_URL", "amqp://guest:guest@127.0.0.1:15672/")
+
+
+@pytest.fixture
+def amqp_url():
+    """URL de um RabbitMQ real; ignora o teste se indisponível."""
+    import aio_pika
+
+    async def _ping():
+        conn = await aio_pika.connect(TEST_AMQP_URL, timeout=2)
+        await conn.close()
+
+    try:
+        asyncio.run(_ping())
+    except Exception:
+        pytest.skip(f"RabbitMQ de teste indisponível em {TEST_AMQP_URL}")
+    return TEST_AMQP_URL

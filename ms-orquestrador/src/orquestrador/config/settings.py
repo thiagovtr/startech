@@ -22,6 +22,31 @@ class Settings(BaseSettings):
     rabbitmq_exchange_type: str = "topic"
     # True: declara a exchange (idempotente, exige mesmo tipo). False: apenas verifica que ela já existe.
     rabbitmq_declarar_exchange: bool = True
+    # True: declara filas e bindings da SAGA (contratos §2.1, "Topologia"). Idempotente; exige os mesmos argumentos.
+    rabbitmq_declarar_filas: bool = True
+    # Respostas do ms-comunicacao (consumidas pelo orquestrador), com dead-letter para mensagens inválidas
+    fila_respostas: str = "orquestrador.saga.respostas"
+    binding_respostas: str = "comunicacao.lembrete.*"
+    rabbitmq_dlx_exchange: str = "startech.events.dlx"
+    fila_respostas_dlq: str = "orquestrador.saga.respostas.dlq"
+    routing_key_respostas_dlq: str = "orquestrador.saga.respostas.dead"
+    # Comandos para o ms-comunicacao: declarada também aqui para nenhum comando se perder enquanto ele não existe.
+    # O ms-comunicacao deve declará-la com os MESMOS argumentos (durável, sem argumentos extras).
+    fila_comandos_comunicacao: str = "comunicacao.saga.comandos"
+    binding_comandos_comunicacao: str = "saga.comando.comunicacao.*"
+    # Compensações que esgotaram as tentativas (ADR-002 §5.3)
+    fila_compensacoes_dlq: str = "saga.compensations.dlq"
+    binding_compensacoes_dlq: str = "saga.compensacao.falhou"
+
+    # Publicador do Outbox (polling)
+    outbox_worker_habilitado: bool = True
+    outbox_intervalo: float = 0.2  # segundos entre consultas quando não há mensagens (piso da latência)
+    outbox_lote: int = 50
+    # Retenção: mensagens já publicadas são removidas após `outbox_retencao_dias` (as pendentes nunca são)
+    outbox_limpeza_habilitada: bool = True
+    outbox_retencao_dias: float = 7.0
+    outbox_limpeza_intervalo: float = 3600.0
+    outbox_limpeza_lote: int = 1000
 
     # Participantes síncronos da SAGA (passos 1, 2 e 4)
     agendamentos_url: str = "http://ms-agendamentos:8082"
