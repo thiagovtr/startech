@@ -14,7 +14,7 @@ BFF_MOBILE_HEMOCENTROS_URL=http://127.0.0.1:8000 .venv/bin/uvicorn bff_mobile.ma
 
 ## Agendamento (SAGA)
 
-- `POST /bff-mobile/agendamentos` `{slotId}`: inicia a SAGA no `ms-orquestrador` com o doador autenticado (`X-User-Id`) e repassa a `Idempotency-Key`. Responde `202` com `Location` para acompanhar; repassa `409` (agendamento em andamento) e `422`; orquestrador fora → `503`.
+- `POST /bff-mobile/agendamentos` `{slotId}`: inicia a SAGA no `ms-orquestrador` com o doador autenticado (`X-User-Id`) e repassa a `Idempotency-Key`. Responde `202` com `Location` para acompanhar; repassa `409` (agendamento em andamento) e `422`; orquestrador fora → `503`. Requisição inválida (sem `slotId`, campos longos) → `400 problem+json` com `invalidParams`, sem chamar o orquestrador.
 - `GET /bff-mobile/sagas/{sagaId}`: situação para o app (`EM_ANDAMENTO`, `CONFIRMADO`, `RECUSADO`, `CANCELADO`, `ERRO`), data do slot e motivo da recusa. SAGA de outro doador → `404`.
 
 ## Configuração (`BFF_MOBILE_*`)

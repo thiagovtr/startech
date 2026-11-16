@@ -105,11 +105,29 @@ def test_sem_usuario_e_401():
     assert r.status_code == 401 and o.requisicoes == []
 
 
-def test_sem_slot_nao_chama_o_orquestrador():
+@pytest.mark.parametrize("corpo,headers,campo", [
+    ({}, {}, "slotId"),
+    ({"slotId": ""}, {}, "slotId"),
+    ({"slotId": "x" * 65}, {}, "slotId"),
+    ({"slotId": "slot-1"}, {"Idempotency-Key": "k" * 129}, "Idempotency-Key"),
+])
+def test_requisicao_invalida_e_400_problem_json_sem_chamar_o_orquestrador(corpo, headers, campo):
     o = Orquestrador(_resp(202, CRIADA))
     with o.client() as c:
-        r = c.post("/bff-mobile/agendamentos", json={}, headers=USUARIO)
-    assert r.status_code == 422 and o.requisicoes == []
+        r = c.post("/bff-mobile/agendamentos", json=corpo, headers={**USUARIO, **headers})
+    assert r.status_code == 400 and o.requisicoes == []
+    assert r.headers["content-type"] == "application/problem+json"
+    erro = r.json()
+    assert erro["type"] == "urn:startech:error:payload-invalido" and erro["instance"] == "/bff-mobile/agendamentos"
+    assert [p["name"] for p in erro["invalidParams"]] == [campo]
+
+
+def test_corpo_que_nao_e_json_e_400():
+    o = Orquestrador(_resp(202, CRIADA))
+    with o.client() as c:
+        r = c.post("/bff-mobile/agendamentos", content=b"nao-e-json",
+                   headers={**USUARIO, "Content-Type": "application/json"})
+    assert r.status_code == 400 and r.json()["type"] == "urn:startech:error:payload-invalido"
 
 
 # ------------------------------------------------------------------ GET /bff-mobile/sagas/{id}

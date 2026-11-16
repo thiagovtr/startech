@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI
 
 from bff_mobile import autorizacao
-from bff_mobile.api import agendamentos, health, home
+from bff_mobile.api import agendamentos, errors, health, home
 from bff_mobile.clients.servicos import DoadoresClient, HemocentrosClient, OrquestradorClient
 from bff_mobile.config import get_settings
 from bff_mobile.observabilidade import RequestIdMiddleware, configurar_logs, propagar_request_id
@@ -35,6 +35,7 @@ def create_app() -> FastAPI:
     configurar_logs()
     app = FastAPI(title=get_settings().app_name, version="0.1.0", lifespan=lifespan)
     autorizacao.registrar(app)
+    errors.register(app)
     app.include_router(health.router)
     app.include_router(home.router)
     app.include_router(agendamentos.router)
