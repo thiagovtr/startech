@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
-from orquestrador.api import errors, health
+from orquestrador.api import errors, health, sagas
 from orquestrador.clients.agendamentos import AgendamentosClient
 from orquestrador.clients.doadores import DoadoresClient
 from orquestrador.config import get_settings
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=get_settings().app_name, version="0.1.0", lifespan=lifespan)
     errors.register(app)
     app.include_router(health.router)
+    app.include_router(sagas.router)
     app.add_middleware(RequestIdMiddleware)
     return app
 
