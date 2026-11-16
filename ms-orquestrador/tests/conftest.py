@@ -35,16 +35,22 @@ async def _garantir_banco(url: str) -> None:
         await admin.dispose()
 
 
+TABELAS = ("saga_execution_state", "saga_step_log", "outbox_events", "processed_messages")
+
+
 @pytest.fixture
 def pg_engine():
-    """Engine para um PostgreSQL real; os testes são ignorados se ele não estiver disponível."""
+    """Engine para um PostgreSQL real, migrado e com as tabelas vazias; ignora o teste se indisponível."""
     # sem pool: cada asyncio.run usa um loop novo
     engine = create_async_engine(TEST_PG_URL, connect_args={"timeout": 2}, poolclass=NullPool)
 
     async def _prepare():
+        from orquestrador.db.postgres import criar_esquema
+
         await _garantir_banco(TEST_PG_URL)
+        await criar_esquema(engine)
         async with engine.begin() as conn:
-            await conn.execute(text("SELECT 1"))
+            await conn.execute(text(f"TRUNCATE {', '.join(TABELAS)} CASCADE"))
 
     try:
         asyncio.run(_prepare())

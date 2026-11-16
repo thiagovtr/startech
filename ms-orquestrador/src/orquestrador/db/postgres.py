@@ -14,3 +14,10 @@ def create_engine(settings: Settings) -> AsyncEngine:
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def criar_esquema(engine: AsyncEngine) -> None:
+    """Aplica as migrações do Alembic até a última revisão (idempotente)."""
+    from orquestrador.db.migracoes import aplicar_migracoes
+
+    await aplicar_migracoes(engine)
