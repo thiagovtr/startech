@@ -61,7 +61,7 @@ Abaixo estão detalhados os endpoints críticos que suportam os fluxos de mobili
 | **1\. doadores** | `DELETE` | `/api/v1/doadores/{id}/reservas-elegibilidade/{agendamentoId}` | `204 No Content` | **Compensação do Passo 2:** remove a trava temporal do doador. Idempotente (trava já removida também retorna `204`). |
 | **2\. hemocentros** | `POST` | `/api/v1/campanhas` | `201 Created` | Grava nova campanha e evento Outbox no **PostgreSQL** (Command Store). Retorna `400 Bad Request` se payload inválido. |
 | **2\. hemocentros** | `GET` | `/api/v1/campanhas?tipo_sanguineo=O-` | `200 OK` | **Leitura Direta (Query CQRS)** na view desnormalizada do **MongoDB** filtrada por tipo sanguíneo. |
-| **3\. agendamentos** | `POST` | `/api/v1/slots/{slotId}/reservas` | `201 Created` | **Passo 1 da SAGA:** cria o agendamento `CRIADO_PROVISORIO` (com o `agendamentoId` gerado pelo orquestrador) e ocupa uma vaga do slot com lock otimista. Retorna `409 Conflict` se slot esgotado ou doador já possuir agendamento ativo (RN09). Exige `Idempotency-Key: saga-{sagaId}-step1`. |
+| **3\. agendamentos** | `POST` | `/api/v1/slots/{slotId}/reservas` | `201 Created` | **Passo 1 da SAGA:** cria o agendamento `CRIADO_PROVISORIO` (com o `agendamentoId` gerado pelo orquestrador) e ocupa uma vaga do slot com lock otimista. Retorna `409 Conflict` se slot esgotado ou doador já possuir agendamento ativo (RN09). Exige `Idempotency-Key: saga-{sagaId}-step1`. Corpo da resposta: `{agendamentoId, slotId, dataHoraInicio, dataHoraFim, status}` (o orquestrador usa `dataHoraInicio` como `dataSlot` no Passo 2 e no lembrete do Passo 3). |
 | **3\. agendamentos** | `DELETE` | `/api/v1/slots/{slotId}/reservas/{agendamentoId}` | `204 No Content` | **Compensação do Passo 1:** libera a vaga e marca o agendamento como `CANCELADO_COMPENSACAO_SAGA`. Idempotente. |
 | **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/confirmacao` | `200 OK` | **Passo 4 (final) da SAGA:** muda o agendamento de `CRIADO_PROVISORIO` para `CONFIRMADO`. Idempotente (`Idempotency-Key: saga-{sagaId}-step4`). |
 | **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/cancelamento` | `200 OK` | Cancela agendamento confirmado, libera vaga no slot e publica evento de cancelamento no RabbitMQ. |
@@ -71,16 +71,41 @@ Abaixo estão detalhados os endpoints críticos que suportam os fluxos de mobili
 
 ## **2.1 Mensagens Assíncronas da SAGA (RabbitMQ, exchange `startech.events.exchange`)**
 
-O Passo 3 (comunicacao) e sua compensação são comandos assíncronos publicados pelo `ms-orquestrador` via Transactional Outbox (ADR-003 e ADR-006). Cada mensagem carrega `message_id = saga-{sagaId}-step3` (deduplicação no consumidor), `sagaId`, `agendamentoId` e `correlation_id`.
+O Passo 3 (comunicacao) e sua compensação são comandos assíncronos publicados pelo `ms-orquestrador` via Transactional Outbox (ADR-003 e ADR-006). Todas as mensagens são JSON (`content_type: application/json`), persistentes, e trazem nas propriedades AMQP o `message_id` (chave de deduplicação no consumidor) e o `correlation_id` (`X-Request-Id` de origem).
 
-| Routing key | Produtor → Consumidor | Fila | Significado |
-| :---- | :---- | :---- | :---- |
-| `saga.comando.comunicacao.programar-lembrete` | orquestrador → comunicacao | `comunicacao.saga.comandos` | Passo 3: grava o lembrete D-1 e dispara a confirmação ao doador. |
-| `saga.comando.comunicacao.cancelar-lembrete` | orquestrador → comunicacao | `comunicacao.saga.comandos` | Compensação do Passo 3: cancela o lembrete (idempotente, inclusive se ele não existir). |
-| `comunicacao.lembrete.programado` / `comunicacao.lembrete.falhou` | comunicacao → orquestrador | `orquestrador.saga.respostas` | Resposta do Passo 3; `falhou` (ou ausência de resposta no prazo) dispara as compensações. |
-| `saga.agendamento.confirmado` / `saga.agendamento.compensado` | orquestrador → interessados | — | Eventos de desfecho da SAGA. |
+| Routing key | Produtor → Consumidor | Fila | `message_id` | Significado |
+| :---- | :---- | :---- | :---- | :---- |
+| `saga.comando.comunicacao.programar-lembrete` | orquestrador → comunicacao | `comunicacao.saga.comandos` | `saga-{sagaId}-step3` | Passo 3: grava o lembrete D-1 e dispara a confirmação ao doador. |
+| `saga.comando.comunicacao.cancelar-lembrete` | orquestrador → comunicacao | `comunicacao.saga.comandos` | `saga-{sagaId}-step3-comp` | Compensação do Passo 3: cancela o lembrete. Idempotente, inclusive se o lembrete não existir. Não tem resposta: o Outbox garante a entrega. |
+| `comunicacao.lembrete.programado` / `comunicacao.lembrete.falhou` | comunicacao → orquestrador | `orquestrador.saga.respostas` | `saga-{sagaId}-step3-resposta` | Resposta do Passo 3. `falhou`, ou nenhuma resposta em 30 s, dispara as compensações. |
+| `saga.agendamento.confirmado` / `saga.agendamento.compensado` | orquestrador → interessados | — | `saga-{sagaId}-desfecho` | Evento de desfecho da SAGA. |
+| `saga.compensacao.falhou` | orquestrador → operação | `saga.compensations.dlq` | `saga-{sagaId}-comp-falhou` | Compensação que falhou mais de 5 vezes (Exponential Backoff + Jitter); requer intervenção manual. |
 
-Compensações que falharem mais de 5 vezes (Exponential Backoff + Jitter) seguem para a fila `saga.compensations.dlq`.
+**Corpos das mensagens:**
+
+```json
+// saga.comando.comunicacao.programar-lembrete
+{"tipo": "ProgramarLembreteEConfirmar", "sagaId": "…", "agendamentoId": "…", "doadorId": "…",
+ "slotId": "…", "dataHoraInicio": "2026-11-25T14:00:00Z", "emitidoEm": "2026-11-17T10:00:00Z"}
+
+// saga.comando.comunicacao.cancelar-lembrete
+{"tipo": "CancelarLembreteAgendado", "sagaId": "…", "agendamentoId": "…", "doadorId": "…",
+ "emitidoEm": "…"}
+
+// comunicacao.lembrete.programado | comunicacao.lembrete.falhou
+{"sagaId": "…", "agendamentoId": "…", "resultado": "PROGRAMADO" | "FALHOU",
+ "motivo": "texto opcional quando FALHOU", "emitidoEm": "…"}
+
+// saga.agendamento.confirmado | saga.agendamento.compensado | saga.compensacao.falhou
+{"sagaId": "…", "agendamentoId": "…", "doadorId": "…", "status": "CONFIRMED" | "COMPENSATED" | "COMPENSATION_FAILED",
+ "detalhe": "…", "emitidoEm": "…"}
+```
+
+**Topologia (declaração idempotente por quem usa, sem arquivo central de definições):**
+
+> * Exchange `startech.events.exchange` (topic, durável): declarada por todo serviço que publica ou consome;  
+> * Cada consumidor declara a própria fila e o binding. O `ms-orquestrador` declara `orquestrador.saga.respostas` (binding `comunicacao.lembrete.*`, com dead-letter para `orquestrador.saga.respostas.dlq` via `startech.events.dlx`) e `saga.compensations.dlq` (binding `saga.compensacao.falhou`);  
+> * O `ms-orquestrador` **também** declara `comunicacao.saga.comandos` (durável, **sem argumentos extras**, binding `saga.comando.comunicacao.*`) para que nenhum comando se perca se o `ms-comunicacao` ainda não estiver no ar. O `ms-comunicacao` deve declarar essa fila com exatamente os mesmos argumentos (o RabbitMQ recusa redeclaração divergente com `PRECONDITION_FAILED`).
 
 # 
 
