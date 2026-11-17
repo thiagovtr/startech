@@ -2,7 +2,7 @@
 
 ---
 
-Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 006**) do projeto **StarTech**, documentando formalmente as escolhas de engenharia, o alinhamento ao protótipo oficial da equipe, a análise de trade-offs (*"Por que fizemos desta forma e não de outra?"*) e a conformidade integral com os requisitos da disciplina **GCC129 — Sistemas Distribuídos (UFLA 2026/2 — Parte 2: Arquitetura)**.
+Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 007**) do projeto **StarTech**, documentando formalmente as escolhas de engenharia, o alinhamento ao protótipo oficial da equipe, a análise de trade-offs (*"Por que fizemos desta forma e não de outra?"*) e a conformidade integral com os requisitos da disciplina **GCC129 — Sistemas Distribuídos (UFLA 2026/2 — Parte 2: Arquitetura)**.
 
 > * **Projeto:** StarTech — Plataforma Distribuída de Mobilização e Fidelização de Doadores de Sangue  
 > * **Disciplina:** GCC129 — Sistemas Distribuídos (UFLA 2026/2)  
@@ -19,6 +19,7 @@ Este documento consolida os Registros de Decisão Arquitetural (**ADRs 001 a 006
 | **ADR-004** | Aplicação do Padrão CQRS no Serviço hemocentros (PostgreSQL Command/Outbox \+ RabbitMQ \+ MongoDB Query View) | Aceito | 2026-10-21 | hemocentros (Python FastAPI \+ PostgreSQL \+ RabbitMQ \+ MongoDB) | Padrão CQRS (Item 4.7) |
 | **ADR-005** | Adoção de Keycloak para Auth, API Gateway e 2 BFFs em Python (FastAPI) para Clientes React | Aceito | 2026-10-21 | Keycloak, API Gateway, BFF Mobile (FastAPI), BFF Web (FastAPI) e Frontends em React | Gateway & BFF (Itens 4.3 e 4.4) |
 | **ADR-006** | Extração do Orquestrador da SAGA para um Microsserviço Dedicado (ms-orquestrador) com Transactional Outbox Próprio | Aceito | 2026-11-16 | ms-orquestrador (Python FastAPI), agendamentos, doadores, comunicacao, BFF Mobile e RabbitMQ | Padrão SAGA Distribuído (Item 4.6) e Outbox (Item 4.5) |
+| **ADR-007** | Assistente do Doador com RAG (LangChain + Ollama Local) e Resiliência por Timeout, Circuit Breaker e Fallback | Aceito | 2026-11-17 | ms-rag (Python FastAPI), Ollama, BFF Mobile e hemocentros | IA com RAG (Parte 4) |
 
 # ---
 
@@ -595,3 +596,77 @@ Dupla proteção: índice único parcial em saga\_execution\_state(doador\_id) p
 > 1. **RICHARDSON, Chris.** *Microservices Patterns: With examples in Java*. Manning Publications, 2018\. (Capítulo 4: Managing transactions with sagas).  
 > 2. **GARCIA-MOLINA, Hector; SALEM, Kenneth.** *Sagas*. In: ACM SIGMOD Record, v. 16, n. 3, p. 249-259, 1987\.  
 > 3. **MICROSOFT.** *Saga distributed transactions pattern*. Azure Architecture Center. Disponível em: https://learn.microsoft.com/azure/architecture/patterns/saga.
+
+# ---
+
+**ADR-007: Assistente do Doador com RAG (LangChain + Ollama Local) e Resiliência por Timeout, Circuit Breaker e Fallback**
+
+> * ---
+
+>   **Status:** Aceito  
+> * **Data:** 2026-11-17  
+> * **Autores:** Diovani da Cruz, Ezequiel Dominguez, Matheus Freire Costa Pimenta, Thiago Vinícius  
+> * **Contexto da Disciplina:** GCC129 — Sistemas Distribuídos (Parte 4 — Sistema em Funcionamento, IA com RAG)  
+> * **Microsserviço(s) Afetado(s):** ms-rag (novo), Ollama (novo), BFF Mobile e hemocentros
+
+## **1\. Contexto e Problema**
+
+Doadores têm dúvidas recorrentes sobre os critérios de doação (intervalos, tatuagem, gripe, peso, idade) e sobre onde doar. Um LLM genérico responde com segurança, mas inventa valores: na avaliação (docs/ia/avaliacao-rag.md), sem contexto, o modelo afirmou que o peso mínimo era "50 a 100 gramas" e que o intervalo entre doações era de "30 dias para ambos os sexos". Em saúde, uma resposta errada pode afastar um doador apto ou levar um inapto ao hemocentro. Além disso, a inferência local em CPU é lenta e pode falhar, e o assistente não pode derrubar nem travar o app.
+
+## **2\. Forças e Critérios de Decisão (Drivers Arquiteturais)**
+
+> * **Fidelidade à fonte oficial:** respostas baseadas na Portaria de Consolidação MS nº 5/2017 (Anexo IV), com a seção citada;  
+> * **Escopo do projeto:** a plataforma não avalia aptidão clínica; o assistente informa a regra, e a decisão é da triagem;  
+> * **Custo e privacidade:** sem envio de perguntas de saúde a terceiros e sem custo por token na demonstração;  
+> * **Latência e resiliência:** resposta em até 4 s ou fallback amigável, nunca erro 5xx;  
+> * **Reprodutibilidade:** subir com docker compose up -d --build e com os manifestos do Kubernetes.
+
+## **3\. Alternativas Consideradas**
+
+### **Opção 1: Microsserviço ms-rag com LangChain, Ollama local (qwen2.5:1.5b + nomic-embed-text) e índice vetorial em memória (Opção Escolhida)**
+
+> * **Descrição Técnica:** a base curada da Portaria é dividida em trechos por seção e indexada na subida (InMemoryVectorStore do LangChain). A cadeia RAG recupera os 2 trechos mais próximos e chama o LLM com temperature 0 e um prompt restrito ao contexto. Perguntas do tipo "onde doar" são roteadas por intenção para uma Tool do LangChain que consulta as campanhas vigentes no hemocentros (leitura CQRS). Perguntas sem termos de doação são recusadas sem chamar o LLM. Timeouts de 1,5 s na busca e 4 s na geração, três circuit breakers (busca, LLM, campanhas) e fallback com o trecho recuperado;  
+> * **Vantagens (Prós):** sem custo variável nem dados enviados a terceiros; respostas citam a fonte (25/25 acertos com RAG contra 0/25 sem RAG); serviço isolado e substituível; degrada sem afetar o restante do app;  
+> * **Desvantagens (Contras / Trade-offs aceitos):** modelo pequeno, com raciocínio limitado (erra ao decidir "pode/não pode" a partir de datas, por isso o prompt pede apenas a regra); ~2 GB de RAM para o Ollama; desempenho sensível ao hardware (num\_thread precisa acompanhar os núcleos de desempenho da CPU).
+
+### **Opção 2: API de LLM Comercial**
+
+> * **Motivo do Descarte:** custo por token, dependência de rede externa, envio de dúvidas de saúde a terceiros e necessidade de chave na demonstração. Fica como evolução: o ms-rag isola o provedor (troca do ChatOllama por outro BaseChatModel do LangChain).
+
+### **Opção 3: Banco Vetorial Dedicado (Chroma/FAISS persistido, pgvector)**
+
+> * **Motivo do Descarte:** a base tem 12 trechos; indexá-la na subida leva ~1 s. Um banco vetorial acrescentaria volume, serviço e sincronização sem benefício nesta escala. A interface VectorStore do LangChain permite migrar quando a base crescer.
+
+### **Opção 4: Agente com Tool Calling Livre pelo LLM**
+
+> * **Motivo do Descarte:** o modelo de 1,5B escolhe ferramentas de forma instável, e cada rodada extra consome o orçamento de 4 s. O roteamento por intenção é determinístico e testável; a ferramenta continua sendo uma Tool do LangChain, reutilizável por um agente com um modelo maior.
+
+### **Opção 5: Modelo Maior (qwen2.5:3b)**
+
+> * **Motivo do Descarte:** acertou mais perguntas situacionais, mas levou de 2,3 a 5,6 s a frio em CPU, estourando o timeout de 4 s com frequência.
+
+## **4\. Decisão Tomada**
+
+*Decidimos adotar a Opção 1: microsserviço ms-rag (Python 3.12 / FastAPI + LangChain) com Ollama local, base curada da Portaria MS nº 5/2017 indexada em memória, roteamento por intenção para a ferramenta de campanhas, recusa determinística fora do domínio e resiliência por timeout (4 s), circuit breaker e fallback. O acesso do app é feito pelo BFF Mobile (POST /bff-mobile/assistente), que injeta o tipo sanguíneo do doador.*
+
+## **5\. Especificação Técnica**
+
+> 1. **Fluxo:** App → Gateway (JWT) → BFF Mobile → POST /api/v1/rag/perguntas (ms-rag) → [ferramenta: GET hemocentros /api/v1/campanhas?status=ATIVA&vigentes=true] ou [busca vetorial → LLM];  
+> 2. **Circuit breaker:** 3 falhas ou timeouts seguidos abrem o circuito por 30 s (falha imediata, ~1 ms); depois, uma chamada de teste (meio-aberto) fecha ou reabre o circuito. Busca e LLM têm circuitos separados, para que o sucesso de um não zere as falhas do outro;  
+> 3. **Fallback:** mensagem amigável e, quando a busca funcionou, o trecho da Portaria recuperado (sem geração). O BFF devolve o fallback com 200 se o ms-rag estiver fora;  
+> 4. **Aquecimento:** o modelo é carregado na subida e mantido por keep\_alive de 30 min (a frio, a primeira geração leva ~10 s);  
+> 5. **Orçamento de tempo:** 1,5 s (busca) + 4 s (LLM) < 5,8 s (timeout do BFF) < 6 s (response-timeout do Gateway).
+
+## **6\. Consequências e Impactos**
+
+> * **Novos componentes:** ms-rag (porta 8005) e Ollama (StatefulSet com volume no Kubernetes; serviços ollama e ollama-pull no Compose);  
+> * **BFF Mobile:** novo endpoint POST /bff-mobile/assistente;  
+> * **hemocentros:** passa a ser consultado também pela ferramenta do ms-rag (somente leitura);  
+> * **Avaliação:** scripts/avaliar-rag.py gera docs/ia/avaliacao-rag.md (5 perguntas com e sem RAG, latência, tokens, custo e resiliência).
+
+## **7\. Referências**
+
+> 1. **BRASIL. Ministério da Saúde.** *Portaria de Consolidação nº 5, de 28 de setembro de 2017*, Anexo IV (regulamento técnico de procedimentos hemoterápicos).  
+> 2. **LEWIS, Patrick et al.** *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. NeurIPS, 2020\.  
+> 3. **NYGARD, Michael T.** *Release It\!: Design and Deploy Production-Ready Software*. 2. ed. Pragmatic Bookshelf, 2018\. (Circuit Breaker, Timeouts, Fail Fast).
+

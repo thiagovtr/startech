@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     lembretes_intervalo: float = 1.0  # segundos entre consultas quando não há lembrete vencido
     lembretes_lote: int = 50
 
+    # Comando `programar` emitido há mais que isto (s) é recusado: o orquestrador já compensou por timeout
+    # (mesmo prazo do ORQUESTRADOR_TIMEOUT_PASSO3). 0 desliga.
+    validade_comando: float = 30.0
+
     # Só para demonstração/E2E: doadores (separados por vírgula) cujo passo 3 responde FALHOU,
     # para mostrar a compensação disparada pelo ms-comunicacao. Vazio em produção.
     simular_falha_doadores: str = ""

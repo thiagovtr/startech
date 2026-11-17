@@ -1,0 +1,76 @@
+# ms-rag (assistente do doador: RAG da Portaria MS nº 5/2017 + LangChain + Ollama, com timeout de 4 s,
+# circuit breaker e fallback). Sem estado: o índice vetorial é montado em memória na subida.
+# Imagem local: docker build -t startech/ms-rag:dev ./ms-rag  (minikube: minikube image load startech/ms-rag:dev)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-rag
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-rag, app.kubernetes.io/component: backend}
+data:
+  RAG_OLLAMA_URL: "http://ollama:11434"
+  RAG_MODELO_CHAT: "qwen2.5:1.5b"
+  RAG_MODELO_EMBEDDINGS: "nomic-embed-text"
+  RAG_HEMOCENTROS_URL: "http://ms-hemocentros:8000"
+  RAG_TIMEOUT_LLM: "4"
+  RAG_NUM_THREAD: "8"  # nº de núcleos de desempenho do nó (ver ms-rag/README.md)
+  LOG_FORMAT: "json"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-rag
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-rag, app.kubernetes.io/component: backend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: ms-rag}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-rag, app.kubernetes.io/component: backend}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001  # usuário `app` criado no Dockerfile
+      containers:
+        - name: ms-rag
+          image: startech/ms-rag:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8005}
+          envFrom:
+            - configMapRef: {name: ms-rag}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 384Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-rag
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-rag, app.kubernetes.io/component: backend}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: ms-rag}
+  ports:
+    - {name: http, port: 8005, targetPort: http}

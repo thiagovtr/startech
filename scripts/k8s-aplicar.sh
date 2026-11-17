@@ -13,7 +13,7 @@ cd "$(dirname "$0")/.."
 
 CLUSTER="${CLUSTER:-minikube}"
 NS=startech
-SERVICOS=(gateway keycloak ms-doadores ms-agendamentos ms-hemocentros ms-orquestrador ms-comunicacao bff-mobile bff-web)
+SERVICOS=(gateway keycloak ms-doadores ms-agendamentos ms-hemocentros ms-orquestrador ms-comunicacao ms-rag bff-mobile bff-web)
 
 carregar() {
   case "$CLUSTER" in

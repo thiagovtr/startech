@@ -15,6 +15,7 @@ Serviço de **notificações e lembretes** (Python 3.12 / FastAPI, PostgreSQL pr
   - `doadorId` ou `dataHoraInicio` ausente ou inválido;
   - `dataHoraInicio` no passado;
   - lembrete já cancelado por uma compensação que chegou antes;
+  - comando emitido há mais de `VALIDADE_COMANDO` (30 s): o orquestrador já compensou por timeout, então o doador não é avisado;
   - doador listado em `COMUNICACAO_SIMULAR_FALHA_DOADORES` (só para demonstração).
   
   Nesses casos a SAGA compensa na hora, sem esperar o timeout de 30 s.

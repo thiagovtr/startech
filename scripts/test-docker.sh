@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Roda as suítes dos serviços Python (ms-hemocentros, ms-orquestrador, ms-comunicacao, bff-mobile, bff-web) dentro de python:3.12-slim,
+# Roda as suítes dos serviços Python (ms-hemocentros, ms-orquestrador, ms-comunicacao, ms-rag, bff-mobile, bff-web) dentro de python:3.12-slim,
 # a mesma versão dos Dockerfiles, contra PostgreSQL, MongoDB e RabbitMQ descartáveis.
 # Falha se algum teste for ignorado (skip), para que a falta de um serviço de apoio não passe "verde".
 #
@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 IMG="${PYTHON_IMAGE:-python:3.12-slim}"
 SUFIXO="$$"
 REDE="startech-test-$SUFIXO"
-SERVICOS=("$@"); [ ${#SERVICOS[@]} -gt 0 ] || SERVICOS=(ms-hemocentros ms-orquestrador ms-comunicacao bff-mobile bff-web)
+SERVICOS=("$@"); [ ${#SERVICOS[@]} -gt 0 ] || SERVICOS=(ms-hemocentros ms-orquestrador ms-comunicacao ms-rag bff-mobile bff-web)
 
 cleanup() {
   docker rm -f "t-pg-$SUFIXO" "t-mongo-$SUFIXO" "t-rmq-$SUFIXO" >/dev/null 2>&1 || true

@@ -6,8 +6,8 @@
 #   2. Compensação:     slot-proximo -> doador inapto (RN01, 422) -> vaga liberada -> CANCELADO
 #   3. Recusa:          slot-lotado  -> 409 no passo 1 -> RECUSADO, sem compensação
 #   4. Falha no passo 3: ms-comunicacao responde FALHOU (falha simulada) -> compensa 3, 2, 1 -> CANCELADO
-#   5. Timeout no passo 3: ms-comunicacao parado -> sem resposta em 30 s -> CANCELADO; ao religar, os
-#      comandos pendentes (programar e cancelar) são consumidos e o lembrete termina CANCELADO
+#   5. Timeout no passo 3: ms-comunicacao parado -> sem resposta em 30 s -> CANCELADO; ao religar, o
+#      programar pendente está expirado (sem confirmação ao doador) e o cancelar é idempotente
 #   + Idempotency-Key repetida devolve a mesma SAGA; o ms-comunicacao real programa o lembrete, envia a
 #     confirmação e o lembrete (antecedência longa no E2E, para disparar na hora) e registra o histórico.
 #
@@ -159,10 +159,13 @@ final=$(aguardar "$SAGA5" 60)
 [ "$(echo "$final" | json situacao)" = "CANCELADO" ] || falha "esperado CANCELADO: $final"
 passos "$SAGA5"
 AG5=$(echo "$final" | json agendamentoId)
-echo "   religando o ms-comunicacao: consome o programar e, em seguida, o cancelar pendentes"
+echo "   religando o ms-comunicacao: o programar pendente está expirado e o cancelar não tem o que desfazer"
 "${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null
-esperar_notificacao "$AG5" CANCELAMENTO
-echo "   ok: CANCELADO por timeout; histórico do agendamento: $(notificacoes "$AG5")"
+esperar_notificacao "$AG5" DESFECHO
+sleep 2  # dá tempo de os comandos pendentes serem consumidos
+hist=$(notificacoes "$AG5")
+echo "$hist" | grep -qw CONFIRMACAO && falha "doador recebeu confirmação de um agendamento já compensado: $hist"
+echo "   ok: CANCELADO por timeout; o doador só recebeu o desfecho ($hist)"
 
 # ----------------------------------------------------------------------------------------------- filas
 echo ">> filas drenadas (comandos consumidos pelo ms-comunicacao, respostas pelo orquestrador)"

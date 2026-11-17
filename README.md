@@ -10,7 +10,7 @@ A **StarTech** propõe uma plataforma voltada ao contexto da doação de sangue 
 - **Instituição:** Universidade Federal de Lavras (UFLA)
 - **Semestre:** 2026/2
 
-**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura](./docs/arquitetura/diagram.svg) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
+**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Kubernetes](./k8s/README.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
 
 ## Problema
 
@@ -46,13 +46,13 @@ Também não determinará se uma pessoa está apta a realizar uma doação, uma 
 
 Para a Parte 2, a StarTech definiu uma arquitetura distribuída com **quatro microsserviços de domínio independentes**, cada um responsável por um conjunto específico de funcionalidades e com persistência própria. Essa divisão busca separar as operações de cadastro, campanhas, agendamentos e comunicação, permitindo tratar suas diferentes necessidades de maneira independente.
 
-As tecnologias e os padrões descritos a seguir representam o **projeto arquitetural da solução**, que será implementado e integrado nas próximas etapas da disciplina.
+As tecnologias e os padrões descritos a seguir estão **implementados** neste repositório (Etapa 4), executáveis via Docker Compose e Kubernetes.
 
 ### Visão Geral da Arquitetura
 
-![Diagrama de componentes da arquitetura StarTech](./docs/arquitetura/diagram.svg)
+![Diagrama de componentes da arquitetura StarTech na Etapa 4](./docs/arquitetura/diagrama-etapa4.svg)
 
-[Visualizar o diagrama de arquitetura separadamente](./docs/arquitetura/diagram.svg)
+[Visualizar o diagrama da Etapa 4 separadamente](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama original da Parte 2](./docs/arquitetura/diagram.svg)
 
 ### Microsserviços de Domínio
 
@@ -61,9 +61,11 @@ As tecnologias e os padrões descritos a seguir representam o **projeto arquitet
 | **Doadores** (`doadores`) | Java 21, Spring Boot e PostgreSQL | Cadastro e perfil dos doadores, histórico e acompanhamento dos intervalos registrados entre doações. |
 | **Hemocentros** (`hemocentros`) | Python, FastAPI, PostgreSQL e MongoDB | Gestão dos serviços de hemoterapia, campanhas e necessidades de doação, com modelos separados de escrita e leitura. |
 | **Agendamentos** (`agendamentos`) | Java 21, Spring Boot e PostgreSQL | Gestão de horários e reservas de vagas; participante da SAGA de agendamento. |
-| **Comunicação** (`comunicacao`) | Python, FastAPI e PostgreSQL | Processamento de notificações, confirmações e lembretes enviados aos doadores. |
+| **Comunicação** (`comunicacao`) | Python, FastAPI e PostgreSQL | Participante do passo 3 da SAGA: programa o lembrete D-1, confirma o agendamento e responde ao orquestrador via Transactional Outbox; mantém o histórico de notificações. |
 
 Além dos serviços de domínio, o **Orquestrador** (`orquestrador`, Python, FastAPI e PostgreSQL) é um microsserviço dedicado à coordenação da SAGA de agendamento: mantém o estado de cada transação distribuída e publica seus comandos pelo Transactional Outbox, sem regras de domínio próprias (ver ADR-006).
+
+O **Assistente do doador** (`rag`, Python, FastAPI, LangChain e Ollama local) responde dúvidas sobre critérios de doação com base na Portaria de Consolidação MS nº 5/2017 (RAG) e informa as campanhas ativas, com timeout de 4 s, circuit breaker e fallback (ver ADR-007).
 
 Cada microsserviço mantém sua própria persistência. No serviço `hemocentros`, o PostgreSQL é utilizado no modelo de escrita, enquanto o MongoDB mantém uma visão de leitura para consultas.
 
@@ -87,12 +89,21 @@ Os principais padrões definidos para a arquitetura são:
 - **Database per Service:** cada microsserviço é responsável pelos próprios dados, sem compartilhamento direto de seu banco com os demais serviços.
 - **Transactional Outbox:** o projeto prevê o registro de alterações de domínio e eventos na mesma transação local. Um processo posterior publicará os eventos no RabbitMQ, reduzindo o risco de inconsistência associado ao *dual write*. O `orquestrador` aplica o mesmo padrão às transições de estado da SAGA e aos comandos enviados a `comunicacao`.
 - **HATEOAS:** previsto nos contratos REST de agendamento. Os links de navegação e ações disponíveis variam de acordo com o estado do agendamento, como confirmado ou cancelado.
+- **RAG com resiliência:** o `rag` recupera trechos da Portaria MS nº 5/2017 e gera respostas restritas a esse contexto. Perguntas sobre locais de doação vão para uma ferramenta que lê as campanhas vigentes (CQRS). Timeout de 4 s, circuit breaker e fallback garantem que o assistente nunca derrube o app.
 
 Os detalhes das decisões, alternativas consideradas e fluxos de comunicação estão disponíveis no [catálogo de decisões arquiteturais](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) e na [especificação de contratos de API](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md).
 
-### Evolução Prevista
+### Como Executar
 
-As próximas etapas incluem a implementação dos serviços, sua containerização e orquestração, além da demonstração dos fluxos distribuídos. A integração posterior de **IA com RAG e LangChain**, apoiada em uma base de conhecimento do domínio, também está prevista no planejamento da solução.
+```bash
+cp .env.example .env               # opcional: credenciais de desenvolvimento
+docker compose up -d --build       # stack completa; na 1ª vez baixa os modelos do Ollama (~1,3 GB)
+scripts/e2e-saga.sh                # E2E da SAGA pelo Gateway (caminho feliz, compensações e timeout)
+scripts/e2e-cqrs.sh                # E2E do CQRS (escrita no PostgreSQL, leitura no MongoDB)
+scripts/test-docker.sh             # testes dos serviços Python com bancos e broker reais
+```
+
+No Kubernetes (minikube ou kind): `scripts/k8s-aplicar.sh` e `scripts/k8s-fumaca.sh` (ver [k8s/README.md](./k8s/README.md)). Avaliação do RAG: `docker compose exec -T ms-rag python - < scripts/avaliar-rag.py`.
 
 ## Organização do Repositório
 
@@ -100,14 +111,19 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 
 ```text
 .
-├── docs/
-│   ├── arquitetura/
-│   │   ├── Catálogo de Decisões Arquiteturais (ADRs) - StarTech.md
-│   │   ├── Especificação de Contratos de API e HATEOAS - StarTech.md
-│   │   └── diagram.svg
-│   └── concepcao.md
-├── .gitignore
-├── LICENCE
+├── docs/                    # concepção, ADRs, contratos, diagramas e avaliação do RAG (docs/ia/)
+├── gateway/                 # API Gateway (Spring Cloud Gateway)
+├── keycloak/                # Keycloak com o realm startech
+├── bff-mobile/, bff-web/    # BFFs (Python / FastAPI)
+├── ms-doadores/             # Java 21 / Spring Boot
+├── ms-agendamentos/         # Java 21 / Spring Boot
+├── ms-hemocentros/          # Python / FastAPI, CQRS (PostgreSQL + MongoDB)
+├── ms-orquestrador/         # Python / FastAPI, SAGA + Transactional Outbox
+├── ms-comunicacao/          # Python / FastAPI, passo 3 da SAGA, lembretes
+├── ms-rag/                  # Python / FastAPI + LangChain + Ollama (RAG)
+├── k8s/                     # manifestos Kubernetes (base, databases, services, ingress)
+├── scripts/                 # testes, E2E, aplicação no Kubernetes e avaliação do RAG
+├── compose.yaml             # stack completa (docker compose up -d --build)
 └── README.md
 ```
 
@@ -115,7 +131,9 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 
 - [`docs/`](./docs) — documentação detalhada do projeto;
 - [`docs/concepcao.md`](./docs/concepcao.md) — fundamentação do problema, motivação, impacto social esperado e esboço conceitual da solução;
-- [`docs/arquitetura/`](./docs/arquitetura/) — decisões arquiteturais, contratos de API e diagrama de componentes;
+- [`docs/arquitetura/`](./docs/arquitetura/) — decisões arquiteturais, contratos de API e diagramas de componentes;
+- [`docs/ia/`](./docs/ia/) — avaliação do assistente RAG (com e sem RAG, latência, custo e resiliência);
+- cada serviço tem um `README.md` com execução, configuração e testes;
 - [`.gitignore`](./.gitignore) — definição de arquivos e diretórios que não devem ser versionados;
 - [`LICENCE`](./LICENCE) — licença MIT do repositório;
 - [`README.md`](./README.md) — visão geral e ponto de entrada do repositório.
@@ -125,11 +143,13 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 | Documento | Descrição |
 | --- | --- |
 | [Concepção do Projeto](./docs/concepcao.md) | Identidade da startup, problema, motivação, impacto social esperado, solução conceitual e referências utilizadas. |
-| [Catálogo de Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) | Justificativas e alternativas para a decomposição em microsserviços, SAGA, bancos independentes, outbox, CQRS, Gateway e BFFs. |
+| [Catálogo de Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) | Justificativas e alternativas para a decomposição em microsserviços, SAGA, bancos independentes, outbox, CQRS, Gateway, BFFs, orquestrador dedicado (ADR-006) e IA com RAG (ADR-007). |
 | [Especificação de Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md) | Endpoints principais dos serviços e BFFs, versionamento, tratamento de erros e exemplos de respostas com links HATEOAS. |
-| [Diagrama de Arquitetura](./docs/arquitetura/diagram.svg) | Visão dos componentes, camadas e principais relações de comunicação da solução. |
+| [Diagrama de Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) | Componentes implementados: borda, BFFs, serviços, mensageria, bancos e IA. |
+| [Diagrama de Arquitetura (Parte 2)](./docs/arquitetura/diagram.svg) | Projeto arquitetural original da Parte 2. |
+| [Avaliação do RAG](./docs/ia/avaliacao-rag.md) | 5 perguntas com e sem RAG, latência, tokens, projeção de custo e teste de resiliência. |
+| [Kubernetes](./k8s/README.md) | Manifestos, ordem de aplicação, probes, recursos e demonstração de escalabilidade. |
 
-A documentação será complementada conforme avançarem as etapas de implementação, containerização e integração do sistema.
 
 ## Equipe
 

@@ -4,8 +4,8 @@ import httpx
 from fastapi import FastAPI
 
 from bff_mobile import autorizacao
-from bff_mobile.api import agendamentos, errors, health, home
-from bff_mobile.clients.servicos import DoadoresClient, HemocentrosClient, OrquestradorClient
+from bff_mobile.api import agendamentos, assistente, errors, health, home
+from bff_mobile.clients.servicos import DoadoresClient, HemocentrosClient, OrquestradorClient, RagClient
 from bff_mobile.config import get_settings
 from bff_mobile.observabilidade import RequestIdMiddleware, configurar_logs, propagar_request_id
 
@@ -24,10 +24,12 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(
             base_url=settings.orquestrador_url, timeout=settings.orquestrador_timeout, event_hooks=hooks
         ) as orquestrador,
+        httpx.AsyncClient(base_url=settings.rag_url, timeout=settings.rag_timeout, event_hooks=hooks) as rag,
     ):
         app.state.doadores_client = DoadoresClient(doadores)
         app.state.hemocentros_client = HemocentrosClient(hemocentros)
         app.state.orquestrador_client = OrquestradorClient(orquestrador)
+        app.state.rag_client = RagClient(rag)
         yield
 
 
@@ -39,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(home.router)
     app.include_router(agendamentos.router)
+    app.include_router(assistente.router)
     app.add_middleware(RequestIdMiddleware)
     return app
 

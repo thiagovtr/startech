@@ -119,6 +119,20 @@ def test_programacao_invalida_responde_falhou(factory, cmd, motivo):
     assert asyncio.run(_contar(factory, Lembrete)) == 0
 
 
+def test_comando_expirado_responde_falhou_sem_notificar(factory):
+    cmd = Comando(PROGRAMAR, "s1", "ag-1", "d1", None, (AGORA + timedelta(days=5)).isoformat(),
+                  emitido_em=(AGORA - timedelta(seconds=45)).isoformat())
+    r = asyncio.run(processar_comando(factory, _settings(), cmd, "m1", agora=AGORA))
+    assert r.acao == "FALHOU" and "expirado" in (r.motivo or "")
+    assert asyncio.run(_contar(factory, Notificacao)) == 0 and asyncio.run(_contar(factory, Lembrete)) == 0
+
+
+def test_comando_recente_e_programado(factory):
+    cmd = Comando(PROGRAMAR, "s1", "ag-1", "d1", None, (AGORA + timedelta(days=5)).isoformat(),
+                  emitido_em=(AGORA - timedelta(seconds=5)).isoformat())
+    assert asyncio.run(processar_comando(factory, _settings(), cmd, "m1", agora=AGORA)).acao == "PROGRAMADO"
+
+
 def test_cancelar_lembrete_programado(factory):
     asyncio.run(processar_comando(factory, _settings(), _cmd(), "m1", agora=AGORA))
     r = asyncio.run(processar_comando(factory, _settings(), _cmd(tipo=CANCELAR), "m2", agora=AGORA))

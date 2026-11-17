@@ -56,6 +56,7 @@ class Comando:
     doador_id: str
     slot_id: str | None
     data_hora_inicio: str | None
+    emitido_em: str | None = None
 
 
 @dataclass(frozen=True)
@@ -93,14 +94,34 @@ def ler_comando(corpo: bytes, routing_key: str | None, settings: Settings) -> Co
     return Comando(
         tipo=tipo, saga_id=campos["sagaId"], agendamento_id=campos["agendamentoId"],
         doador_id=str(dados.get("doadorId") or ""), slot_id=dados.get("slotId"),
-        data_hora_inicio=dados.get("dataHoraInicio"),
+        data_hora_inicio=dados.get("dataHoraInicio"), emitido_em=dados.get("emitidoEm"),
     )
+
+
+def _expirado(cmd: Comando, settings: Settings, agora: datetime) -> str | None:
+    """Comando mais velho que o prazo do passo 3: o orquestrador já compensou (timeout) e a resposta seria
+    ignorada. Responder FALHOU sem confirmar evita avisar o doador de um agendamento que não existe mais."""
+    if not cmd.emitido_em or settings.validade_comando <= 0:
+        return None
+    try:
+        emitido = datetime.fromisoformat(cmd.emitido_em.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if emitido.tzinfo is None:
+        emitido = emitido.replace(tzinfo=UTC)
+    idade = (agora - emitido).total_seconds()
+    if idade > settings.validade_comando:
+        return f"comando expirado ({idade:.0f} s > {settings.validade_comando:.0f} s): a SAGA já compensou por timeout"
+    return None
 
 
 def _validar_programacao(cmd: Comando, settings: Settings, agora: datetime) -> tuple[datetime | None, str | None]:
     """Devolve (início do agendamento, motivo da falha). Falha => resposta FALHOU."""
     if cmd.doador_id in settings.doadores_com_falha_simulada:
         return None, "Falha simulada no envio da confirmação (COMUNICACAO_SIMULAR_FALHA_DOADORES)"
+    expirado = _expirado(cmd, settings, agora)
+    if expirado:
+        return None, expirado
     if not cmd.doador_id:
         return None, "doadorId ausente"
     if not cmd.data_hora_inicio:

@@ -1,4 +1,4 @@
-# CI dos serviços Python: ms-hemocentros, ms-orquestrador, bff-mobile, bff-web (Dev 3) e ms-comunicacao (Dev 4).
+# CI dos serviços Python: ms-hemocentros, ms-orquestrador, bff-mobile, bff-web (Dev 3) ms-comunicacao e ms-rag (Dev 4).
 # Roda em Python 3.12 (mesma versão dos Dockerfiles) com PostgreSQL, MongoDB e RabbitMQ reais,
 # e FALHA se algum teste for ignorado (skip): sem os serviços de apoio, a suíte não pode passar "verde".
 name: CI Python (Dev 3)
@@ -10,6 +10,7 @@ on:
       - "ms-hemocentros/**"
       - "ms-orquestrador/**"
       - "ms-comunicacao/**"
+      - "ms-rag/**"
       - "bff-mobile/**"
       - "bff-web/**"
       - ".github/workflows/dev3-python.yml"
@@ -35,6 +36,8 @@ jobs:
             pacote: orquestrador
           - servico: ms-comunicacao
             pacote: comunicacao
+          - servico: ms-rag
+            pacote: rag
           - servico: bff-mobile
             pacote: bff_mobile
           - servico: bff-web
@@ -112,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        servico: [ms-hemocentros, ms-orquestrador, ms-comunicacao, bff-mobile, bff-web]
+        servico: [ms-hemocentros, ms-orquestrador, ms-comunicacao, ms-rag, bff-mobile, bff-web]
     steps:
       - uses: actions/checkout@v4
       - name: Build multi-stage
