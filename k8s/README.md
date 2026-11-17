@@ -61,6 +61,8 @@ kubectl top pods -n startech
 
 O `ms-hemocentros` escala horizontalmente para suportar picos de leitura documental sob alerta crítico de sangue O-. Várias réplicas são seguras: o Outbox usa `SKIP LOCKED` e a projeção no MongoDB é idempotente e versionada. `ms-orquestrador` e `ms-comunicacao` também aceitam réplicas (`SKIP LOCKED`, inbox idempotente, lock otimista), mas ficam com 1 por padrão. Os bancos e o RabbitMQ são StatefulSets de 1 réplica: escalam verticalmente ou por pool de conexões.
 
+Relatório completo do teste de estresse e escalabilidade com Grafana k6 e HPA: [`docs/escalabilidade/relatorio-escalabilidade-k6.md`](../docs/escalabilidade/relatorio-escalabilidade-k6.md).
+
 ## Recursos (requests → limits)
 
 | Componente | CPU | Memória |

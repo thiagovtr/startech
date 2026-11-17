@@ -10,7 +10,7 @@ A **StarTech** propõe uma plataforma voltada ao contexto da doação de sangue 
 - **Instituição:** Universidade Federal de Lavras (UFLA)
 - **Semestre:** 2026/2
 
-**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Kubernetes](./k8s/README.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
+**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Kubernetes](./k8s/README.md) · [Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
 
 ## Problema
 
@@ -149,6 +149,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 | [Diagrama de Arquitetura (Parte 2)](./docs/arquitetura/diagram.svg) | Projeto arquitetural original da Parte 2. |
 | [Avaliação do RAG](./docs/ia/avaliacao-rag.md) | 5 perguntas com e sem RAG, latência, tokens, projeção de custo e teste de resiliência. |
 | [Kubernetes](./k8s/README.md) | Manifestos, ordem de aplicação, probes, recursos e demonstração de escalabilidade. |
+| [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | Teste de estresse e auto-scaling no Kubernetes (HPA 1 → 3 → 1 réplicas), painel geral e prints do Grafana k6. |
 
 
 ## Equipe
