@@ -1,0 +1,72 @@
+# ms-comunicacao (passo 3 da SAGA, lembretes e histórico). Réplicas seguras: inbox idempotente e SKIP LOCKED.
+# Imagem local: docker build -t startech/ms-comunicacao:dev ./ms-comunicacao  (minikube: minikube image load startech/ms-comunicacao:dev)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-comunicacao
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-comunicacao, app.kubernetes.io/component: backend}
+data:
+  COMUNICACAO_LEMBRETE_ANTECEDENCIA: "P1D"
+  COMUNICACAO_SIMULAR_FALHA_DOADORES: ""
+  LOG_FORMAT: "json"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-comunicacao
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-comunicacao, app.kubernetes.io/component: backend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: ms-comunicacao}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-comunicacao, app.kubernetes.io/component: backend}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001  # usuário `app` criado no Dockerfile
+      containers:
+        - name: ms-comunicacao
+          image: startech/ms-comunicacao:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8004}
+          envFrom:
+            - configMapRef: {name: ms-comunicacao}
+            - secretRef: {name: ms-comunicacao}  # credenciais (k8s/base/secrets-dev4.yaml)
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 384Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-comunicacao
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-comunicacao, app.kubernetes.io/component: backend}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: ms-comunicacao}
+  ports:
+    - {name: http, port: 8004, targetPort: http}

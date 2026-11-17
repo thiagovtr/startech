@@ -1,0 +1,77 @@
+# API Gateway (Spring Cloud Gateway): única entrada pública (via Ingress). Valida o JWT do Keycloak (RS256),
+# aplica RBAC/rate limit e encaminha a bff-mobile/bff-web. Os BFFs confiam em X-User-Id: nunca exponha os BFFs.
+# Imagem local: docker build -t startech/gateway:dev ./gateway  (minikube: minikube image load startech/gateway:dev)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: gateway, app.kubernetes.io/component: edge}
+data:
+  GATEWAY_PORT: "8080"
+  GATEWAY_JWK_SET_URI: "http://keycloak:8080/realms/startech/protocol/openid-connect/certs"
+  GATEWAY_BFF_MOBILE_URI: "http://bff-mobile:8001"
+  GATEWAY_BFF_WEB_URI: "http://bff-web:8002"
+  GATEWAY_KEYCLOAK_URI: "http://keycloak:8080"
+  GATEWAY_RATE_LIMIT_ENABLED: "true"
+  GATEWAY_RATE_LIMIT_CAPACITY: "60"
+  GATEWAY_RATE_LIMIT_REFILL_PER_SEC: "30"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: gateway, app.kubernetes.io/component: edge}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: gateway}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: gateway, app.kubernetes.io/component: edge}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001  # usuário `app` criado no Dockerfile
+      containers:
+        - name: gateway
+          image: startech/gateway:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          envFrom:
+            - configMapRef: {name: gateway}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 1, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: gateway, app.kubernetes.io/component: edge}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: gateway}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

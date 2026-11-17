@@ -149,9 +149,38 @@ services:
     networks: [startech-net-db, startech-net-api]
 
   # ===========================================================================
-  # [DEV 4] Comunicação (participante do passo 3 da SAGA) e seu PostgreSQL
-  #   (o Ollama entra aqui na Fase B)
+  # [DEV 4] Ollama (LLM local do ms-rag), Comunicação (passo 3 da SAGA) e seu PostgreSQL
   # ===========================================================================
+  # Runtime do LLM. Sem porta no host por padrão (o ms-rag o acessa na rede interna); modelos no volume.
+  ollama:
+    image: ollama/ollama:0.9.6
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}  # mantém o modelo carregado (evita cold start > 4 s)
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    mem_limit: ${OLLAMA_MEM_LIMIT:-4g}
+    networks: [startech-net-api]
+
+  # Execução única: baixa os modelos para o volume (só na primeira vez; depois é instantâneo).
+  ollama-pull:
+    image: ollama/ollama:0.9.6
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}
+      OLLAMA_MODELO_EMBEDDINGS: ${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}
+    entrypoint: ["sh", "-c", "ollama pull \"$$OLLAMA_MODELO_CHAT\" && ollama pull \"$$OLLAMA_MODELO_EMBEDDINGS\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    networks: [startech-net-api]
+
   db-comunicacao:
     image: postgres:16-alpine
     environment:
@@ -308,3 +337,4 @@ volumes:
   db-agendamentos-data:
   db-orquestrador-data:
   db-comunicacao-data:
+  ollama-data:

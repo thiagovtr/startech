@@ -1,0 +1,71 @@
+# ms-doadores (Java 21 / Spring Boot): perfil do doador e RN01 (passo 2 da SAGA). Flyway aplica o esquema na subida.
+# Imagem local: docker build -t startech/ms-doadores:dev ./ms-doadores  (minikube: minikube image load startech/ms-doadores:dev)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-doadores
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-doadores, app.kubernetes.io/component: backend}
+data:
+  MS_DOADORES_PORT: "8081"
+  MS_DOADORES_DB_URL: "jdbc:postgresql://db-doadores:5432/doadores"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-doadores
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-doadores, app.kubernetes.io/component: backend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: ms-doadores}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-doadores, app.kubernetes.io/component: backend}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001  # usuário `app` criado no Dockerfile
+      containers:
+        - name: ms-doadores
+          image: startech/ms-doadores:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8081}
+          envFrom:
+            - configMapRef: {name: ms-doadores}
+            - secretRef: {name: ms-doadores}  # credenciais (k8s/base/secrets-dev4.yaml)
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 1, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-doadores
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-doadores, app.kubernetes.io/component: backend}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: ms-doadores}
+  ports:
+    - {name: http, port: 8081, targetPort: http}

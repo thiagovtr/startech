@@ -10,7 +10,7 @@ metadata:
 data:
   ORQUESTRADOR_AGENDAMENTOS_URL: "http://ms-agendamentos:8082"
   ORQUESTRADOR_DOADORES_URL: "http://ms-doadores:8081"
-  ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "false"  # true quando o manifesto do ms-comunicacao existir (Fase B do Dev 4); no Compose já é true
+  ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "true"  # aguarda a resposta do ms-comunicacao (timeout de 30 s -> compensação)
   LOG_FORMAT: "json"
 ---
 apiVersion: apps/v1
