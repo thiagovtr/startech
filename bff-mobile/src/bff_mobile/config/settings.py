@@ -18,11 +18,14 @@ class Settings(BaseSettings):
     hemocentros_url: str = "http://ms-hemocentros:8000"
     agendamentos_url: str = "http://ms-agendamentos:8082"
     orquestrador_url: str = "http://ms-orquestrador:8003"
+    rag_url: str = "http://ms-rag:8005"
 
     # Timeouts das chamadas aos serviços internos, em segundos
     http_timeout: float = 3.0  # ms-hemocentros
     doadores_timeout: float = 0.8  # ms-doadores (valor do ADR; falha rápida para degradar)
     orquestrador_timeout: float = 3.0  # ms-orquestrador (só grava a SAGA e responde 202)
+    # ms-rag: busca (1,5 s) + LLM (4 s) no pior caso; abaixo dos 6 s do Gateway. O ms-rag já degrada sozinho.
+    rag_timeout: float = 5.8
 
     # Prefixo público das rotas do BFF (o Gateway reescreve /api/mobile/** para /bff-mobile/**): usado nos links
     # devolvidos ao app, para que apontem para o Gateway e não para o endereço interno do BFF.

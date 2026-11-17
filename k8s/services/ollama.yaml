@@ -1,0 +1,85 @@
+# Ollama (LLM local do ms-rag): StatefulSet com volume para os modelos + Job que os baixa uma vez.
+# Modelos: qwen2.5:1.5b (chat, ~1 GB) e nomic-embed-text (embeddings, ~0,3 GB). Precisa de ~3 GB de RAM livres
+# no nó: suba-o por último (ver k8s/README.md). Sem exposição externa; só o ms-rag o acessa.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama, app.kubernetes.io/component: ia}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: ollama}
+  ports:
+    - {name: http, port: 11434, targetPort: 11434}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama, app.kubernetes.io/component: ia}
+spec:
+  serviceName: ollama
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: ollama}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama, app.kubernetes.io/component: ia}
+    spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.9.6
+          ports:
+            - {name: http, containerPort: 11434}
+          env:
+            - {name: OLLAMA_KEEP_ALIVE, value: "30m"}  # mantém o modelo carregado (evita cold start > 4 s)
+          readinessProbe:
+            httpGet: {path: /api/tags, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/tags, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests: {cpu: 500m, memory: 1536Mi}
+            limits: {cpu: "4", memory: 4Gi}
+          volumeMounts:
+            - {name: modelos, mountPath: /root/.ollama}
+  volumeClaimTemplates:
+    - metadata:
+        name: modelos
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 4Gi}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-pull
+  namespace: startech
+  labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama-pull, app.kubernetes.io/component: ia}
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama-pull, app.kubernetes.io/component: ia}
+    spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: pull
+          image: ollama/ollama:0.9.6
+          env:
+            - {name: OLLAMA_HOST, value: "http://ollama:11434"}
+          command: ["sh", "-c", "until ollama list >/dev/null 2>&1; do sleep 3; done; ollama pull qwen2.5:1.5b && ollama pull nomic-embed-text"]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}

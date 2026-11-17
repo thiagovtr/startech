@@ -97,3 +97,27 @@ class OrquestradorClient:
 
     async def consultar(self, saga_id: str) -> tuple[int, dict]:
         return await self._chamar("GET", f"/api/v1/sagas/{saga_id}")
+
+
+class RagClient:
+    """ms-rag: assistente do doador. Erro de rede/timeout/5xx levanta `ServicoIndisponivel`."""
+
+    def __init__(self, http: httpx.AsyncClient):
+        self._http = http
+
+    async def perguntar(self, pergunta: str, tipo_sanguineo: str | None) -> dict:
+        corpo: dict = {"pergunta": pergunta, "usarRag": True}
+        if tipo_sanguineo:
+            corpo["tipoSanguineo"] = tipo_sanguineo
+        try:
+            r = await self._http.post("/api/v1/rag/perguntas", json=corpo)
+        except httpx.TimeoutException as exc:
+            raise ServicoIndisponivel("ms-rag", "timeout") from exc
+        except httpx.TransportError as exc:
+            raise ServicoIndisponivel("ms-rag", "indisponível") from exc
+        if r.status_code >= 400:
+            raise ServicoIndisponivel("ms-rag", f"HTTP {r.status_code}")
+        try:
+            return r.json()
+        except ValueError as exc:
+            raise ServicoIndisponivel("ms-rag", "resposta inválida") from exc

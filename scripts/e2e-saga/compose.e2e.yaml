@@ -22,3 +22,12 @@ services:
     depends_on:
       participantes-fake:
         condition: service_healthy
+
+  # A SAGA não usa a IA: o Ollama fica fora do E2E (economiza RAM e o `up --wait` não trata a saída do
+  # job de pull como falha). Suba-o com `--profile ia` se quiser.
+  ollama:
+    profiles: [ia]
+  ollama-pull:
+    profiles: [ia]
+  ms-rag:
+    profiles: [ia]

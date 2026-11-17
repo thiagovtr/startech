@@ -10,7 +10,7 @@ metadata:
 data:
   ORQUESTRADOR_AGENDAMENTOS_URL: "http://ms-agendamentos:8082"
   ORQUESTRADOR_DOADORES_URL: "http://ms-doadores:8081"
-  ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "false"  # true quando o ms-comunicacao (Dev 4) responder
+  ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "true"  # aguarda a resposta do ms-comunicacao (timeout de 30 s -> compensação)
   LOG_FORMAT: "json"
 ---
 apiVersion: apps/v1
@@ -27,6 +27,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ms-orquestrador, app.kubernetes.io/component: backend}
     spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001  # usuário `app` criado no Dockerfile

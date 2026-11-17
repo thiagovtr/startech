@@ -55,7 +55,7 @@ Eventos de desfecho: `saga.agendamento.confirmado` e `saga.agendamento.compensad
 | --- | --- | --- |
 | `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; Secret no K8s). |
 | `AGENDAMENTOS_URL`, `DOADORES_URL` | `http://ms-agendamentos:8082`, `http://ms-doadores:8081` | Participantes HTTP; `HTTP_TIMEOUT` (3 s) por chamada. |
-| `PASSO3_AGUARDAR_RESPOSTA` | `true` | `false` (usado no Compose enquanto o ms-comunicacao não existe): o passo 3 conclui ao gravar o comando no Outbox. Com `true`, aguarda a resposta por `TIMEOUT_PASSO3` (30 s). |
+| `PASSO3_AGUARDAR_RESPOSTA` | `true` | Com `true` (usado no Compose), aguarda a resposta do `ms-comunicacao` por `TIMEOUT_PASSO3` (30 s). `false` faz o passo 3 concluir ao gravar o comando no Outbox (útil sem o `ms-comunicacao` no ar). |
 | `MAX_RETRIES`, `BACKOFF_BASE_MS` | `5`, `500` | Retentativas por passo (ADR-002 §5.3). |
 | `PRAZO_REIVINDICACAO` | `15` | Segundos que um processo fica com a SAGA durante um passo (maior que `HTTP_TIMEOUT`). |
 | `RECUPERACAO_INTERVALO`, `OUTBOX_INTERVALO` | `1.0`, `0.2` | Polling dos workers (recuperação e publicador do Outbox). |

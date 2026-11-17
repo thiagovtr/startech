@@ -148,10 +148,87 @@ services:
         condition: service_healthy
     networks: [startech-net-db, startech-net-api]
 
-  # ---------------------------------------------------------------------------
-  # [DEV 4] Parte do Dev 4 deve ser inserida aqui:
-  #   ollama, ms-comunicacao, db-comunicacao.
-  # ---------------------------------------------------------------------------
+  # ===========================================================================
+  # [DEV 4] Ollama (LLM local do ms-rag), Comunicação (passo 3 da SAGA) e seu PostgreSQL
+  # ===========================================================================
+  # Runtime do LLM. Sem porta no host por padrão (o ms-rag o acessa na rede interna); modelos no volume.
+  ollama:
+    image: ollama/ollama:0.9.6
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}  # mantém o modelo carregado (evita cold start > 4 s)
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    mem_limit: ${OLLAMA_MEM_LIMIT:-4g}
+    networks: [startech-net-api]
+
+  # Execução única: baixa os modelos para o volume (só na primeira vez; depois é instantâneo).
+  ollama-pull:
+    image: ollama/ollama:0.9.6
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}
+      OLLAMA_MODELO_EMBEDDINGS: ${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}
+    entrypoint: ["sh", "-c", "ollama pull \"$$OLLAMA_MODELO_CHAT\" && ollama pull \"$$OLLAMA_MODELO_EMBEDDINGS\""]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    networks: [startech-net-api]
+
+  # Assistente do doador (RAG com a Portaria MS nº 5/2017 + ferramenta de campanhas). Sem porta no host:
+  # acessado pelo bff-mobile (POST /bff-mobile/assistente). Sem Ollama, responde com fallback (nunca 5xx).
+  ms-rag:
+    build: ./ms-rag
+    environment:
+      RAG_OLLAMA_URL: http://ollama:11434
+      RAG_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}
+      RAG_MODELO_EMBEDDINGS: ${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}
+      RAG_HEMOCENTROS_URL: http://ms-hemocentros:8000
+      RAG_TIMEOUT_LLM: ${RAG_TIMEOUT_LLM:-4}
+      RAG_NUM_THREAD: ${RAG_NUM_THREAD:-8}  # nº de núcleos de desempenho da CPU (ver ms-rag/README.md)
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    networks: [startech-net-api]
+
+  db-comunicacao:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: comunicacao
+      POSTGRES_PASSWORD: ${COMUNICACAO_DB_PASSWORD:-comunicacao}
+      POSTGRES_DB: comunicacao
+    volumes:
+      - db-comunicacao-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comunicacao -d comunicacao"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-db]
+
+  # Sem porta no host: consome comandos da SAGA pelo RabbitMQ e expõe o histórico na rede interna (8004).
+  ms-comunicacao:
+    build: ./ms-comunicacao
+    environment:
+      COMUNICACAO_POSTGRES_URL: postgresql+asyncpg://comunicacao:${COMUNICACAO_DB_PASSWORD:-comunicacao}@db-comunicacao:5432/comunicacao
+      COMUNICACAO_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      # Antecedência do lembrete (ISO 8601). Padrão D-1; na demonstração, ex.: PT30S.
+      COMUNICACAO_LEMBRETE_ANTECEDENCIA: ${COMUNICACAO_LEMBRETE_ANTECEDENCIA:-P1D}
+      # Só para demonstrar a compensação pelo passo 3 (vazio = desligado).
+      COMUNICACAO_SIMULAR_FALHA_DOADORES: ${COMUNICACAO_SIMULAR_FALHA_DOADORES:-}
+    depends_on:
+      db-comunicacao:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [startech-net-db, startech-net-api]
+
 
   # ===========================================================================
   # [DEV 3] Hemocentros, BFFs e bancos
@@ -227,8 +304,8 @@ services:
       ORQUESTRADOR_RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
       ORQUESTRADOR_AGENDAMENTOS_URL: http://ms-agendamentos:8082
       ORQUESTRADOR_DOADORES_URL: http://ms-doadores:8081
-      # [DEV 4] enquanto o ms-comunicacao não existir, o passo 3 conclui quando o comando é publicado.
-      ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "false"
+      # Passo 3 real: aguarda a resposta do ms-comunicacao (timeout de 30 s -> compensação).
+      ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "true"
     depends_on:
       db-orquestrador:
         condition: service_healthy
@@ -275,3 +352,5 @@ volumes:
   db-doadores-data:
   db-agendamentos-data:
   db-orquestrador-data:
+  db-comunicacao-data:
+  ollama-data:

@@ -5,7 +5,11 @@
 #   1. Caminho feliz:   slot-futuro  -> CONFIRMADO (passos 1, 2, 3 via Outbox e 4)
 #   2. Compensação:     slot-proximo -> doador inapto (RN01, 422) -> vaga liberada -> CANCELADO
 #   3. Recusa:          slot-lotado  -> 409 no passo 1 -> RECUSADO, sem compensação
-#   + Idempotency-Key repetida devolve a mesma SAGA; comandos do passo 3 ficam na fila do ms-comunicacao.
+#   4. Falha no passo 3: ms-comunicacao responde FALHOU (falha simulada) -> compensa 3, 2, 1 -> CANCELADO
+#   5. Timeout no passo 3: ms-comunicacao parado -> sem resposta em 30 s -> CANCELADO; ao religar, o
+#      programar pendente está expirado (sem confirmação ao doador) e o cancelar é idempotente
+#   + Idempotency-Key repetida devolve a mesma SAGA; o ms-comunicacao real programa o lembrete, envia a
+#     confirmação e o lembrete (antecedência longa no E2E, para disparar na hora) e registra o histórico.
 #
 # Uso: scripts/e2e-saga.sh            (MANTER=1 deixa a stack no ar ao final, para a demonstração)
 set -euo pipefail
@@ -15,6 +19,9 @@ export GATEWAY_HOST_PORT="${GATEWAY_HOST_PORT:-18080}"
 export KEYCLOAK_HOST_PORT="${KEYCLOAK_HOST_PORT:-18089}"
 export RABBITMQ_AMQP_PORT="${RABBITMQ_AMQP_PORT:-15672}"
 export RABBITMQ_MGMT_PORT="${RABBITMQ_MGMT_PORT:-25672}"
+# slot-futuro fica a 90 dias: com 100 dias de antecedência o "D-1" já venceu e o lembrete dispara na hora.
+export COMUNICACAO_LEMBRETE_ANTECEDENCIA="${COMUNICACAO_LEMBRETE_ANTECEDENCIA:-P100D}"
+export COMUNICACAO_SIMULAR_FALHA_DOADORES=""
 cd "$(dirname "$0")/.."
 COMPOSE=(docker compose -f compose.yaml -f scripts/e2e-saga/compose.e2e.yaml)
 
@@ -48,14 +55,33 @@ solicitar() {  # solicitar <slot> [idempotency-key] -> imprime "status corpo"
     -H "Content-Type: application/json" -H "Idempotency-Key: $chave" -d "{\"slotId\":\"$1\"}"
 }
 
-aguardar() {  # aguardar <sagaId> -> imprime o corpo final do GET (situação final)
+aguardar() {  # aguardar <sagaId> [segundos] -> imprime o corpo final do GET (situação final)
   local corpo
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 $(( ${2:-30} * 2 ))); do
     corpo=$(curl -s "$GATEWAY/api/mobile/sagas/$1" "${AUTH[@]}")
     [ "$(echo "$corpo" | json finalizada)" = "True" ] && { echo "$corpo"; return; }
     sleep 0.5
   done
-  falha "SAGA $1 não terminou em 30 s: $corpo"
+  falha "SAGA $1 não terminou em ${2:-30} s: $corpo"
+}
+
+DOADOR=$(python3 -c 'import base64,json,sys
+p=sys.argv[1].split(".")[1]; p+="="*(-len(p)%4)
+print(json.loads(base64.urlsafe_b64decode(p))["sub"])' "$TOKEN")
+
+notificacoes() {  # notificacoes <agendamentoId> -> tipos registrados no histórico do doador, em ordem
+  "${COMPOSE[@]}" exec -T ms-comunicacao python -c "
+import json, urllib.request
+d = json.load(urllib.request.urlopen('http://127.0.0.1:8004/api/v1/comunicacao/historico/$DOADOR?tamanho=100'))
+print(' '.join(n['tipo'] for n in reversed(d['itens']) if n['agendamentoId'] == '$1'))"
+}
+
+esperar_notificacao() {  # esperar_notificacao <agendamentoId> <tipo>
+  for _ in $(seq 1 40); do
+    notificacoes "$1" | grep -qw "$2" && return
+    sleep 0.5
+  done
+  falha "notificação $2 do agendamento $1 não registrada: $(notificacoes "$1")"
 }
 
 passos() {  # trilha de auditoria completa, direto no orquestrador (rede interna)
@@ -81,6 +107,8 @@ final=$(aguardar "$SAGA1")
 passos "$SAGA1"
 [ "$(estado_fake | json "agendamentos.$AG1.status")" = "CONFIRMADO" ] || falha "agendamento não confirmado no participante"
 echo "   ok: CONFIRMADO; agendamento $AG1 confirmado em ms-agendamentos (simulado)"
+esperar_notificacao "$AG1" LEMBRETE
+echo "   ok: ms-comunicacao registrou: $(notificacoes "$AG1")"
 
 echo ">> idempotência: mesma Idempotency-Key devolve a mesma SAGA"
 resp=$(solicitar slot-futuro "$CHAVE")
@@ -110,10 +138,43 @@ final=$(aguardar "$SAGA3")
 passos "$SAGA3"
 echo "   ok: RECUSADO"
 
-# ----------------------------------------------------------------------------------------------- Outbox
-echo ">> Outbox -> RabbitMQ: comandos do passo 3 aguardando o ms-comunicacao"
-filas=$("${COMPOSE[@]}" exec -T rabbitmq rabbitmqctl -q list_queues name messages)
-echo "$filas" | grep -E "comunicacao.saga.comandos|saga.compensations.dlq|orquestrador.saga.respostas" | sed 's/^/   /'
-n=$(echo "$filas" | awk '$1=="comunicacao.saga.comandos"{print $2}')
-[ "${n:-0}" -ge 1 ] || falha "nenhum comando na fila comunicacao.saga.comandos"
+# ----------------------------------------------------------------------------------------------- 4
+echo ">> 4. falha no passo 3 (ms-comunicacao responde FALHOU para este doador)"
+COMUNICACAO_SIMULAR_FALHA_DOADORES="$DOADOR" "${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null
+SAGA4=$(solicitar slot-futuro | head -1 | json sagaId)
+final=$(aguardar "$SAGA4")
+[ "$(echo "$final" | json situacao)" = "CANCELADO" ] || falha "esperado CANCELADO: $final"
+echo "   motivo exibido no app: $(echo "$final" | json motivo)"
+passos "$SAGA4"
+AG4=$(echo "$final" | json agendamentoId)
+[ "$(estado_fake | json "agendamentos.$AG4.status")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado"
+echo "   ok: CANCELADO pela resposta FALHOU, sem esperar o timeout"
+"${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null  # volta sem a falha simulada
+
+# ----------------------------------------------------------------------------------------------- 5
+echo ">> 5. timeout no passo 3 (ms-comunicacao parado)"
+"${COMPOSE[@]}" stop ms-comunicacao >/dev/null
+SAGA5=$(solicitar slot-futuro | head -1 | json sagaId)
+final=$(aguardar "$SAGA5" 60)
+[ "$(echo "$final" | json situacao)" = "CANCELADO" ] || falha "esperado CANCELADO: $final"
+passos "$SAGA5"
+AG5=$(echo "$final" | json agendamentoId)
+echo "   religando o ms-comunicacao: o programar pendente está expirado e o cancelar não tem o que desfazer"
+"${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null
+esperar_notificacao "$AG5" DESFECHO
+sleep 2  # dá tempo de os comandos pendentes serem consumidos
+hist=$(notificacoes "$AG5")
+echo "$hist" | grep -qw CONFIRMACAO && falha "doador recebeu confirmação de um agendamento já compensado: $hist"
+echo "   ok: CANCELADO por timeout; o doador só recebeu o desfecho ($hist)"
+
+# ----------------------------------------------------------------------------------------------- filas
+echo ">> filas drenadas (comandos consumidos pelo ms-comunicacao, respostas pelo orquestrador)"
+for _ in $(seq 1 20); do
+  filas=$("${COMPOSE[@]}" exec -T rabbitmq rabbitmqctl -q list_queues name messages)
+  pendentes=$(echo "$filas" | awk '$1=="comunicacao.saga.comandos"||$1=="orquestrador.saga.respostas"{s+=$2} END{print s+0}')
+  [ "$pendentes" = "0" ] && break
+  sleep 0.5
+done
+echo "$filas" | grep -E "comunicacao\.|saga.compensations.dlq|orquestrador.saga.respostas" | sed 's/^/   /'
+[ "$pendentes" = "0" ] || falha "ainda há $pendentes mensagens pendentes nas filas da SAGA"
 echo ">> E2E da SAGA OK"

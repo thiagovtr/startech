@@ -1,4 +1,4 @@
-# CI dos serviços Python do Dev 3: ms-hemocentros, ms-orquestrador, bff-mobile, bff-web.
+# CI dos serviços Python: ms-hemocentros, ms-orquestrador, bff-mobile, bff-web (Dev 3) ms-comunicacao e ms-rag (Dev 4).
 # Roda em Python 3.12 (mesma versão dos Dockerfiles) com PostgreSQL, MongoDB e RabbitMQ reais,
 # e FALHA se algum teste for ignorado (skip): sem os serviços de apoio, a suíte não pode passar "verde".
 name: CI Python (Dev 3)
@@ -9,6 +9,8 @@ on:
     paths: &caminhos
       - "ms-hemocentros/**"
       - "ms-orquestrador/**"
+      - "ms-comunicacao/**"
+      - "ms-rag/**"
       - "bff-mobile/**"
       - "bff-web/**"
       - ".github/workflows/dev3-python.yml"
@@ -32,6 +34,10 @@ jobs:
             pacote: hemocentros
           - servico: ms-orquestrador
             pacote: orquestrador
+          - servico: ms-comunicacao
+            pacote: comunicacao
+          - servico: ms-rag
+            pacote: rag
           - servico: bff-mobile
             pacote: bff_mobile
           - servico: bff-web
@@ -66,6 +72,9 @@ jobs:
       # ms-orquestrador: banco próprio (criado pelos testes) no mesmo servidor PostgreSQL
       ORQUESTRADOR_TEST_POSTGRES_URL: postgresql+asyncpg://hemocentros:hemocentros@127.0.0.1:15432/orquestrador_test
       ORQUESTRADOR_TEST_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:15672/
+      # ms-comunicacao: idem, banco comunicacao_test
+      COMUNICACAO_TEST_POSTGRES_URL: postgresql+asyncpg://hemocentros:hemocentros@127.0.0.1:15432/comunicacao_test
+      COMUNICACAO_TEST_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:15672/
 
     defaults:
       run:
@@ -106,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        servico: [ms-hemocentros, ms-orquestrador, bff-mobile, bff-web]
+        servico: [ms-hemocentros, ms-orquestrador, ms-comunicacao, ms-rag, bff-mobile, bff-web]
     steps:
       - uses: actions/checkout@v4
       - name: Build multi-stage

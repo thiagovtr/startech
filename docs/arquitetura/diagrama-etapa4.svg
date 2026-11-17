@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="760" viewBox="0 0 1240 760" font-family="Noto Sans, DejaVu Sans, Arial, sans-serif">
+<title>StarTech — arquitetura da Etapa 4</title>
+<defs><marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+<style>.t{font-size:13px;font-weight:600;text-anchor:middle;fill:#202124} .s{font-size:10.5px;text-anchor:middle;fill:#5f6368} .r{font-size:10.5px;fill:#5f6368;text-anchor:middle} .f{font-size:12px;font-weight:600;fill:#80868b} .lg{font-size:11.5px;fill:#3c4043}</style></defs>
+<rect width="1240" height="760" fill="#ffffff"/>
+<rect x="10" y="10" width="1220" height="70" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="28" class="f" text-anchor="start">Clientes</text>
+<rect x="10" y="90" width="1220" height="90" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="108" class="f" text-anchor="start">Borda</text>
+<rect x="10" y="190" width="1220" height="80" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="208" class="f" text-anchor="start">BFFs (Python / FastAPI)</text>
+<rect x="10" y="280" width="1220" height="120" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="298" class="f" text-anchor="start">Serviços (cada um com banco próprio)</text>
+<rect x="10" y="410" width="1220" height="60" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="428" class="f" text-anchor="start">Mensageria</text>
+<rect x="10" y="480" width="1220" height="120" rx="10" fill="#fafafa" stroke="#ddd"/>
+<text x="22" y="498" class="f" text-anchor="start">Dados e IA</text>
+<rect x="330" y="32" width="200" height="40" rx="8" fill="#fff" stroke="#888" stroke-width="1.5"/>
+<text x="430.0" y="46.0" class="t">App do doador</text>
+<text x="430.0" y="62.0" class="s">React (PWA)</text>
+<rect x="710" y="32" width="200" height="40" rx="8" fill="#fff" stroke="#888" stroke-width="1.5"/>
+<text x="810.0" y="46.0" class="t">Painel do hemocentro</text>
+<text x="810.0" y="62.0" class="s">React (Web)</text>
+<rect x="330" y="112" width="170" height="54" rx="8" fill="#f1f3f4" stroke="#777" stroke-width="1.5"/>
+<text x="415.0" y="133.0" class="t">Ingress NGINX</text>
+<text x="415.0" y="149.0" class="s">startech.local (K8s)</text>
+<rect x="550" y="112" width="280" height="54" rx="8" fill="#fde7e9" stroke="#c5221f" stroke-width="1.5"/>
+<text x="690.0" y="133.0" class="t">API Gateway</text>
+<text x="690.0" y="149.0" class="s">Spring Cloud Gateway · JWT RS256 · RBAC · rate limit</text>
+<rect x="880" y="112" width="200" height="54" rx="8" fill="#fde7e9" stroke="#c5221f" stroke-width="1.5"/>
+<text x="980.0" y="133.0" class="t">Keycloak</text>
+<text x="980.0" y="149.0" class="s">OIDC, realm startech</text>
+<rect x="420" y="210" width="220" height="48" rx="8" fill="#e8f0fe" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="530.0" y="228.0" class="t">BFF Mobile :8001</text>
+<text x="530.0" y="244.0" class="s">agregação + degradação graciosa</text>
+<rect x="760" y="210" width="220" height="48" rx="8" fill="#e8f0fe" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="870.0" y="228.0" class="t">BFF Web :8002</text>
+<text x="870.0" y="244.0" class="s">painel de campanhas</text>
+<rect x="40" y="312" width="180" height="74" rx="8" fill="#e6f4ea" stroke="#188038" stroke-width="1.5"/>
+<text x="130.0" y="343.0" class="t">ms-doadores :8081</text>
+<text x="130.0" y="359.0" class="s">Java 21 · RN01 (passo 2)</text>
+<rect x="236" y="312" width="180" height="74" rx="8" fill="#e6f4ea" stroke="#188038" stroke-width="1.5"/>
+<text x="326.0" y="343.0" class="t">ms-agendamentos :8082</text>
+<text x="326.0" y="359.0" class="s">Java 21 · vagas (passos 1, 4)</text>
+<rect x="432" y="312" width="180" height="74" rx="8" fill="#fef7e0" stroke="#b06000" stroke-width="1.5"/>
+<text x="522.0" y="343.0" class="t">ms-orquestrador :8003</text>
+<text x="522.0" y="359.0" class="s">SAGA + Outbox (ADR-006)</text>
+<rect x="628" y="312" width="180" height="74" rx="8" fill="#e8f0fe" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="718.0" y="343.0" class="t">ms-hemocentros :8000</text>
+<text x="718.0" y="359.0" class="s">CQRS + Outbox (ADR-004)</text>
+<rect x="824" y="312" width="180" height="74" rx="8" fill="#e8f0fe" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="914.0" y="343.0" class="t">ms-comunicacao :8004</text>
+<text x="914.0" y="359.0" class="s">passo 3 · lembretes · Outbox</text>
+<rect x="1020" y="312" width="180" height="74" rx="8" fill="#f3e8fd" stroke="#8430ce" stroke-width="1.5"/>
+<text x="1110.0" y="343.0" class="t">ms-rag :8005</text>
+<text x="1110.0" y="359.0" class="s">RAG · LangChain · circuit breaker</text>
+<rect x="40" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#188038" stroke-width="1.5"/>
+<text x="130.0" y="542.0" class="t">PostgreSQL</text>
+<text x="130.0" y="558.0" class="s">db-doadores</text>
+<rect x="236" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#188038" stroke-width="1.5"/>
+<text x="326.0" y="542.0" class="t">PostgreSQL</text>
+<text x="326.0" y="558.0" class="s">db-agendamentos</text>
+<rect x="432" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#b06000" stroke-width="1.5"/>
+<text x="522.0" y="542.0" class="t">PostgreSQL</text>
+<text x="522.0" y="558.0" class="s">db-orquestrador</text>
+<rect x="628" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="718.0" y="542.0" class="t">PostgreSQL + MongoDB</text>
+<text x="718.0" y="558.0" class="s">escrita / leitura</text>
+<rect x="824" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#3b6fd4" stroke-width="1.5"/>
+<text x="914.0" y="542.0" class="t">PostgreSQL</text>
+<text x="914.0" y="558.0" class="s">db-comunicacao</text>
+<rect x="1020" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#8430ce" stroke-width="1.5"/>
+<text x="1110.0" y="542.0" class="t">Ollama</text>
+<text x="1110.0" y="558.0" class="s">qwen2.5:1.5b + nomic-embed</text>
+<line x1="430.0" y1="72" x2="435.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="810.0" y1="72" x2="475.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="500" y1="139" x2="550" y2="139" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="830" y1="139" x2="880" y2="139" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<text x="855" y="132" class="r">/realms</text>
+<line x1="630.0" y1="166" x2="530.0" y2="210" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<text x="586.0" y="184.0" class="r" text-anchor="start">/api/mobile</text>
+<line x1="750.0" y1="166" x2="870.0" y2="210" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<text x="816.0" y="184.0" class="r" text-anchor="start">/api/web</text>
+<line x1="530.0" y1="258" x2="130.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="530.0" y1="258" x2="522.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="530.0" y1="258" x2="718.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="530.0" y1="258" x2="1110.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="870.0" y1="258" x2="748.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="432" y1="342" x2="416" y2="342" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<path d="M 452 386 C 452 404, 130.0 404, 130.0 388" fill="none" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<path d="M 1020 332 C 980 302, 848 302, 798 312" fill="none" stroke="#8430ce" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="512.0" y1="386" x2="512.0" y2="420" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="532.0" y1="420" x2="532.0" y2="386" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="708.0" y1="386" x2="708.0" y2="420" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="728.0" y1="420" x2="728.0" y2="386" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="904.0" y1="386" x2="904.0" y2="420" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="924.0" y1="420" x2="924.0" y2="386" stroke="#e37400" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#m)"/>
+<line x1="130.0" y1="386" x2="130.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="326.0" y1="386" x2="326.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="562.0" y1="386" x2="562.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="758.0" y1="386" x2="758.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="954.0" y1="386" x2="954.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="1110.0" y1="386" x2="1110.0" y2="520" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<rect x="130" y="420" width="1070" height="40" rx="8" fill="#fff4e5" stroke="#e37400" stroke-width="1.5"/>
+<text x="665.0" y="445.0" class="t">RabbitMQ — exchange startech.events.exchange (topic) + DLX startech.events.dlx</text>
+<rect x="10" y="620" width="1220" height="130" rx="10" fill="#fff" stroke="#ddd"/>
+<text x="26" y="646" class="lg" text-anchor="start"><tspan font-weight="600">→ sólida:</tspan> HTTP REST /api/v1 (correlation id X-Request-Id ponta a ponta)</text>
+<text x="26" y="668" class="lg" text-anchor="start"><tspan font-weight="600">⇢ laranja:</tspan> RabbitMQ via Transactional Outbox: comandos/respostas da SAGA (comunicacao.saga.comandos, orquestrador.saga.respostas), evento hemocentros.campanha.criada → projeção MongoDB</text>
+<text x="26" y="690" class="lg" text-anchor="start"><tspan font-weight="600">⇢ roxa:</tspan> ferramenta LangChain do ms-rag: campanhas vigentes (leitura CQRS) para "Onde posso doar hoje?"</text>
+<text x="26" y="712" class="lg" text-anchor="start"><tspan font-weight="600">SAGA:</tspan> 1 reserva vaga (agendamentos) · 2 RN01 + trava (doadores) · 3 lembrete D-1 + confirmação (comunicacao, assíncrono) · 4 confirma; compensações 3→2→1</text>
+<text x="26" y="734" class="lg" text-anchor="start"><tspan font-weight="600">Execução:</tspan> docker compose up -d --build  ·  Kubernetes: k8s/ (Ingress → Gateway; HPA no ms-hemocentros)</text>
+</svg>
