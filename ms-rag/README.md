@@ -8,7 +8,7 @@ Assistente do doador com **RAG** sobre a Portaria de Consolidação MS nº 5/201
 | --- | --- | --- |
 | "Onde posso doar hoje?", "campanhas ativas"… (regra de intenção) | LangChain `Tool` `campanhas_vigentes` → `GET ms-hemocentros/api/v1/campanhas?status=ATIVA&vigentes=true&tipo_sanguineo=…` (leitura CQRS), resposta montada sem LLM | `FERRAMENTA` |
 | Pergunta sem nenhum termo de doação de sangue | recusa padrão, sem LLM | `FORA_DO_ESCOPO` |
-| Demais perguntas | busca dos 2 trechos mais próximos (embeddings `nomic-embed-text`, `InMemoryVectorStore`) → prompt restrito ao contexto → `qwen2.5:1.5b` (`temperature=0`) | `RAG` |
+| Demais perguntas | busca dos 2 trechos mais próximos (embeddings `nomic-embed-text`, `InMemoryVectorStore`) → chain LCEL `PROMPT_RAG | ChatOllama` (prompt restrito ao contexto, `qwen2.5:1.5b`, `temperature=0`) | `RAG` |
 | `usarRag: false` (só para a avaliação) | pergunta direto ao LLM, sem contexto | `SEM_RAG` |
 | Ollama ou `ms-hemocentros` lento, fora ou com o circuito aberto | mensagem amigável; com RAG, inclui o trecho recuperado se a busca funcionou | `FALLBACK` |
 

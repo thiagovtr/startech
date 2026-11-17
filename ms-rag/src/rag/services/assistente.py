@@ -88,6 +88,9 @@ class Assistente:
                  circuito_llm: Circuito, circuito_campanhas: Circuito, top_k: int = 3, max_campanhas: int = 5,
                  timeout_busca: float = 1.5, circuito_busca: Circuito | None = None):
         self.llm, self.base, self.top_k, self.timeout_busca = llm, base, top_k, timeout_busca
+        # Chains LCEL (LangChain Expression Language): prompt | modelo. A de RAG recebe o contexto recuperado.
+        self.cadeia_rag = PROMPT_RAG | llm
+        self.cadeia_sem_rag = PROMPT_SEM_RAG | llm
         # A busca embute a pergunta no Ollama: circuito próprio (sucesso na busca não pode zerar as falhas do LLM).
         self.circuito_busca = circuito_busca or Circuito("busca", circuito_llm.limite, circuito_llm.aberto_por,
                                                          timeout_busca)
@@ -125,9 +128,9 @@ class Assistente:
             docs = await self.circuito_busca.chamar(lambda: self.base.buscar(pergunta, self.top_k))
         except Exception as exc:  # índice não montado ou Ollama (embeddings) fora
             return Resposta(FALLBACK_LLM, "FALLBACK", motivo_fallback=f"busca: {_motivo(exc)}")
-        mensagens = PROMPT_RAG.format_messages(fonte=FONTE, contexto=_contexto(docs), pergunta=pergunta)
+        entrada = {"fonte": FONTE, "contexto": _contexto(docs), "pergunta": pergunta}
         try:
-            msg = await self.circuito_llm.chamar(lambda: self.llm.ainvoke(mensagens))
+            msg = await self.circuito_llm.chamar(lambda: self.cadeia_rag.ainvoke(entrada))
         except Exception as exc:
             trecho = f" Enquanto isso, veja o trecho da Portaria [{docs[0].metadata['secao']}]: " \
                      f"{docs[0].page_content.split(': ', 1)[-1][:300]}" if docs else ""
@@ -136,8 +139,7 @@ class Assistente:
 
     async def _sem_rag(self, pergunta: str) -> Resposta:
         try:
-            mensagens = PROMPT_SEM_RAG.format_messages(pergunta=pergunta)
-            msg = await self.circuito_llm.chamar(lambda: self.llm.ainvoke(mensagens))
+            msg = await self.circuito_llm.chamar(lambda: self.cadeia_sem_rag.ainvoke({"pergunta": pergunta}))
         except Exception as exc:
             return Resposta(FALLBACK_LLM, "FALLBACK", motivo_fallback=_motivo(exc))
         return Resposta(str(msg.content).strip(), "SEM_RAG", uso=_uso(msg))

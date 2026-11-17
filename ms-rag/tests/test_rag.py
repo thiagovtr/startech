@@ -235,3 +235,10 @@ def test_indice_pendente_cai_no_fallback():
     vazia = BaseConhecimento(EmbeddingsPalavras())
     r = asyncio.run(montar_assistente(vazia).responder("Qual o peso mínimo?"))
     assert r.modo == "FALLBACK" and r.motivo_fallback.startswith("busca")
+
+
+def test_fluxo_usa_chains_lcel(base):
+    from langchain_core.runnables import RunnableSequence
+
+    a = montar_assistente(base)
+    assert isinstance(a.cadeia_rag, RunnableSequence) and isinstance(a.cadeia_sem_rag, RunnableSequence)
