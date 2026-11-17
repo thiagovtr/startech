@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Roda as suítes do Dev 3 (ms-hemocentros, ms-orquestrador, bff-mobile, bff-web) dentro de python:3.12-slim,
+# Roda as suítes dos serviços Python (ms-hemocentros, ms-orquestrador, ms-comunicacao, bff-mobile, bff-web) dentro de python:3.12-slim,
 # a mesma versão dos Dockerfiles, contra PostgreSQL, MongoDB e RabbitMQ descartáveis.
 # Falha se algum teste for ignorado (skip), para que a falta de um serviço de apoio não passe "verde".
 #
-# Uso: scripts/test-docker.sh [servico ...]   (padrão: os quatro)
+# Uso: scripts/test-docker.sh [servico ...]   (padrão: todos)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IMG="${PYTHON_IMAGE:-python:3.12-slim}"
 SUFIXO="$$"
 REDE="startech-test-$SUFIXO"
-SERVICOS=("$@"); [ ${#SERVICOS[@]} -gt 0 ] || SERVICOS=(ms-hemocentros ms-orquestrador bff-mobile bff-web)
+SERVICOS=("$@"); [ ${#SERVICOS[@]} -gt 0 ] || SERVICOS=(ms-hemocentros ms-orquestrador ms-comunicacao bff-mobile bff-web)
 
 cleanup() {
   docker rm -f "t-pg-$SUFIXO" "t-mongo-$SUFIXO" "t-rmq-$SUFIXO" >/dev/null 2>&1 || true
@@ -40,6 +40,8 @@ for svc in "${SERVICOS[@]}"; do
     -e HEMOCENTROS_TEST_RABBITMQ_URL="amqp://guest:guest@rmq:5672/" \
     -e ORQUESTRADOR_TEST_POSTGRES_URL="postgresql+asyncpg://hemocentros:hemocentros@pg:5432/orquestrador_test" \
     -e ORQUESTRADOR_TEST_RABBITMQ_URL="amqp://guest:guest@rmq:5672/" \
+    -e COMUNICACAO_TEST_POSTGRES_URL="postgresql+asyncpg://hemocentros:hemocentros@pg:5432/comunicacao_test" \
+    -e COMUNICACAO_TEST_RABBITMQ_URL="amqp://guest:guest@rmq:5672/" \
     "$IMG" bash -c '
       set -euo pipefail
       cp -r /src /work && cd /work && rm -rf .venv

@@ -65,7 +65,7 @@ Abaixo estão detalhados os endpoints críticos que suportam os fluxos de mobili
 | **3\. agendamentos** | `DELETE` | `/api/v1/slots/{slotId}/reservas/{agendamentoId}` | `204 No Content` | **Compensação do Passo 1:** libera a vaga e marca o agendamento como `CANCELADO_COMPENSACAO_SAGA`. Idempotente. |
 | **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/confirmacao` | `200 OK` | **Passo 4 (final) da SAGA:** muda o agendamento de `CRIADO_PROVISORIO` para `CONFIRMADO`. Idempotente (`Idempotency-Key: saga-{sagaId}-step4`). |
 | **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/cancelamento` | `200 OK` | Cancela agendamento confirmado, libera vaga no slot e publica evento de cancelamento no RabbitMQ. |
-| **4\. comunicacao** | `GET` | `/api/v1/comunicacao/historico/{doadorId}` | `200 OK` | Consulta histórico auditável de notificações e lembretes enviados ao doador. |
+| **4\. comunicacao** | `GET` | `/api/v1/comunicacao/historico/{doadorId}` | `200 OK` | Consulta histórico auditável de notificações enviadas ao doador (`CONFIRMACAO`, `LEMBRETE`, `CANCELAMENTO`, `DESFECHO`), da mais recente para a mais antiga, paginado por `pagina` e `tamanho` (máx. 100). Doador sem histórico devolve lista vazia. Uso interno (rede `startech-net-api`). |
 | **5\. orquestrador** | `POST` | `/api/v1/sagas/agendamento` | `202 Accepted` | Inicia a SAGA Orquestrada de agendamento (corpo `{doadorId, slotId}`), gerando `sagaId` e `agendamentoId`. Retorna `Location: /api/v1/sagas/{sagaId}`. `409 Conflict` se o doador já possuir SAGA em andamento (RN09). |
 | **5\. orquestrador** | `GET` | `/api/v1/sagas/{sagaId}` | `200 OK` | Estado atual da SAGA, passos executados (ação positiva e compensações) e, quando recusada ou compensada, o motivo em `application/problem+json`. `404 Not Found` se inexistente. |
 
@@ -105,7 +105,8 @@ O Passo 3 (comunicacao) e sua compensação são comandos assíncronos publicado
 
 > * Exchange `startech.events.exchange` (topic, durável): declarada por todo serviço que publica ou consome;  
 > * Cada consumidor declara a própria fila e o binding. O `ms-orquestrador` declara `orquestrador.saga.respostas` (binding `comunicacao.lembrete.*`, com dead-letter para `orquestrador.saga.respostas.dlq` via `startech.events.dlx`) e `saga.compensations.dlq` (binding `saga.compensacao.falhou`);  
-> * O `ms-orquestrador` **também** declara `comunicacao.saga.comandos` (durável, **sem argumentos extras**, binding `saga.comando.comunicacao.*`) para que nenhum comando se perca se o `ms-comunicacao` ainda não estiver no ar. O `ms-comunicacao` deve declarar essa fila com exatamente os mesmos argumentos (o RabbitMQ recusa redeclaração divergente com `PRECONDITION_FAILED`).
+> * O `ms-orquestrador` **também** declara `comunicacao.saga.comandos` (durável, **sem argumentos extras**, binding `saga.comando.comunicacao.*`) para que nenhum comando se perca se o `ms-comunicacao` ainda não estiver no ar. O `ms-comunicacao` deve declarar essa fila com exatamente os mesmos argumentos (o RabbitMQ recusa redeclaração divergente com `PRECONDITION_FAILED`).  
+> * O `ms-comunicacao` declara `comunicacao.saga.comandos` (sem DLQ, pela regra acima; comandos ilegíveis vão para a tabela `mensagens_rejeitadas` e, se o `sagaId` for legível mas os dados não, ele responde `comunicacao.lembrete.falhou`, para a SAGA compensar sem esperar o timeout) e a fila própria `comunicacao.notificacoes` (bindings `saga.agendamento.*` e `hemocentros.campanha.criada`, com dead-letter para `comunicacao.notificacoes.dlq` via `startech.events.dlx`). A resposta do Passo 3 é gravada no Outbox do `ms-comunicacao` na mesma transação do lembrete e do inbox (`processed_messages`).
 
 # 
 

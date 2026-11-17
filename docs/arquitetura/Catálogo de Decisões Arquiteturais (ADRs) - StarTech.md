@@ -555,7 +555,7 @@ O Passo 4 é novo em relação ao ADR-002: com o orquestrador fora de agendament
 
 STARTED → SLOT\_RESERVED → AWAITING\_COMUNICACAO → CONFIRMING → **CONFIRMED**
 
-O sucesso do Passo 2 grava, na mesma transação, o comando do Passo 3 no Outbox e já leva a SAGA a AWAITING\_COMUNICACAO; por isso não há um status intermediário DONOR\_VALIDATED (citado no ADR-002). Enquanto o ms-comunicacao não existir, a configuração ORQUESTRADOR\_PASSO3\_AGUARDAR\_RESPOSTA=false considera o Passo 3 concluído ao gravar o comando no Outbox, cuja entrega é garantida, e segue direto para CONFIRMING.
+O sucesso do Passo 2 grava, na mesma transação, o comando do Passo 3 no Outbox e já leva a SAGA a AWAITING\_COMUNICACAO; por isso não há um status intermediário DONOR\_VALIDATED (citado no ADR-002). Com o ms-comunicacao implementado, o orquestrador aguarda a resposta comunicacao.lembrete.programado (ou .falhou) por até 30 s (ORQUESTRADOR\_PASSO3\_AGUARDAR\_RESPOSTA=true, padrão). A configuração false, usada antes de o ms-comunicacao existir, considera o Passo 3 concluído ao gravar o comando no Outbox e segue direto para CONFIRMING.
 
 > * Recusa de negócio no Passo 1 (409 slot esgotado ou RN09): **REJECTED**, sem nada a compensar;  
 > * Recusa ou falha nos Passos 2 ou 3 (422 RN01, resposta lembrete.falhou ou timeout da resposta): **COMPENSATING**, desfazendo os passos concluídos em ordem reversa, até **COMPENSATED**;  
