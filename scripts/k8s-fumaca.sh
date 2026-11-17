@@ -6,8 +6,10 @@
 #
 # Uso: scripts/k8s-fumaca.sh                     (usa o Ingress em http://startech.local)
 #      BASE=http://localhost:8080 scripts/k8s-fumaca.sh   (com kubectl -n startech port-forward svc/gateway 8080)
+#      INGRESS_IP=$(minikube ip) scripts/k8s-fumaca.sh   (sem editar /etc/hosts: resolve startech.local no curl)
 set -euo pipefail
 BASE="${BASE:-http://startech.local}"
+curl() { command curl ${INGRESS_IP:+--resolve "startech.local:80:$INGRESS_IP"} "$@"; }
 
 json() { python3 -c 'import json,sys
 v=json.load(sys.stdin)
@@ -32,4 +34,7 @@ for _ in $(seq 1 90); do
   sleep 1
 done
 [ "$(echo "$estado" | json finalizada)" = "True" ] || { echo "FALHA: SAGA não terminou: $estado"; exit 1; }
+echo ">> POST /api/mobile/assistente (RAG)"
+curl -fsS -X POST "$BASE/api/mobile/assistente" "${AUTH[@]}" -H "Content-Type: application/json" \
+  -d '{"pergunta":"Qual o peso mínimo para doar sangue?"}' | head -c 300; echo
 echo ">> fumaça OK"

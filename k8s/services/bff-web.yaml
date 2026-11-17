@@ -26,6 +26,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: bff-web, app.kubernetes.io/component: bff}
     spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001  # usuário `app` criado no Dockerfile

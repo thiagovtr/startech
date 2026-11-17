@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.."
 
 CLUSTER="${CLUSTER:-minikube}"
 NS=startech
+# Sem kubectl no PATH, usa o embutido no minikube.
+command -v kubectl >/dev/null || kubectl() { minikube kubectl -- "$@"; }
 SERVICOS=(gateway keycloak ms-doadores ms-agendamentos ms-hemocentros ms-orquestrador ms-comunicacao ms-rag bff-mobile bff-web)
 
 carregar() {

@@ -29,6 +29,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: rabbitmq, app.kubernetes.io/component: broker}
     spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
       containers:
         - name: rabbitmq
           image: rabbitmq:3.13-management-alpine

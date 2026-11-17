@@ -28,6 +28,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama, app.kubernetes.io/component: ia}
     spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
       containers:
         - name: ollama
           image: ollama/ollama:0.9.6
@@ -69,6 +71,8 @@ spec:
     metadata:
       labels: {app.kubernetes.io/part-of: startech, app.kubernetes.io/name: ollama-pull, app.kubernetes.io/component: ia}
     spec:
+      # Sem variáveis automáticas <SERVICE>_PORT=tcp://...: colidem com a config (ex.: BFF_MOBILE_PORT).
+      enableServiceLinks: false
       restartPolicy: OnFailure
       containers:
         - name: pull

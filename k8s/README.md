@@ -74,4 +74,13 @@ O `ms-hemocentros` escala horizontalmente para suportar picos de leitura documen
 
 ## Validação feita
 
-Os 62 recursos passam no schema da API 1.30 (`kubeconform -strict`, via `docker run ghcr.io/yannh/kubeconform:v0.6.7 -strict -summary -kubernetes-version 1.30.0 /k8s`). **Ainda não foram aplicados num cluster**: rode `scripts/k8s-aplicar.sh` e `scripts/k8s-fumaca.sh` antes da apresentação.
+- **Schema:** os 65 recursos passam no schema da API 1.30 (`docker run ghcr.io/yannh/kubeconform:v0.6.7 -strict -summary -kubernetes-version 1.30.0 /k8s`).
+- **Cluster (17/11/2026):** minikube v1.39 (Kubernetes 1.37, driver docker, 8 CPUs e 14 GB). `scripts/k8s-aplicar.sh` subiu os 19 pods em `Running`/`Ready` e o Job `ollama-pull` em `Completed`. `INGRESS_IP=$(minikube ip) scripts/k8s-fumaca.sh` passou pelo Ingress `startech.local`:
+  - token do Keycloak;
+  - `/api/mobile/home` com o perfil do doador;
+  - SAGA até o fim (`RECUSADO`, porque os endpoints da SAGA nos serviços Java ainda não existem);
+  - assistente respondendo com `RAG`.
+  
+  O `kubectl scale deployment ms-hemocentros --replicas=3` levou a 3 réplicas `Ready`.
+- **Problema encontrado e corrigido:** o Kubernetes injeta variáveis `<SERVICE>_PORT=tcp://...` para cada Service do namespace. O Service `bff-mobile` gerava `BFF_MOBILE_PORT`, que colidia com a configuração do BFF (`CrashLoopBackOff`). Todos os pods usam `enableServiceLinks: false`.
+- **Sem `kubectl` no PATH:** os scripts usam o embutido no minikube (`minikube kubectl --`). Sem editar o `/etc/hosts`, `INGRESS_IP=$(minikube ip)` faz o curl resolver `startech.local`.
