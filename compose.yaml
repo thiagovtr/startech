@@ -151,9 +151,12 @@ services:
   # ===========================================================================
   # [DEV 4] Ollama (LLM local do ms-rag), Comunicação (passo 3 da SAGA) e seu PostgreSQL
   # ===========================================================================
+  # IA (Ollama, ollama-pull e ms-rag) fica no perfil `ia`: fora do `docker compose up` padrão, para a stack ficar
+  # leve. Para ligar: `docker compose --profile ia up -d` ou COMPOSE_PROFILES=ia no .env.
   # Runtime do LLM. Sem porta no host por padrão (o ms-rag o acessa na rede interna); modelos no volume.
   ollama:
     image: ollama/ollama:0.9.6
+    profiles: [ia]
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}  # mantém o modelo carregado (evita cold start > 4 s)
     volumes:
@@ -170,6 +173,7 @@ services:
   # Execução única: baixa os modelos para o volume (só na primeira vez; depois é instantâneo).
   ollama-pull:
     image: ollama/ollama:0.9.6
+    profiles: [ia]
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}
@@ -185,6 +189,7 @@ services:
   # acessado pelo bff-mobile (POST /bff-mobile/assistente). Sem Ollama, responde com fallback (nunca 5xx).
   ms-rag:
     build: ./ms-rag
+    profiles: [ia]
     environment:
       RAG_OLLAMA_URL: http://ollama:11434
       RAG_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}

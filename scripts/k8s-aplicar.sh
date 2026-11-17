@@ -7,7 +7,7 @@
 # Uso: scripts/k8s-aplicar.sh                (CLUSTER=minikube, padrão)
 #      CLUSTER=kind KIND_NOME=startech scripts/k8s-aplicar.sh
 #      SEM_BUILD=1 scripts/k8s-aplicar.sh    (reaplica sem reconstruir as imagens)
-#      SEM_OLLAMA=1 scripts/k8s-aplicar.sh   (não sobe o Ollama: economiza ~3 GB de RAM)
+#      SEM_OLLAMA=1 scripts/k8s-aplicar.sh   (não sobe Ollama nem ms-rag: economiza ~3 GB de RAM)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -43,7 +43,7 @@ kubectl -n "$NS" rollout status statefulset --timeout=300s
 
 echo ">> serviços"
 for f in k8s/services/*.yaml; do
-  [ "${SEM_OLLAMA:-0}" = "1" ] && [ "$(basename "$f")" = "ollama.yaml" ] && continue
+  [ "${SEM_OLLAMA:-0}" = "1" ] && case "$(basename "$f")" in ollama.yaml|ms-rag.yaml) continue ;; esac
   kubectl apply -f "$f"
 done
 kubectl apply -f k8s/ingress.yaml || echo "   (Ingress não aplicado: habilite o controlador NGINX; ver k8s/README.md)"
