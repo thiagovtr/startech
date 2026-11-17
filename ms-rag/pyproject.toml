@@ -8,8 +8,8 @@ dependencies = [
     "uvicorn[standard]>=0.30,<1",
     "pydantic-settings>=2.4,<3",
     "httpx>=0.27,<1",
-    "langchain-core>=0.3.86,<0.4",
-    "langchain-ollama>=0.3.10,<0.4",
+    "langchain-core>=1.2.22,<2",  # 1.2.22 corrige a CVE-2026-34070 (Trivy)
+    "langchain-ollama>=1.1,<2",
     "numpy>=1.26,<3",
 ]
 
