@@ -1,7 +1,7 @@
 """Processo só de workers, sem API HTTP: `python -m hemocentros.worker`.
 
-Uso típico (Kubernetes/Compose): um Deployment da API com `HEMOCENTROS_API_EXECUTA_WORKERS=false`,
-escalado pela carga de leitura, e um Deployment deste worker (1 réplica basta; mais é seguro).
+Uso típico (Compose): um serviço da API com `HEMOCENTROS_API_EXECUTA_WORKERS=false`,
+escalado pela carga de leitura, e um serviço deste worker (1 réplica basta; mais é seguro).
 Aplica as migrações na partida (advisory lock evita corrida com a API) e encerra limpo em SIGTERM.
 """
 

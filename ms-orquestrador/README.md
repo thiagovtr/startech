@@ -53,7 +53,7 @@ Eventos de desfecho: `saga.agendamento.confirmado` e `saga.agendamento.compensad
 
 | Variável | Padrão | Observação |
 | --- | --- | --- |
-| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; Secret no K8s). |
+| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; vêm do `.env` no Compose). |
 | `AGENDAMENTOS_URL`, `DOADORES_URL` | `http://ms-agendamentos:8082`, `http://ms-doadores:8081` | Participantes HTTP; `HTTP_TIMEOUT` (3 s) por chamada. |
 | `PASSO3_AGUARDAR_RESPOSTA` | `true` | Com `true` (usado no Compose), aguarda a resposta do `ms-comunicacao` por `TIMEOUT_PASSO3` (30 s). `false` faz o passo 3 concluir ao gravar o comando no Outbox (útil sem o `ms-comunicacao` no ar). |
 | `MAX_RETRIES`, `BACKOFF_BASE_MS` | `5`, `500` | Retentativas por passo (ADR-002 §5.3). |
@@ -78,13 +78,13 @@ export ORQUESTRADOR_RABBITMQ_URL=amqp://usuario:senha@127.0.0.1:5672/
 
 Migrações Alembic (`src/orquestrador/migrations/versions/NNNN_*.py`) são aplicadas na subida; `test_migracoes_correspondem_aos_modelos` falha se ORM e migrações divergirem.
 
-## Kubernetes (para os manifestos)
+## Operação
 
-- **Secret:** `ORQUESTRADOR_POSTGRES_URL` e `ORQUESTRADOR_RABBITMQ_URL` (sem padrão no código: sem elas o pod não sobe). **ConfigMap:** URLs dos participantes e `ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA`.
-- **Probes:** `livenessProbe` em `/health`, `readinessProbe` em `/ready`, porta 8003.
+- **Credenciais:** `ORQUESTRADOR_POSTGRES_URL` e `ORQUESTRADOR_RABBITMQ_URL` vêm do `.env` (sem padrão no código: sem elas o processo não sobe).
+- **Saúde:** `/health` (liveness) e `/ready` (readiness), porta 8003.
 - **Banco próprio:** `db-orquestrador` (PostgreSQL 16) com volume persistente; nenhum outro serviço o acessa.
 - **Réplicas:** seguras. A migração usa *advisory lock*; o worker de recuperação e o publicador usam `FOR UPDATE SKIP LOCKED`; as transições têm lock otimista; a reivindicação impede duas réplicas de executarem o mesmo passo.
-- **Rede:** só precisa alcançar `db-orquestrador`, RabbitMQ, `ms-agendamentos` e `ms-doadores`; é chamado só pelo `bff-mobile` (Service ClusterIP, sem Ingress).
+- **Rede:** só precisa alcançar `db-orquestrador`, RabbitMQ, `ms-agendamentos` e `ms-doadores`; é chamado só pelo `bff-mobile`.
 
 ## Testes e qualidade
 

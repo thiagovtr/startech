@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     app_name: str = "ms-orquestrador"
     port: int = 8003
 
-    # Credenciais NÃO têm valor padrão no código: vêm do ambiente (.env no Compose, Secret no Kubernetes).
+    # Credenciais NÃO têm valor padrão no código: vêm do ambiente (arquivo .env no Compose).
     # Sem elas o serviço não sobe (falha rápida, em vez de rodar silenciosamente com senha conhecida).
 
     # PostgreSQL próprio (estado da SAGA, log de passos, Outbox) - URL SQLAlchemy com driver asyncpg
@@ -95,5 +95,5 @@ def get_settings() -> Settings:
             raise
         raise RuntimeError(
             "Configuração obrigatória ausente: defina as variáveis de ambiente " + ", ".join(faltando)
-            + " (Compose: arquivo .env, ver .env.example; Kubernetes: Secret)."
+            + " (Compose: arquivo .env, ver .env.example)."
         ) from None

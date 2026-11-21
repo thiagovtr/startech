@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     app_name: str = "ms-hemocentros"
     port: int = 8000
 
-    # Credenciais NÃO têm valor padrão no código: vêm do ambiente (.env no Compose, Secret no Kubernetes).
+    # Credenciais NÃO têm valor padrão no código: vêm do ambiente (arquivo .env no Compose).
     # Sem elas o serviço não sobe (falha rápida, em vez de rodar silenciosamente com senha conhecida).
 
     # PostgreSQL (modelo de escrita) - URL SQLAlchemy com driver assíncrono (postgresql+asyncpg), usuário e senha
@@ -74,5 +74,5 @@ def get_settings() -> Settings:
             raise
         raise RuntimeError(
             "Configuração obrigatória ausente: defina as variáveis de ambiente " + ", ".join(faltando)
-            + " (Compose: arquivo .env, ver .env.example; Kubernetes: Secret)."
+            + " (Compose: arquivo .env, ver .env.example)."
         ) from None

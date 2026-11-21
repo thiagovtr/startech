@@ -33,7 +33,7 @@ O app chega aqui pelo `bff-mobile` (`POST /bff-mobile/assistente` {pergunta}, vi
 
 | Variável | Padrão | Observação |
 | --- | --- | --- |
-| `OLLAMA_URL`, `MODELO_CHAT`, `MODELO_EMBEDDINGS` | `http://ollama:11434`, `qwen2.5:1.5b`, `nomic-embed-text` | Modelos baixados pelo serviço `ollama-pull` do Compose / Job do K8s. |
+| `OLLAMA_URL`, `MODELO_CHAT`, `MODELO_EMBEDDINGS` | `http://ollama:11434`, `qwen2.5:1.5b`, `nomic-embed-text` | Modelos baixados pelo serviço `ollama-pull` do Compose. |
 | `NUM_THREAD` | `8` | **Ajuste para o nº de núcleos de desempenho da CPU.** Em CPUs híbridas, o padrão do Ollama (todos os núcleos) foi ~6x mais lento. `0` deixa o Ollama decidir. |
 | `TIMEOUT_LLM`, `TIMEOUT_BUSCA` | `4`, `1.5` | Somados, ficam abaixo dos 6 s do Gateway. |
 | `CB_FALHAS`, `CB_ABERTO_SEGUNDOS` | `3`, `30` | Circuit breaker. |

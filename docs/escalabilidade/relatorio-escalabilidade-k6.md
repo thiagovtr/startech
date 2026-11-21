@@ -1,5 +1,7 @@
 # Relatório de Estresse e Escalabilidade no Kubernetes (Grafana k6) — StarTech
 
+> **Material histórico:** este teste foi executado quando o projeto ainda tinha manifestos Kubernetes, removidos na issue #17; hoje a execução oficial é só pelo Docker Compose. Os scripts citados abaixo não existem mais no repositório.
+
 > **Resumo Executivo para Apresentação (GCC129 — Sistemas Distribuídos):**  
 > Com os **18 pods** da arquitetura **StarTech** em execução no Kubernetes (namespace `startech`), `metrics-server` ativo e o **HorizontalPodAutoscaler (`autoscaling/v2`)** configurado ([`k8s/services/ms-hemocentros-hpa.yaml`](../../k8s/services/ms-hemocentros-hpa.yaml)), executamos uma bateria de estresse e escalabilidade com o **Grafana k6 v0.54.0** ([`scripts/k6-escalabilidade.js`](../../scripts/k6-escalabilidade.js)) simulando **até 117 usuários virtuais (VUs)** em **3 cenários distribuídos simultâneos**.
 
