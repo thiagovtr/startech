@@ -1,6 +1,6 @@
 # Sobreposição do compose.yaml para o E2E da SAGA (scripts/e2e-saga.sh). NÃO faz parte da stack normal.
-# Substitui ms-agendamentos e ms-doadores, para o orquestrador, por participantes simulados que implementam
-# os contratos da SAGA (contratos §2), enquanto os endpoints reais não existem.
+# Substitui só o ms-doadores (passo 2 da SAGA, RN01), para o orquestrador, por um participante simulado que
+# implementa o contrato (contratos §2), enquanto o endpoint real não existe. O ms-agendamentos é o real.
 # Os caminhos são relativos ao compose.yaml da raiz (primeiro arquivo).
 services:
   participantes-fake:
@@ -17,17 +17,7 @@ services:
 
   ms-orquestrador:
     environment:
-      ORQUESTRADOR_AGENDAMENTOS_URL: http://participantes-fake:9000
       ORQUESTRADOR_DOADORES_URL: http://participantes-fake:9000
-    depends_on:
-      participantes-fake:
-        condition: service_healthy
-
-  # consulta e cancelamento do agendamento (contratos §3) também vão para o participante simulado, que é
-  # onde a SAGA do E2E grava os agendamentos
-  bff-mobile:
-    environment:
-      BFF_MOBILE_AGENDAMENTOS_URL: http://participantes-fake:9000
     depends_on:
       participantes-fake:
         condition: service_healthy
