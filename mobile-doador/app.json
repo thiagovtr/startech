@@ -3,6 +3,7 @@
     "name": "mobile-doador",
     "slug": "mobile-doador",
     "version": "1.0.0",
+    "scheme": "startech",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,6 +21,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser"
+    ]
   }
 }

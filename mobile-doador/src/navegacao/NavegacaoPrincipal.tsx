@@ -1,9 +1,13 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAutenticacao } from '../autenticacao';
+import { EstadoFeedback } from '../componentes';
 import { NavegacaoAbas } from './NavegacaoAbas';
 import { AcompanhamentoSaga, Login } from '../telas';
+import { cores } from '../tema';
 
 export type ParametrosRaiz = {
   Abas: undefined;
@@ -13,19 +17,34 @@ export type ParametrosRaiz = {
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
 
 export function NavegacaoPrincipal() {
-  // Acesso provisório para testar as abas; substituir pela sessão autenticada via OIDC.
-  const [acessoLiberado, definirAcessoLiberado] = useState(false);
+  const autenticacao = useAutenticacao();
 
   return (
     <NavigationContainer>
-      {acessoLiberado ? (
+      {autenticacao.estado === 'RESTAURANDO' ? (
+        <SafeAreaView style={estilos.areaSegura}>
+          <View style={estilos.conteudo}>
+            <EstadoFeedback descricao="Restaurando sua sessão segura." tipo="carregando" titulo="Aguarde" />
+          </View>
+        </SafeAreaView>
+      ) : autenticacao.estado === 'AUTENTICADO' ? (
         <PilhaRaiz.Navigator screenOptions={{ headerShown: false }}>
           <PilhaRaiz.Screen component={NavegacaoAbas} name="Abas" />
           <PilhaRaiz.Screen component={AcompanhamentoSaga} name="AcompanhamentoSaga" />
         </PilhaRaiz.Navigator>
       ) : (
-        <Login aoEntrar={() => definirAcessoLiberado(true)} />
+        <Login
+          aoEntrar={() => void autenticacao.iniciarLogin()}
+          carregando={autenticacao.carregandoLogin}
+          desabilitado={autenticacao.estado === 'ERRO'}
+          mensagemErro={autenticacao.mensagemErro}
+        />
       )}
     </NavigationContainer>
   );
 }
+
+const estilos = StyleSheet.create({
+  areaSegura: { backgroundColor: cores.fundo, flex: 1 },
+  conteudo: { flex: 1, justifyContent: 'center' },
+});

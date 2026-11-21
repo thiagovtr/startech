@@ -6,9 +6,12 @@ import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../t
 
 type PropriedadesLogin = {
   aoEntrar: () => void;
+  carregando?: boolean;
+  desabilitado?: boolean;
+  mensagemErro?: string;
 };
 
-export function Login({ aoEntrar }: PropriedadesLogin) {
+export function Login({ aoEntrar, carregando = false, desabilitado = false, mensagemErro }: PropriedadesLogin) {
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudoRolavel}>
@@ -25,7 +28,8 @@ export function Login({ aoEntrar }: PropriedadesLogin) {
           <Text style={estilos.descricao}>
             Encontre campanhas, agende sua doação e acompanhe seus pedidos em um só lugar.
           </Text>
-          <BotaoPrimario aoPressionar={aoEntrar} titulo="Login" />
+          {mensagemErro && <Text style={estilos.mensagemErro}>{mensagemErro}</Text>}
+          <BotaoPrimario aoPressionar={aoEntrar} carregando={carregando} desabilitado={desabilitado} titulo="Login" />
         </Cartao>
 
         <Text style={estilos.rodape}>Sua próxima doação pode fazer a diferença.</Text>
@@ -86,6 +90,11 @@ const estilos = StyleSheet.create({
     fontSize: tamanhosFonte.corpo,
     fontWeight: pesosFonte.normal,
     lineHeight: 24,
+  },
+  mensagemErro: {
+    color: cores.principalEscuro,
+    fontSize: tamanhosFonte.legenda,
+    fontWeight: pesosFonte.medio,
   },
   rodape: {
     color: cores.textoSecundario,
