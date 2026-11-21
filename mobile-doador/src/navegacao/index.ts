@@ -1,0 +1,1 @@
+export { NavegacaoPrincipal } from './NavegacaoPrincipal';
