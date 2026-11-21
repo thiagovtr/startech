@@ -8,13 +8,17 @@ contratos da SAGA com estado em memória e uma regra RN01 simplificada para prov
 - `slot-proximo` (daqui a 7 dias): doador inapto (RN01, 422) -> vaga liberada e SAGA compensada;
 - `slot-lotado` (capacidade 0): 409 no passo 1 -> SAGA recusada sem compensação.
 
+Também expõe o recurso Agendamento com HATEOAS (contratos §3) com as mesmas regras do `ms-agendamentos`:
+`GET /api/v1/agendamentos[?doadorId=]`, `GET /api/v1/agendamentos/{id}` e `POST .../{id}/cancelamento`
+(só `CONFIRMADO` e até 2 h antes; cancelar de novo responde 409).
+
 `GET /fake/estado` mostra vagas, agendamentos e travas, para o roteiro conferir o efeito das compensações.
 """
 
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, Response
+from fastapi import Body, FastAPI, Header, Response
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="participantes-fake")
@@ -61,7 +65,8 @@ async def reservar_vaga(slot_id: str, corpo: dict, idempotency_key: Annotated[st
         if slot["ocupadas"] >= slot["capacidade"]:
             return _problema(409, "slot-esgotado", "Slot esgotado", f"Não há vagas no slot {slot_id}.")
         slot["ocupadas"] += 1
-        existente = {"slotId": slot_id, "doadorId": corpo["doadorId"], "status": "CRIADO_PROVISORIO"}
+        existente = {"slotId": slot_id, "doadorId": corpo["doadorId"], "status": "CRIADO_PROVISORIO",
+                     "dataCancelamento": None, "motivo": None}
         AGENDAMENTOS[ag_id] = existente
     return {"agendamentoId": ag_id, "slotId": slot_id, "dataHoraInicio": _iso(slot["inicio"]),
             "dataHoraFim": _iso(slot["inicio"] + timedelta(minutes=20)), "status": existente["status"]}
@@ -85,6 +90,68 @@ async def confirmar(agendamento_id: str, idempotency_key: Annotated[str | None, 
         return _problema(404, "agendamento-nao-encontrado", "Agendamento não encontrado", agendamento_id)
     ag["status"] = "CONFIRMADO"
     return {"id": agendamento_id, **ag}
+
+
+ANTECEDENCIA_CANCELAMENTO = timedelta(hours=2)
+
+
+def _representacao(ag_id: str, ag: dict[str, Any]) -> dict[str, Any]:
+    inicio = SLOTS[ag["slotId"]]["inicio"]
+    fim = inicio + timedelta(minutes=20)
+    agora = datetime.now(UTC)
+    base = f"/api/v1/agendamentos/{ag_id}"
+    corpo: dict[str, Any] = {
+        "id": ag_id, "status": ag["status"], "concluido": ag["status"] == "CONFIRMADO" and fim <= agora,
+        "doadorId": ag["doadorId"],
+        "slot": {"slotId": ag["slotId"], "postoId": "posto-fake", "dataHoraInicio": _iso(inicio),
+                 "dataHoraFim": _iso(fim)},
+    }
+    links: dict[str, Any] = {"self": {"href": base, "method": "GET", "title": "Consultar dados do agendamento"}}
+    if ag["status"].startswith("CANCELADO"):
+        corpo.update(dataCancelamento=ag["dataCancelamento"], motivo=ag["motivo"], slotLiberado=ag["slotId"])
+        links["novo-agendamento"] = {"href": "/api/v1/sagas/agendamento", "method": "POST",
+                                     "title": "Solicitar um novo agendamento"}
+    elif ag["status"] == "CONFIRMADO" and agora < inicio - ANTECEDENCIA_CANCELAMENTO:
+        links["cancelar"] = {"href": f"{base}/cancelamento", "method": "POST",
+                             "title": "Efetuar cancelamento e liberar vaga para outros doadores",
+                             "conditions": "Permitido até 2 horas antes do horário agendado"}
+    corpo["_links"] = links
+    return corpo
+
+
+@app.get("/api/v1/agendamentos")
+async def listar_agendamentos(doadorId: str):  # noqa: N803 (nome do parâmetro do contrato)
+    itens = [(k, v) for k, v in AGENDAMENTOS.items() if v["doadorId"] == doadorId]
+    itens.sort(key=lambda kv: SLOTS[kv[1]["slotId"]]["inicio"], reverse=True)
+    return {"itens": [_representacao(k, v) for k, v in itens],
+            "_links": {"self": {"href": f"/api/v1/agendamentos?doadorId={doadorId}", "method": "GET"}}}
+
+
+@app.get("/api/v1/agendamentos/{agendamento_id}")
+async def consultar_agendamento(agendamento_id: str):
+    ag = AGENDAMENTOS.get(agendamento_id)
+    if ag is None:
+        return _problema(404, "agendamento-nao-encontrado", "Agendamento não encontrado", agendamento_id)
+    return _representacao(agendamento_id, ag)
+
+
+@app.post("/api/v1/agendamentos/{agendamento_id}/cancelamento")
+async def cancelar_agendamento(agendamento_id: str, corpo: Annotated[dict | None, Body()] = None):
+    CHAMADAS.append(f"POST /agendamentos/{agendamento_id}/cancelamento")
+    ag = AGENDAMENTOS.get(agendamento_id)
+    if ag is None:
+        return _problema(404, "agendamento-nao-encontrado", "Agendamento não encontrado", agendamento_id)
+    if ag["status"].startswith("CANCELADO"):
+        return _problema(409, "agendamento-ja-cancelado", "Agendamento já cancelado",
+                         f"O agendamento {agendamento_id} já está {ag['status']}.")
+    if ag["status"] != "CONFIRMADO":
+        return _problema(409, "agendamento-nao-cancelavel", "Agendamento ainda em processamento", agendamento_id)
+    if datetime.now(UTC) >= SLOTS[ag["slotId"]]["inicio"] - ANTECEDENCIA_CANCELAMENTO:
+        return _problema(409, "prazo-cancelamento-expirado", "Prazo de cancelamento encerrado", agendamento_id)
+    SLOTS[ag["slotId"]]["ocupadas"] -= 1
+    ag.update(status="CANCELADO_DOADOR", dataCancelamento=_iso(datetime.now(UTC)),
+              motivo=((corpo or {}).get("motivo") or "Cancelado pelo doador"))
+    return _representacao(agendamento_id, ag)
 
 
 # ------------------------------------------------------------------ ms-doadores

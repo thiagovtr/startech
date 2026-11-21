@@ -23,6 +23,15 @@ services:
       participantes-fake:
         condition: service_healthy
 
+  # consulta e cancelamento do agendamento (contratos §3) também vão para o participante simulado, que é
+  # onde a SAGA do E2E grava os agendamentos
+  bff-mobile:
+    environment:
+      BFF_MOBILE_AGENDAMENTOS_URL: http://participantes-fake:9000
+    depends_on:
+      participantes-fake:
+        condition: service_healthy
+
   # A SAGA não usa a IA: o Ollama fica fora do E2E (economiza RAM e o `up --wait` não trata a saída do
   # job de pull como falha). Suba-o com `--profile ia` se quiser.
   ollama:
