@@ -3,7 +3,8 @@
 # com PostgreSQL, Outbox e RabbitMQ reais. O ms-agendamentos (passos 1 e 4) é o real, com a grade do perfil
 # `demo`, e o estado dele é conferido direto no db-agendamentos. Só o passo 2 (ms-doadores, RN01) ainda é
 # simulado (scripts/e2e-saga/participantes_fake.py), até o endpoint real existir.
-#   0. Grade: GET /api/mobile/slots traz slot-futuro e slot-proximo, com o link agendar; slot-lotado não aparece
+#   0. Grade: GET /api/mobile/slots traz slot-futuro e slot-proximo, com o link agendar; slot-lotado não aparece.
+#      As solicitações seguem o link `agendar` da grade, e as vagas disponíveis acompanham reserva e cancelamento
 #   1. Caminho feliz:   slot-futuro  -> CONFIRMADO (passos 1, 2, 3 via Outbox e 4)
 #   1b. Consulta e cancelamento com HATEOAS: o link `agendamento` da SAGA confirmada leva ao recurso, que tem
 #       `cancelar`; cancelar libera a vaga e troca os links (`novo-agendamento`, sem `cancelar`); de novo -> 409
@@ -53,9 +54,11 @@ TOKEN=$(curl -s -X POST "$GATEWAY/realms/startech/protocol/openid-connect/token"
 [ -n "$TOKEN" ] || falha "token do doador vazio"
 AUTH=(-H "Authorization: Bearer $TOKEN")
 
+LINK_AGENDAR="/api/mobile/agendamentos"  # trocado pelo link `agendar` da grade no cenário 0
+
 solicitar() {  # solicitar <slot> [idempotency-key] -> imprime "status corpo"
   local chave=${2:-$(python3 -c 'import uuid;print(uuid.uuid4())')}
-  curl -s -w '\n%{http_code}' -X POST "$GATEWAY/api/mobile/agendamentos" "${AUTH[@]}" \
+  curl -s -w '\n%{http_code}' -X POST "$GATEWAY$LINK_AGENDAR" "${AUTH[@]}" \
     -H "Content-Type: application/json" -H "Idempotency-Key: $chave" -d "{\"slotId\":\"$1\"}"
 }
 
@@ -117,6 +120,16 @@ assert "slot-lotado" not in ids, ids
 assert all(s["_links"]["agendar"] == {"href": "/api/mobile/agendamentos", "method": "POST", "title": s["_links"]["agendar"]["title"]} for s in d["itens"])
 ' || falha "grade inesperada: $slots"
 echo "   ok: $(echo "$slots" | python3 -c 'import json,sys;print(", ".join(s["slotId"]+"("+str(s["vagasDisponiveis"])+")" for s in json.load(sys.stdin)["itens"]))')"
+# como o app: escolhe o horário pela grade e segue o link `agendar` dele
+slot_da_grade() {  # slot_da_grade <slotId> <campo> -> campo do slot na grade atual
+  curl -s "$GATEWAY/api/mobile/slots" "${AUTH[@]}" | python3 -c '
+import json, sys
+s = next((s for s in json.load(sys.stdin)["itens"] if s["slotId"] == sys.argv[1]), None)
+print("" if s is None else (s["_links"]["agendar"]["href"] if sys.argv[2] == "agendar" else s[sys.argv[2]]))' "$1" "$2"
+}
+LINK_AGENDAR=$(slot_da_grade slot-futuro agendar)
+[ "$LINK_AGENDAR" = "/api/mobile/agendamentos" ] || falha "link agendar inesperado: $LINK_AGENDAR"
+VAGAS_FUTURO=$(slot_da_grade slot-futuro vagasDisponiveis)
 
 # ----------------------------------------------------------------------------------------------- 1
 echo ">> 1. caminho feliz (slot-futuro: doador apto)"
@@ -128,6 +141,8 @@ final=$(aguardar "$SAGA1")
 [ "$(echo "$final" | json situacao)" = "CONFIRMADO" ] || falha "esperado CONFIRMADO: $final"
 passos "$SAGA1"
 [ "$(status_agendamento "$AG1")" = "CONFIRMADO" ] || falha "agendamento não confirmado no db-agendamentos"
+[ "$(slot_da_grade slot-futuro vagasDisponiveis)" = "$(( VAGAS_FUTURO - 1 ))" ] \
+  || falha "a grade não refletiu a vaga ocupada (antes $VAGAS_FUTURO)"
 echo "   ok: CONFIRMADO; db-agendamentos: agendamento $AG1 CONFIRMADO, slot-futuro com $(vagas slot-futuro) vaga(s) ocupada(s)"
 esperar_notificacao "$AG1" LEMBRETE
 echo "   ok: ms-comunicacao registrou: $(notificacoes "$AG1")"
@@ -168,6 +183,8 @@ echo "   ok: CANCELADO_DOADOR, vaga liberada, links $(echo "$ag" | python3 -c 'i
 status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$GATEWAY$LINK_CANCELAR" "${AUTH[@]}")
 [ "$status" = "409" ] || falha "cancelar de novo esperado 409, veio $status"
 echo "   ok: cancelar de novo -> 409"
+[ "$(slot_da_grade slot-futuro vagasDisponiveis)" = "$VAGAS_FUTURO" ] || falha "a vaga cancelada não voltou à grade"
+echo "   ok: a vaga voltou à grade (slot-futuro com $VAGAS_FUTURO disponíveis)"
 
 # ----------------------------------------------------------------------------------------------- 2
 echo ">> 2. compensação (slot-proximo: doou há 10 dias, RN01 exige 60)"
