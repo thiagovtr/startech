@@ -49,6 +49,19 @@ public class Agendamento {
         this.atualizadoEm = Instant.now();
     }
 
+    /** Passo 4 da SAGA: o agendamento provisório passa a valer. */
+    public void confirmar(Instant agora) {
+        this.status = StatusAgendamento.CONFIRMADO;
+        this.atualizadoEm = agora;
+    }
+
+    /** Compensação do passo 1 da SAGA: devolve a vaga e encerra o agendamento. */
+    public void compensar(Instant agora) {
+        slot.liberarVaga();
+        this.status = StatusAgendamento.CANCELADO_COMPENSACAO_SAGA;
+        this.atualizadoEm = agora;
+    }
+
     /** Cancelamento pelo doador: muda o estado e devolve a vaga ao slot (o chamador valida as regras). */
     public void cancelarPeloDoador(String motivo, Instant agora) {
         slot.liberarVaga();
