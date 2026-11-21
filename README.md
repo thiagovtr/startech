@@ -103,6 +103,8 @@ scripts/e2e-cqrs.sh                # E2E do CQRS (escrita no PostgreSQL, leitura
 scripts/test-docker.sh             # testes dos serviços Python com bancos e broker reais
 ```
 
+Roteiro da demonstração ao vivo, com um script de evidência por critério: [docs/demonstracao.md](./docs/demonstracao.md) (`scripts/demo/preparar.sh` deixa a stack pronta).
+
 Avaliação do RAG: `docker compose exec -T ms-rag python - < scripts/avaliar-rag.py`.
 
 ## Organização do Repositório
@@ -147,6 +149,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 | [Diagrama de Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) | Componentes implementados: borda, BFFs, serviços, mensageria, bancos e IA. |
 | [Diagrama de Arquitetura (Parte 2)](./docs/arquitetura/diagram.svg) | Projeto arquitetural original da Parte 2. |
 | [Avaliação do RAG](./docs/ia/avaliacao-rag.md) | 5 perguntas com e sem RAG, latência, tokens, projeção de custo e teste de resiliência. |
+| [Roteiro da Demonstração](./docs/demonstracao.md) | Passo a passo da Parte 4 com os comandos de `scripts/demo/` e o resultado esperado de cada critério. |
 | [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | *(Histórico)* Teste de estresse e auto-scaling no Kubernetes (HPA 1 → 3 → 1 réplicas), painel geral e prints do Grafana k6. |
 
 
