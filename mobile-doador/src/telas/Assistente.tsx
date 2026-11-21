@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,42 +11,45 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useContextoAutenticacao } from '../autenticacao';
 import { BotaoPrimario, Cartao } from '../componentes';
+import { ErroHttp, perguntarAssistente, type FonteAssistente, type ModoAssistente } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
-
-type FonteAssistente = {
-  secao: string;
-  fonte: string;
-  trecho: string;
-};
 
 type MensagemAssistente = {
   id: string;
   autor: 'USUARIO' | 'ASSISTENTE';
   texto: string;
-  modo?: string;
+  modo?: ModoAssistente | null;
   fontes?: FonteAssistente[];
   degradado?: boolean;
+  motivo?: string;
+  erro?: boolean;
 };
 
 const mensagemInicial: MensagemAssistente = {
   id: 'boas-vindas',
   autor: 'ASSISTENTE',
-  texto: 'Olá! Sou o Assistente StarTech. Envie uma pergunta para visualizar esta demonstração.',
-  modo: 'DEMONSTRACAO',
+  texto: 'Olá! Sou o Assistente StarTech. Envie uma pergunta para receber uma resposta do serviço de apoio ao doador.',
 };
 
 export function Assistente() {
+  const { clienteHttp } = useContextoAutenticacao();
   const [pergunta, definirPergunta] = useState('');
   const [mensagens, definirMensagens] = useState<MensagemAssistente[]>([mensagemInicial]);
   const [carregando, definirCarregando] = useState(false);
   const [erroCampo, definirErroCampo] = useState('');
 
-  function enviarPergunta() {
+  async function enviarPergunta() {
     const perguntaNormalizada = pergunta.trim();
 
     if (!perguntaNormalizada) {
       definirErroCampo('Digite uma pergunta para continuar.');
+      return;
+    }
+
+    if (perguntaNormalizada.length < 3) {
+      definirErroCampo('Digite uma pergunta com pelo menos 3 caracteres.');
       return;
     }
 
@@ -62,94 +64,50 @@ export function Assistente() {
     definirErroCampo('');
     definirCarregando(true);
 
-    // Resposta temporária até a integração com POST /api/mobile/assistente.
-    setTimeout(() => {
+    try {
+      const resposta = await perguntarAssistente(clienteHttp, { pergunta: perguntaNormalizada });
       definirMensagens((mensagensAtuais) => [
         ...mensagensAtuais,
         {
           id: `assistente-${Date.now()}`,
           autor: 'ASSISTENTE',
-          texto: 'Esta é uma resposta demonstrativa. O assistente real será integrado em uma próxima etapa.',
-          modo: 'DEMONSTRACAO',
-          fontes: [
-            {
-              secao: 'Demonstração',
-              fonte: 'Fonte temporária',
-              trecho: 'As fontes reais serão apresentadas após a integração.',
-            },
-          ],
-          degradado: false,
+          degradado: resposta.degradado,
+          fontes: resposta.fontes,
+          modo: resposta.modo,
+          motivo: resposta.motivo,
+          texto: resposta.resposta ?? 'O assistente não retornou uma resposta em texto.',
         },
       ]);
+    } catch (erro) {
+      definirMensagens((mensagensAtuais) => [
+        ...mensagensAtuais,
+        {
+          id: `erro-${Date.now()}`,
+          autor: 'ASSISTENTE',
+          erro: true,
+          texto: obterMensagemErro(erro),
+        },
+      ]);
+    } finally {
       definirCarregando(false);
-    }, 500);
-  }
-
-  function simularFallback() {
-    definirMensagens((mensagensAtuais) => [
-      ...mensagensAtuais,
-      {
-        id: `fallback-${Date.now()}`,
-        autor: 'ASSISTENTE',
-        texto: 'O assistente está temporariamente indisponível. Tente novamente em instantes.',
-        modo: 'FALLBACK',
-        fontes: [],
-        degradado: true,
-      },
-    ]);
+    }
   }
 
   return (
     <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.areaTeclado}>
         <View style={estilos.cabecalho}>
-          <View>
-            <Text style={estilos.titulo}>Assistente StarTech</Text>
-            <Text style={estilos.descricao}>Tire dúvidas e acompanhe informações pelo aplicativo.</Text>
-          </View>
-          <Pressable accessibilityRole="button" onPress={simularFallback} style={estilos.acaoFallback}>
-            <Text style={estilos.textoAcaoFallback}>Simular fallback</Text>
-          </Pressable>
+          <Text style={estilos.titulo}>Assistente StarTech</Text>
+          <Text style={estilos.descricao}>Tire dúvidas e acompanhe informações pelo aplicativo.</Text>
         </View>
 
-        <Text style={estilos.avisoDemonstracao}>Respostas demonstrativas — sem conexão com o assistente real.</Text>
-
         <ScrollView contentContainerStyle={estilos.listaMensagens} keyboardShouldPersistTaps="handled">
-          {mensagens.map((mensagem) => {
-            const eUsuario = mensagem.autor === 'USUARIO';
-            const eFallback = mensagem.modo === 'FALLBACK' || mensagem.degradado === true;
-
-            return (
-              <View key={mensagem.id} style={[estilos.linhaMensagem, eUsuario && estilos.linhaMensagemUsuario]}>
-                {eUsuario ? (
-                  <View style={estilos.mensagemUsuario}>
-                    <Text style={estilos.textoUsuario}>{mensagem.texto}</Text>
-                  </View>
-                ) : (
-                  <Cartao estilo={estilos.mensagemAssistente}>
-                    {eFallback && <Text style={estilos.avisoFallback}>Assistente temporariamente indisponível</Text>}
-                    <Text style={estilos.textoAssistente}>{mensagem.texto}</Text>
-                    {mensagem.fontes && mensagem.fontes.length > 0 && (
-                      <View style={estilos.fontes}>
-                        <Text style={estilos.tituloFontes}>Fontes</Text>
-                        {mensagem.fontes.map((fonte) => (
-                          <View key={`${fonte.secao}-${fonte.fonte}`} style={estilos.fonte}>
-                            <Text style={estilos.nomeFonte}>{fonte.fonte}</Text>
-                            <Text style={estilos.trechoFonte}>{fonte.trecho}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </Cartao>
-                )}
-              </View>
-            );
-          })}
+          {mensagens.map((mensagem) => <Mensagem key={mensagem.id} mensagem={mensagem} />)}
           {carregando && (
             <Cartao estilo={estilos.mensagemAssistente}>
               <View style={estilos.carregamento}>
                 <ActivityIndicator color={cores.principal} />
-                <Text style={estilos.textoSecundario}>Preparando resposta demonstrativa...</Text>
+                <Text style={estilos.textoSecundario}>Consultando o assistente...</Text>
               </View>
             </Cartao>
           )}
@@ -171,34 +129,81 @@ export function Assistente() {
             value={pergunta}
           />
           {erroCampo && <Text style={estilos.erroCampo}>{erroCampo}</Text>}
-          <BotaoPrimario aoPressionar={enviarPergunta} carregando={carregando} titulo="Enviar" />
+          <BotaoPrimario aoPressionar={() => void enviarPergunta()} carregando={carregando} titulo="Enviar" />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+function Mensagem({ mensagem }: { mensagem: MensagemAssistente }) {
+  const eUsuario = mensagem.autor === 'USUARIO';
+  const eFallback = mensagem.modo === 'FALLBACK' || mensagem.degradado === true;
+
+  return (
+    <View style={[estilos.linhaMensagem, eUsuario && estilos.linhaMensagemUsuario]}>
+      {eUsuario ? (
+        <View style={estilos.mensagemUsuario}><Text style={estilos.textoUsuario}>{mensagem.texto}</Text></View>
+      ) : (
+        <Cartao estilo={[estilos.mensagemAssistente, mensagem.erro && estilos.mensagemErro]}>
+          {eFallback && <Text style={estilos.avisoFallback}>Assistente temporariamente indisponível</Text>}
+          {mensagem.erro && <Text style={estilos.avisoFallback}>Não foi possível consultar o assistente</Text>}
+          <Text style={estilos.textoAssistente}>{mensagem.texto}</Text>
+          {mensagem.modo && <Text style={estilos.modo}>Modo: {mensagem.modo}</Text>}
+          {mensagem.motivo && <Text style={estilos.motivo}>Detalhe: {mensagem.motivo}</Text>}
+          {mensagem.fontes && mensagem.fontes.length > 0 && <Fontes fontes={mensagem.fontes} />}
+        </Cartao>
+      )}
+    </View>
+  );
+}
+
+function Fontes({ fontes }: { fontes: FonteAssistente[] }) {
+  return (
+    <View style={estilos.fontes}>
+      <Text style={estilos.tituloFontes}>Fontes</Text>
+      {fontes.map((fonte, indice) => (
+        <View key={`${fonte.secao}-${fonte.fonte}-${indice}`} style={estilos.fonte}>
+          <Text style={estilos.nomeFonte}>{fonte.fonte}</Text>
+          <Text style={estilos.secaoFonte}>{fonte.secao}</Text>
+          <Text style={estilos.trechoFonte}>{fonte.trecho}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function obterMensagemErro(erro: unknown): string {
+  if (!(erro instanceof ErroHttp)) return erro instanceof Error ? erro.message : 'Tente novamente em alguns instantes.';
+  if (erro.categoria === 'AUTENTICACAO_NECESSARIA') return 'Sua sessão expirou. Faça login novamente para continuar.';
+  if (erro.categoria === 'SERVICO_INDISPONIVEL' || erro.categoria === 'REDE') {
+    return erro.problema.detail ?? 'O assistente está temporariamente indisponível. Tente novamente em instantes.';
+  }
+  return erro.problema.detail ?? erro.problema.title;
+}
+
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   areaTeclado: { flex: 1 },
-  cabecalho: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between', padding: espacamentos.padrao },
+  cabecalho: { gap: espacamentos.minimo, padding: espacamentos.padrao },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
-  descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, marginTop: espacamentos.minimo },
-  acaoFallback: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
-  textoAcaoFallback: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
-  avisoDemonstracao: { backgroundColor: cores.principalClaro, color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio, marginHorizontal: espacamentos.padrao, padding: espacamentos.pequeno, textAlign: 'center' },
+  descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   listaMensagens: { gap: espacamentos.medio, padding: espacamentos.padrao, paddingBottom: espacamentos.muitoGrande },
   linhaMensagem: { alignSelf: 'flex-start', maxWidth: '88%' },
   linhaMensagemUsuario: { alignSelf: 'flex-end' },
   mensagemUsuario: { backgroundColor: cores.principal, borderRadius: raiosBorda.grande, padding: espacamentos.padrao },
   mensagemAssistente: { gap: espacamentos.pequeno },
+  mensagemErro: { backgroundColor: cores.principalClaro },
   textoUsuario: { color: cores.cartao, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 22 },
   textoAssistente: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 22 },
   avisoFallback: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.negrito },
+  modo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  motivo: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   fontes: { borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginTop: espacamentos.pequeno, paddingTop: espacamentos.pequeno },
   tituloFontes: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   fonte: { gap: espacamentos.minimo },
   nomeFonte: { color: cores.texto, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  secaoFonte: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   trechoFonte: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   carregamento: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
   textoSecundario: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
