@@ -1,8 +1,10 @@
 export { criarClienteHttp, ErroHttp } from './clienteHttp';
-export { solicitarAgendamento, slotIdEhValido } from './agendamentos';
+export { acompanharSaga, solicitarAgendamento, slotIdEhValido } from './agendamentos';
 export type {
   LinkAcompanharAgendamento,
+  RespostaAcompanhamentoSaga,
   RespostaSolicitacaoAgendamento,
+  SituacaoAcompanhamentoSaga,
   SituacaoSolicitacaoAgendamento,
   SolicitacaoAgendamento,
 } from './agendamentos';

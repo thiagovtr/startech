@@ -5,13 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProvedorAutenticacao, useAutenticacao } from '../autenticacao';
 import { EstadoFeedback } from '../componentes';
+import type { LinkAcompanharAgendamento } from '../servicos';
 import { NavegacaoAbas } from './NavegacaoAbas';
 import { AcompanhamentoSaga, Login } from '../telas';
 import { cores } from '../tema';
 
 export type ParametrosRaiz = {
   Abas: undefined;
-  AcompanhamentoSaga: undefined;
+  AcompanhamentoSaga: { linkAcompanhar?: LinkAcompanharAgendamento } | undefined;
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();

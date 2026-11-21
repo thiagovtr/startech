@@ -97,7 +97,13 @@ export function Agendar() {
                   <Text style={estilos.textoSecundario}>Situação: {respostaSolicitacao.situacao}</Text>
                   <Text style={estilos.textoSecundario}>Código da solicitação: {respostaSolicitacao.sagaId}</Text>
                   <Text style={estilos.textoSecundario}>Código do agendamento: {respostaSolicitacao.agendamentoId}</Text>
-                  <Text style={estilos.textoSecundario}>Link de acompanhamento recebido da API: {respostaSolicitacao._links.acompanhar.href}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => navegacao.navigate('AcompanhamentoSaga', { linkAcompanhar: respostaSolicitacao._links.acompanhar })}
+                    style={({ pressed }) => [estilos.acaoAcompanhamento, pressed && estilos.acaoAcompanhamentoPressionada]}
+                  >
+                    <Text style={estilos.textoAcaoAcompanhamento}>Acompanhar solicitação</Text>
+                  </Pressable>
                 </View>
               )}
               {erroSolicitacao && <Text style={estilos.erroSolicitacao}>{erroSolicitacao}</Text>}
