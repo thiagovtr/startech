@@ -15,6 +15,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type EstadoAutenticacao = 'RESTAURANDO' | 'ANONIMO' | 'AUTENTICADO' | 'ERRO';
 
+export type Autenticacao = ReturnType<typeof useAutenticacao>;
+
 type ResultadoConfiguracao = {
   configuracao?: ConfiguracaoOidc;
   erro?: string;
