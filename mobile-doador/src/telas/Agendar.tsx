@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BotaoPrimario, Cartao, SeloStatus } from '../componentes';
+import type { ParametrosRaiz } from '../navegacao/NavegacaoPrincipal';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
 type HorarioDemonstracao = {
@@ -21,6 +24,7 @@ const horariosDemonstracao: HorarioDemonstracao[] = [
 
 export function Agendar() {
   const [horarioSelecionado, definirHorarioSelecionado] = useState<HorarioDemonstracao>();
+  const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
 
   function confirmarDemonstracao() {
     Alert.alert(
@@ -97,6 +101,13 @@ export function Agendar() {
             desabilitado={!horarioSelecionado}
             titulo="Confirmar solicitação"
           />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navegacao.navigate('AcompanhamentoSaga')}
+            style={({ pressed }) => [estilos.acaoAcompanhamento, pressed && estilos.acaoAcompanhamentoPressionada]}
+          >
+            <Text style={estilos.textoAcaoAcompanhamento}>Visualizar acompanhamento demonstrativo</Text>
+          </Pressable>
         </Cartao>
       </ScrollView>
     </SafeAreaView>
@@ -126,4 +137,7 @@ const estilos = StyleSheet.create({
   valorHorario: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   textoHorarioSelecionado: { color: cores.cartao },
   resumo: { gap: espacamentos.medio },
+  acaoAcompanhamento: { alignItems: 'center', minHeight: 48, justifyContent: 'center' },
+  acaoAcompanhamentoPressionada: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
+  textoAcaoAcompanhamento: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
 });

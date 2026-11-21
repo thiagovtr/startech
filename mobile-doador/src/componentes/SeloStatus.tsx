@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
-export type SituacaoSelo = 'NORMAL' | 'CRITICO' | 'PENDENTE' | 'CONFIRMADO' | 'CANCELADO';
+export type SituacaoSelo = 'NORMAL' | 'CRITICO' | 'PENDENTE' | 'CONFIRMADO' | 'RECUSADO' | 'CANCELADO' | 'ERRO';
 
 type PropriedadesSeloStatus = {
   situacao: SituacaoSelo;
@@ -13,7 +13,9 @@ const conteudoSituacao: Record<SituacaoSelo, { icone: string; texto: string; des
   CRITICO: { icone: '!', texto: 'Crítico', destacado: true },
   PENDENTE: { icone: '◷', texto: 'Pendente' },
   CONFIRMADO: { icone: '✓', texto: 'Confirmado' },
+  RECUSADO: { icone: '−', texto: 'Recusado' },
   CANCELADO: { icone: '−', texto: 'Cancelado' },
+  ERRO: { icone: '!', texto: 'Erro', destacado: true },
 };
 
 export function SeloStatus({ situacao }: PropriedadesSeloStatus) {
