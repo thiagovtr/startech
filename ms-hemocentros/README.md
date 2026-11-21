@@ -39,7 +39,7 @@ Só os workers (sem API): `python -m hemocentros.worker`; com `HEMOCENTROS_API_E
 
 | Variável | Padrão | Observação |
 | --- | --- | --- |
-| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; Secret no K8s). |
+| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; vêm do `.env` no Compose). |
 | `MONGO_URL`, `MONGO_DB` | `mongodb://mongo:27017`, `hemocentros` | |
 | `RABBITMQ_EXCHANGE`, `RABBITMQ_QUEUE` | `startech.events.exchange`, `hemocentros.cqrs` | `DECLARAR_EXCHANGE`/`DECLARAR_FILA` controlam quem declara a topologia. |
 | `RABBITMQ_DLQ_HABILITADA` | `false` | Dead-letter para mensagens inválidas. |

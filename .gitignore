@@ -85,7 +85,7 @@ postgres-data/
 # ==========================================
 # Ambientes, Credenciais e Segredos
 # ==========================================
-# NUNCA comitar credenciais (zera itens em Kubernetes/Docker)
+# NUNCA comitar credenciais (.env do Docker Compose)
 .env
 .env.*
 !.env.example

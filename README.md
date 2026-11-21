@@ -10,7 +10,7 @@ A **StarTech** propõe uma plataforma voltada ao contexto da doação de sangue 
 - **Instituição:** Universidade Federal de Lavras (UFLA)
 - **Semestre:** 2026/2
 
-**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Kubernetes](./k8s/README.md) · [Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
+**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
 
 ## Problema
 
@@ -46,7 +46,7 @@ Também não determinará se uma pessoa está apta a realizar uma doação, uma 
 
 Para a Parte 2, a StarTech definiu uma arquitetura distribuída com **quatro microsserviços de domínio independentes**, cada um responsável por um conjunto específico de funcionalidades e com persistência própria. Essa divisão busca separar as operações de cadastro, campanhas, agendamentos e comunicação, permitindo tratar suas diferentes necessidades de maneira independente.
 
-As tecnologias e os padrões descritos a seguir estão **implementados** neste repositório (Etapa 4), executáveis via Docker Compose e Kubernetes.
+As tecnologias e os padrões descritos a seguir estão **implementados** neste repositório (Etapa 4), executáveis via Docker Compose.
 
 ### Visão Geral da Arquitetura
 
@@ -103,7 +103,7 @@ scripts/e2e-cqrs.sh                # E2E do CQRS (escrita no PostgreSQL, leitura
 scripts/test-docker.sh             # testes dos serviços Python com bancos e broker reais
 ```
 
-No Kubernetes (minikube ou kind): `scripts/k8s-aplicar.sh` e `scripts/k8s-fumaca.sh` (ver [k8s/README.md](./k8s/README.md)). Avaliação do RAG: `docker compose exec -T ms-rag python - < scripts/avaliar-rag.py`.
+Avaliação do RAG: `docker compose exec -T ms-rag python - < scripts/avaliar-rag.py`.
 
 ## Organização do Repositório
 
@@ -121,8 +121,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 ├── ms-orquestrador/         # Python / FastAPI, SAGA + Transactional Outbox
 ├── ms-comunicacao/          # Python / FastAPI, passo 3 da SAGA, lembretes
 ├── ms-rag/                  # Python / FastAPI + LangChain + Ollama (RAG)
-├── k8s/                     # manifestos Kubernetes (base, databases, services, ingress)
-├── scripts/                 # testes, E2E, aplicação no Kubernetes e avaliação do RAG
+├── scripts/                 # testes, E2E e avaliação do RAG
 ├── compose.yaml             # stack completa (docker compose up -d --build)
 └── README.md
 ```
@@ -148,8 +147,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 | [Diagrama de Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) | Componentes implementados: borda, BFFs, serviços, mensageria, bancos e IA. |
 | [Diagrama de Arquitetura (Parte 2)](./docs/arquitetura/diagram.svg) | Projeto arquitetural original da Parte 2. |
 | [Avaliação do RAG](./docs/ia/avaliacao-rag.md) | 5 perguntas com e sem RAG, latência, tokens, projeção de custo e teste de resiliência. |
-| [Kubernetes](./k8s/README.md) | Manifestos, ordem de aplicação, probes, recursos e demonstração de escalabilidade. |
-| [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | Teste de estresse e auto-scaling no Kubernetes (HPA 1 → 3 → 1 réplicas), painel geral e prints do Grafana k6. |
+| [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | *(Histórico)* Teste de estresse e auto-scaling no Kubernetes (HPA 1 → 3 → 1 réplicas), painel geral e prints do Grafana k6. |
 
 
 ## Equipe

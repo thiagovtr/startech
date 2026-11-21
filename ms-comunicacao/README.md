@@ -43,7 +43,7 @@ Serviço de **notificações e lembretes** (Python 3.12 / FastAPI, PostgreSQL pr
 
 | Variável | Padrão | Observação |
 | --- | --- | --- |
-| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; no K8s vêm de Secret). Sem elas o processo não sobe. |
+| `POSTGRES_URL`, `RABBITMQ_URL` | — | **Obrigatórias** (contêm senha; vêm do `.env` no Compose). Sem elas o processo não sobe. |
 | `LEMBRETE_ANTECEDENCIA` | `P1D` | ISO 8601. Na demonstração, ex.: `PT30S`. |
 | `SIMULAR_FALHA_DOADORES` | vazio | Lista separada por vírgula; o passo 3 responde `FALHOU` para esses doadores. Só para demonstração. |
 | `NOTIFICACOES_HABILITADAS`, `BINDINGS_NOTIFICACOES` | `true`, `saga.agendamento.*,hemocentros.campanha.criada` | Fila de eventos de domínio. |
@@ -72,10 +72,10 @@ scripts/e2e-saga.sh                     # na raiz: SAGA pelo Gateway, incluindo 
 
 As migrações Alembic são aplicadas na subida, com *advisory lock*. O teste `test_migracoes_correspondem_aos_modelos` falha se o ORM e as migrações divergirem.
 
-## Kubernetes (para os manifestos)
+## Operação
 
-- **Secret:** `COMUNICACAO_POSTGRES_URL` e `COMUNICACAO_RABBITMQ_URL`.
-- **Probes:** liveness em `/health`, readiness em `/ready`, porta 8004.
+- **Credenciais:** `COMUNICACAO_POSTGRES_URL` e `COMUNICACAO_RABBITMQ_URL` vêm do `.env`.
+- **Saúde:** liveness em `/health`, readiness em `/ready`, porta 8004.
 - **Banco próprio:** `db-comunicacao` (PostgreSQL 16).
 - **Réplicas:** seguras. A fila tem consumidores concorrentes com inbox idempotente; Outbox e lembretes usam `SKIP LOCKED`.
-- Ao subir no cluster, ligar `ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA: "true"` no ConfigMap do orquestrador.
+- Com este serviço no ar, usar `ORQUESTRADOR_PASSO3_AGUARDAR_RESPOSTA=true` no orquestrador.

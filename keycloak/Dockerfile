@@ -16,7 +16,7 @@ FROM quay.io/keycloak/keycloak:26.0 AS runtime
 COPY --from=builder /opt/keycloak/ /opt/keycloak/
 COPY realm-export.json /opt/keycloak/data/import/startech-realm.json
 
-# Limita heap da JVM do Keycloak para ambientes locais e Kubernetes
+# Limita heap da JVM do Keycloak para o ambiente local (Docker Compose)
 ENV JAVA_OPTS_APPEND="-Xms128m -Xmx384m"
 ENV KC_DB=postgres
 ENV KC_HEALTH_ENABLED=true
