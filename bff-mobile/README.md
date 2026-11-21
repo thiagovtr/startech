@@ -15,7 +15,15 @@ BFF_MOBILE_HEMOCENTROS_URL=http://127.0.0.1:8000 .venv/bin/uvicorn bff_mobile.ma
 ## Agendamento (SAGA)
 
 - `POST /bff-mobile/agendamentos` `{slotId}`: inicia a SAGA no `ms-orquestrador` com o doador autenticado (`X-User-Id`) e repassa a `Idempotency-Key`. Responde `202` com `Location` para acompanhar; repassa `409` (agendamento em andamento) e `422`; orquestrador fora → `503`. Requisição inválida (sem `slotId`, campos longos) → `400 problem+json` com `invalidParams`, sem chamar o orquestrador.
-- `GET /bff-mobile/sagas/{sagaId}`: situação para o app (`EM_ANDAMENTO`, `CONFIRMADO`, `RECUSADO`, `CANCELADO`, `ERRO`), data do slot e motivo da recusa. SAGA de outro doador → `404`.
+- `GET /bff-mobile/sagas/{sagaId}`: situação para o app (`EM_ANDAMENTO`, `CONFIRMADO`, `RECUSADO`, `CANCELADO`, `ERRO`), data do slot e motivo da recusa. SAGA de outro doador → `404`. Confirmada, traz o link `agendamento` para o recurso abaixo.
+
+## Agendamento (recurso com HATEOAS)
+
+Repassa o recurso do `ms-agendamentos` (contratos §3), reescrevendo os links internos para as rotas públicas do Gateway (`/api/mobile/...`). Agendamento de outro doador → `404`; `ms-agendamentos` fora → `503`.
+
+- `GET /bff-mobile/agendamentos`: agendamentos do doador autenticado, do mais recente para o mais antigo.
+- `GET /bff-mobile/agendamentos/{id}`: `self` sempre; `cancelar` só se `CONFIRMADO` e até 2 h antes; `novo-agendamento` depois de cancelado; nenhum link de ação em provisório, fora do prazo ou concluído.
+- `POST /bff-mobile/agendamentos/{id}/cancelamento` `{motivo?}`: confere o dono, cancela e devolve o agendamento com os links novos. Repassa `409` (já cancelado, ainda provisório ou fora do prazo).
 
 ## Configuração (`BFF_MOBILE_*`)
 
@@ -24,6 +32,7 @@ BFF_MOBILE_HEMOCENTROS_URL=http://127.0.0.1:8000 .venv/bin/uvicorn bff_mobile.ma
 | `HEMOCENTROS_URL` | `http://ms-hemocentros:8000` | |
 | `DOADORES_URL` | `http://ms-doadores:8081` | Timeout curto (`DOADORES_TIMEOUT`) para degradar rápido. |
 | `ORQUESTRADOR_URL` | `http://ms-orquestrador:8003` | SAGA de agendamento (`ORQUESTRADOR_TIMEOUT`, padrão 3 s). |
+| `AGENDAMENTOS_URL` | `http://ms-agendamentos:8082` | Recurso Agendamento (`AGENDAMENTOS_TIMEOUT`, padrão 3 s). |
 | `PREFIXO_PUBLICO` | `/api/mobile` | Prefixo dos links devolvidos ao app (rota pública no Gateway). |
 | `TIPO_SANGUINEO_FALLBACK` | vazio | Sem tipo conhecido, lista todas as vigentes (`campanhasPersonalizadas: false`). |
 | `EXIGIR_PAPEL` / `PAPEL_EXIGIDO` | `false` / `doador` | Checagem de `X-User-Roles` (ligar quando o Gateway injetar o cabeçalho). |

@@ -15,7 +15,6 @@ class Settings(BaseSettings):
 
     # URLs dos serviços internos (sobrescritas por variável de ambiente)
     hemocentros_url: str = "http://ms-hemocentros:8000"
-    agendamentos_url: str = "http://ms-agendamentos:8082"
 
     # Timeout das chamadas aos serviços internos, em segundos
     http_timeout: float = 3.0

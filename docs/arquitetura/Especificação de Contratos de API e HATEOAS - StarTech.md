@@ -54,7 +54,10 @@ Abaixo estão detalhados os endpoints críticos que suportam os fluxos de mobili
 | **Keycloak (Auth)** | `POST` | `/realms/startech/protocol/openid-connect/token` | `200 OK` | Autentica o usuário (Doador ou Operador) e emite o token JWT assinado (RS256). Retorna `401 Unauthorized` se inválido. |
 | **BFF Mobile** | `GET` | `/bff-mobile/home` | `200 OK` | Agrega perfil do doador (`doadores`) e campanhas compatíveis com seu tipo sanguíneo (`hemocentros`). Opera com Graceful Degradation. |
 | **BFF Mobile** | `POST` | `/bff-mobile/agendamentos` | `202 Accepted` | Recebe a solicitação de agendamento do doador (`X-User-Id` do Gateway) e a repassa ao `ms-orquestrador`, devolvendo `sagaId`, `agendamentoId` e o link de acompanhamento. Repassa `409 Conflict` (RN09). |
-| **BFF Mobile** | `GET` | `/bff-mobile/sagas/{sagaId}` | `200 OK` | Consulta o andamento da solicitação de agendamento no `ms-orquestrador` (usado pelo app para acompanhar até `CONFIRMED`, `REJECTED` ou `COMPENSATED`). |
+| **BFF Mobile** | `GET` | `/bff-mobile/sagas/{sagaId}` | `200 OK` | Consulta o andamento da solicitação de agendamento no `ms-orquestrador` (usado pelo app para acompanhar até `CONFIRMED`, `REJECTED` ou `COMPENSATED`). Confirmada, traz o link `agendamento` (`/api/mobile/agendamentos/{agendamentoId}`). |
+| **BFF Mobile** | `GET` | `/bff-mobile/agendamentos` | `200 OK` | Agendamentos do doador autenticado (`X-User-Id`), repassados do `agendamentos` com os links reescritos para as rotas públicas do Gateway (`/api/mobile/...`). |
+| **BFF Mobile** | `GET` | `/bff-mobile/agendamentos/{id}` | `200 OK` | Recurso Agendamento (§3) com links públicos. Agendamento de outro doador responde `404`, sem revelar que existe. |
+| **BFF Mobile** | `POST` | `/bff-mobile/agendamentos/{id}/cancelamento` | `200 OK` | Confere o dono e repassa o cancelamento ao `agendamentos`; devolve o recurso com os links novos. Repassa `409 Conflict`. |
 | **BFF Mobile** | `POST` | `/bff-mobile/assistente` | `200 OK` | Assistente do doador: corpo `{pergunta}`. Busca o tipo sanguíneo do doador no perfil (`doadores`) e repassa a pergunta ao `ms-rag`. Devolve `{resposta, modo, fontes, degradado}`. Com o `ms-rag` fora, responde `200` com mensagem de fallback (`degradado: true`). |
 | **BFF Web** | `POST` | `/bff-web/campanhas` | `201 Created` | Recebe cadastro de campanha do painel React Web e repassa comando ao serviço `hemocentros`. Permite imediato RYOW (Read-Your-Own-Writes). |
 | **1\. doadores** | `GET` | `/api/v1/doadores/{id}` | `200 OK` | Retorna dados cadastrais, tipo sanguíneo (`O-`, `A+`, etc.) e status atual do ciclo de elegibilidade. `404 Not Found` se inexistente. |
@@ -65,7 +68,9 @@ Abaixo estão detalhados os endpoints críticos que suportam os fluxos de mobili
 | **3\. agendamentos** | `POST` | `/api/v1/slots/{slotId}/reservas` | `201 Created` | **Passo 1 da SAGA:** cria o agendamento `CRIADO_PROVISORIO` (com o `agendamentoId` gerado pelo orquestrador) e ocupa uma vaga do slot com lock otimista. Retorna `409 Conflict` se slot esgotado ou doador já possuir agendamento ativo (RN09). Exige `Idempotency-Key: saga-{sagaId}-step1`. Corpo da resposta: `{agendamentoId, slotId, dataHoraInicio, dataHoraFim, status}` (o orquestrador usa `dataHoraInicio` como `dataSlot` no Passo 2 e no lembrete do Passo 3). |
 | **3\. agendamentos** | `DELETE` | `/api/v1/slots/{slotId}/reservas/{agendamentoId}` | `204 No Content` | **Compensação do Passo 1:** libera a vaga e marca o agendamento como `CANCELADO_COMPENSACAO_SAGA`. Idempotente. |
 | **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/confirmacao` | `200 OK` | **Passo 4 (final) da SAGA:** muda o agendamento de `CRIADO_PROVISORIO` para `CONFIRMADO`. Idempotente (`Idempotency-Key: saga-{sagaId}-step4`). |
-| **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/cancelamento` | `200 OK` | Cancela agendamento confirmado, libera vaga no slot e publica evento de cancelamento no RabbitMQ. |
+| **3\. agendamentos** | `GET` | `/api/v1/agendamentos/{id}` | `200 OK` | Recurso Agendamento com HATEOAS (§3): os links de ação mudam com o estado. `404 Not Found` se inexistente. |
+| **3\. agendamentos** | `GET` | `/api/v1/agendamentos?doadorId={id}` | `200 OK` | Agendamentos do doador (`{itens: [...], _links}`), do horário mais recente para o mais antigo, cada um na representação do §3. `400` sem `doadorId`. |
+| **3\. agendamentos** | `POST` | `/api/v1/agendamentos/{id}/cancelamento` | `200 OK` | Corpo opcional `{motivo}`. Cancela agendamento `CONFIRMADO` até 2 h antes do início: muda para `CANCELADO_DOADOR`, libera a vaga no slot e devolve o recurso com os links novos. `409 Conflict` se já cancelado (`agendamento-ja-cancelado`), ainda `CRIADO_PROVISORIO` (`agendamento-nao-cancelavel`) ou fora do prazo (`prazo-cancelamento-expirado`); `404` se inexistente. Não há evento no RabbitMQ: o lembrete só é cancelado pela compensação da SAGA (o `ms-comunicacao` ainda não consome cancelamento pelo doador). |
 | **4\. comunicacao** | `GET` | `/api/v1/comunicacao/historico/{doadorId}` | `200 OK` | Consulta histórico auditável de notificações enviadas ao doador (`CONFIRMACAO`, `LEMBRETE`, `CANCELAMENTO`, `DESFECHO`), da mais recente para a mais antiga, paginado por `pagina` e `tamanho` (máx. 100). Doador sem histórico devolve lista vazia. Uso interno (rede `startech-net-api`). |
 | **6\. rag** | `POST` | `/api/v1/rag/perguntas` | `200 OK` | Corpo `{pergunta, usarRag?, tipoSanguineo?}`. Resposta `{resposta, modo, fontes[{secao, fonte, trecho}], latenciaMs, uso{tokensEntrada, tokensSaida}, motivoFallback}`. `modo` é `RAG` (Portaria MS nº 5/2017), `FERRAMENTA` (campanhas vigentes do `hemocentros`), `FORA_DO_ESCOPO` (recusa sem LLM), `SEM_RAG` (só para avaliação) ou `FALLBACK` (timeout de 4 s, erro ou circuit breaker aberto). Nunca devolve 5xx por causa do LLM; `400` com payload inválido (ADR-007). |
 | **5\. orquestrador** | `POST` | `/api/v1/sagas/agendamento` | `202 Accepted` | Inicia a SAGA Orquestrada de agendamento (corpo `{doadorId, slotId}`), gerando `sagaId` e `agendamentoId`. Retorna `Location: /api/v1/sagas/{sagaId}`. `409 Conflict` se o doador já possuir SAGA em andamento (RN09). |
@@ -118,117 +123,99 @@ O recurso **Agendamento de Doação** (`/api/v1/agendamentos/{id}`) exportado pe
 
 Nesse modelo, os links de ação (dentro da propriedade `_links`) mudam dinamicamente conforme a máquina de estados do agendamento avança. Isso isenta os clientes (App React Native) de codificarem lógica condicional pesada.
 
+| Estado | Links | Observação |
+| :---- | :---- | :---- |
+| `CRIADO_PROVISORIO` | `self` | A SAGA ainda está em andamento; quem desfaz é a compensação do Passo 1. |
+| `CONFIRMADO`, até 2 h antes do início | `self`, `cancelar` | |
+| `CONFIRMADO`, a menos de 2 h do início | `self` | Fora do prazo de cancelamento. |
+| `CONFIRMADO`, horário encerrado | `self` | `concluido: true`. |
+| `CANCELADO_DOADOR` / `CANCELADO_COMPENSACAO_SAGA` | `self`, `novo-agendamento` | Nenhuma ação sobre o agendamento cancelado. |
+
+O `BFF Mobile` reescreve os links para as rotas públicas do Gateway: `/api/v1/agendamentos/{id}...` vira `/api/mobile/agendamentos/{id}...` e `/api/v1/sagas/agendamento` (nova SAGA) vira `POST /api/mobile/agendamentos`. Links sem rota pública correspondente são descartados. Os exemplos abaixo mostram a resposta do `agendamentos`.
+
 ## **3.1 Estado: Agendamento `CONFIRMADO`**
 
-Neste estado, o doador possui uma vaga garantida e ainda está em tempo hábil para cancelar, reagendar ou baixar seu comprovante em PDF.
+Neste estado, o doador possui uma vaga garantida e ainda está em tempo hábil para cancelar.
 
-**Requisição:**  
-`GET /api/v1/agendamentos/appt-88412`
-
-**Resposta (200 OK):**n  
-{  
-"id": "appt-88412",  
-"protocolo": "ST-2026-88412",  
-"status": "CONFIRMADO",  
-"doadorId": "123",  
-"posto": {  
-"postoId": "posto-central-lavras",  
-"nome": "Posto Avançado Hemominas Lavras",  
-"endereco": "Rua Dr. Milton Viana, 410 \- Lavras/MG"  
-},  
-"slot": {  
-"slotId": "slot-20261025-1400",  
-"dataHoraInicio": "2026-10-25T14:00:00Z",  
-"dataHoraFim": "2026-10-25T14:20:00Z"  
-},  
-"disclaimerLegal": "A confirmação deste agendamento organiza o fluxo no posto e não garante a doação. A aptidão final depende da triagem clínica presencial.",  
-"\_links": {  
-"self": {  
-"href": "/api/v1/agendamentos/appt-88412",  
-"method": "GET",  
-"title": "Consultar dados do agendamento"  
-},  
-"cancelar": {  
-"href": "/api/v1/agendamentos/appt-88412/cancelamento",  
-"method": "POST",  
-"title": "Efetuar cancelamento e liberar vaga para outros doadores",  
-"conditions": "Permitido até 2 horas antes do horário agendado"  
-},  
-"reagendar": {  
-"href": "/api/v1/agendamentos/appt-88412/reagendamento",  
-"method": "PUT",  
-"title": "Alterar dia ou horário do agendamento atual"  
-},  
-"campanhas-compativeis": {  
-"href": "/api/v1/campanhas?tipo\_sanguineo=O-",  
-"method": "GET",  
-"title": "Ver campanhas ativas para o seu tipo sanguíneo"  
-},  
-"comprovante-pdf": {  
-"href": "/api/v1/agendamentos/appt-88412/comprovante",  
-"method": "GET",  
-"type": "application/pdf",  
-"title": "Baixar comprovante de agendamento em PDF"  
-}  
-}  
-}
-
-## **3.2 Estado: Agendamento \`CANCELADO\_DOADOR\`**
-
-Neste estado, as ações mutáveis são removidas dinamicamente do payload pela API. Em vez disso, o sistema sugere que o doador busque novas campanhas ou inicie um novo agendamento do zero.
-
-**Requisição:**
-
-\`GET /api/v1/agendamentos/appt-88412\`
+**Requisição:** `GET /api/v1/agendamentos/appt-88412`
 
 **Resposta (200 OK):**
 
-\`\`\`json
-
+```json
 {
-
   "id": "appt-88412",
-
-  "protocolo": "ST-2026-88412",
-
-  "status": "CANCELADO\_DOADOR",
-
-  "dataCancelamento": "2026-10-24T10:15:00Z",
-
-  "motivo": "Imprevisto pessoal autodeclarado pelo doador",
-
-  "slotLiberado": "slot-20261025-1400",
-
-  "\_links": {
-
+  "status": "CONFIRMADO",
+  "concluido": false,
+  "doadorId": "123",
+  "slot": {
+    "slotId": "slot-20261025-1400",
+    "postoId": "posto-central-lavras",
+    "dataHoraInicio": "2026-10-25T14:00:00Z",
+    "dataHoraFim": "2026-10-25T14:20:00Z"
+  },
+  "disclaimerLegal": "A confirmação deste agendamento organiza o fluxo no posto e não garante a doação. A aptidão final depende da triagem clínica presencial.",
+  "_links": {
     "self": {
-
       "href": "/api/v1/agendamentos/appt-88412",
-
-      "method": "GET"
-
-    },
-
-    "novo-agendamento": {
-
-      "href": "/api/v1/sagas/agendamento",
-
-      "method": "POST",
-
-      "title": "Consultar grade de postos e solicitar novo agendamento"
-
-    },
-
-    "campanhas-ativas": {
-
-      "href": "/api/v1/campanhas?tipo\_sanguineo=O-",
-
       "method": "GET",
-
-      "title": "Visualizar campanhas vigentes na sua região"
-
+      "title": "Consultar dados do agendamento"
+    },
+    "cancelar": {
+      "href": "/api/v1/agendamentos/appt-88412/cancelamento",
+      "method": "POST",
+      "title": "Efetuar cancelamento e liberar vaga para outros doadores",
+      "conditions": "Permitido até 2 horas antes do horário agendado"
     }
-
   }
+}
+```
 
-}  
+## **3.2 Estado: Agendamento `CANCELADO_DOADOR`**
+
+Neste estado, as ações mutáveis são removidas dinamicamente do payload pela API. Em vez disso, o sistema sugere que o doador inicie um novo agendamento do zero.
+
+**Requisição:** `POST /api/v1/agendamentos/appt-88412/cancelamento` com `{"motivo": "Imprevisto pessoal autodeclarado pelo doador"}` (ou `GET /api/v1/agendamentos/appt-88412` depois do cancelamento)
+
+**Resposta (200 OK):**
+
+```json
+{
+  "id": "appt-88412",
+  "status": "CANCELADO_DOADOR",
+  "concluido": false,
+  "doadorId": "123",
+  "slot": {
+    "slotId": "slot-20261025-1400",
+    "postoId": "posto-central-lavras",
+    "dataHoraInicio": "2026-10-25T14:00:00Z",
+    "dataHoraFim": "2026-10-25T14:20:00Z"
+  },
+  "dataCancelamento": "2026-10-24T10:15:00Z",
+  "motivo": "Imprevisto pessoal autodeclarado pelo doador",
+  "slotLiberado": "slot-20261025-1400",
+  "_links": {
+    "self": {
+      "href": "/api/v1/agendamentos/appt-88412",
+      "method": "GET",
+      "title": "Consultar dados do agendamento"
+    },
+    "novo-agendamento": {
+      "href": "/api/v1/sagas/agendamento",
+      "method": "POST",
+      "title": "Solicitar um novo agendamento"
+    }
+  }
+}
+```
+
+Cancelar de novo responde `409 Conflict` (`application/problem+json`):
+
+```json
+{
+  "type": "urn:startech:error:agendamento-ja-cancelado",
+  "title": "Agendamento já cancelado",
+  "status": 409,
+  "detail": "O agendamento appt-88412 já está CANCELADO_DOADOR.",
+  "instance": "/api/v1/agendamentos/appt-88412/cancelamento"
+}
+```

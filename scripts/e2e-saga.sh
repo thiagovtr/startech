@@ -3,6 +3,8 @@
 # com PostgreSQL, Outbox e RabbitMQ reais. ms-agendamentos/ms-doadores são substituídos por participantes
 # simulados (scripts/e2e-saga/participantes_fake.py) enquanto os endpoints reais não existem.
 #   1. Caminho feliz:   slot-futuro  -> CONFIRMADO (passos 1, 2, 3 via Outbox e 4)
+#   1b. Consulta e cancelamento com HATEOAS: o link `agendamento` da SAGA confirmada leva ao recurso, que tem
+#       `cancelar`; cancelar libera a vaga e troca os links (`novo-agendamento`, sem `cancelar`); de novo -> 409
 #   2. Compensação:     slot-proximo -> doador inapto (RN01, 422) -> vaga liberada -> CANCELADO
 #   3. Recusa:          slot-lotado  -> 409 no passo 1 -> RECUSADO, sem compensação
 #   4. Falha no passo 3: ms-comunicacao responde FALHOU (falha simulada) -> compensa 3, 2, 1 -> CANCELADO
@@ -114,6 +116,37 @@ echo ">> idempotência: mesma Idempotency-Key devolve a mesma SAGA"
 resp=$(solicitar slot-futuro "$CHAVE")
 [ "$(echo "$resp" | head -1 | json sagaId)" = "$SAGA1" ] || falha "Idempotency-Key repetida criou outra SAGA"
 echo "   ok: sagaId $SAGA1"
+
+echo ">> 1b. consulta e cancelamento do agendamento confirmado (HATEOAS)"
+LINK_AG=$(echo "$final" | json _links.agendamento.href)
+[ "$LINK_AG" = "/api/mobile/agendamentos/$AG1" ] || falha "link agendamento inesperado: $LINK_AG"
+ag=$(curl -s "$GATEWAY$LINK_AG" "${AUTH[@]}")
+[ "$(echo "$ag" | json status)" = "CONFIRMADO" ] || falha "esperado CONFIRMADO: $ag"
+LINK_CANCELAR=$(echo "$ag" | json _links.cancelar.href)
+[ "$LINK_CANCELAR" = "/api/mobile/agendamentos/$AG1/cancelamento" ] || falha "sem link cancelar: $ag"
+echo "$ag" | python3 -c 'import json,sys; sys.exit("novo-agendamento" in json.load(sys.stdin)["_links"])' \
+  || falha "confirmado não deveria ter novo-agendamento: $ag"
+echo "   ok: CONFIRMADO com links $(echo "$ag" | python3 -c 'import json,sys;print(sorted(json.load(sys.stdin)["_links"]))')"
+lista=$(curl -s "$GATEWAY/api/mobile/agendamentos" "${AUTH[@]}")
+echo "$lista" | python3 -c 'import json,sys; sys.exit(sys.argv[1] not in [i["id"] for i in json.load(sys.stdin)["itens"]])' "$AG1" \
+  || falha "agendamento ausente da listagem do doador: $lista"
+echo "   ok: listagem do doador traz $AG1"
+antes=$(estado_fake | json slots.slot-futuro.ocupadas)
+resp=$(curl -s -w '\n%{http_code}' -X POST "$GATEWAY$LINK_CANCELAR" "${AUTH[@]}" \
+  -H "Content-Type: application/json" -d '{"motivo":"Imprevisto pessoal"}')
+status=$(echo "$resp" | tail -1); ag=$(echo "$resp" | head -1)
+[ "$status" = "200" ] || falha "cancelamento esperado 200, veio $status: $ag"
+[ "$(echo "$ag" | json status)" = "CANCELADO_DOADOR" ] || falha "esperado CANCELADO_DOADOR: $ag"
+[ "$(echo "$ag" | json _links.novo-agendamento.href)" = "/api/mobile/agendamentos" ] || falha "sem novo-agendamento: $ag"
+echo "$ag" | python3 -c 'import json,sys; sys.exit("cancelar" in json.load(sys.stdin)["_links"])' \
+  || falha "cancelado não deveria ter link cancelar: $ag"
+[ "$(estado_fake | json slots.slot-futuro.ocupadas)" = "$(( antes - 1 ))" ] || falha "a vaga não foi liberada"
+ag=$(curl -s "$GATEWAY$LINK_AG" "${AUTH[@]}")
+[ "$(echo "$ag" | json status)" = "CANCELADO_DOADOR" ] || falha "consulta após cancelar: $ag"
+echo "   ok: CANCELADO_DOADOR, vaga liberada, links $(echo "$ag" | python3 -c 'import json,sys;print(sorted(json.load(sys.stdin)["_links"]))')"
+status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$GATEWAY$LINK_CANCELAR" "${AUTH[@]}")
+[ "$status" = "409" ] || falha "cancelar de novo esperado 409, veio $status"
+echo "   ok: cancelar de novo -> 409"
 
 # ----------------------------------------------------------------------------------------------- 2
 echo ">> 2. compensação (slot-proximo: doou há 10 dias, RN01 exige 60)"

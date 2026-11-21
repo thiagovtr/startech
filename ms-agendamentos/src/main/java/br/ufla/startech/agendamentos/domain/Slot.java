@@ -45,7 +45,34 @@ public class Slot {
         this.vagasOcupadas = vagasOcupadas;
     }
 
+    /** Devolve uma vaga ao slot (cancelamento ou compensação). */
+    public void liberarVaga() {
+        if (vagasOcupadas > 0) {
+            vagasOcupadas--;
+        }
+    }
+
     public String getId() {
         return id;
+    }
+
+    public String getPostoId() {
+        return postoId;
+    }
+
+    public Instant getDataHoraInicio() {
+        return dataHoraInicio;
+    }
+
+    public Instant getDataHoraFim() {
+        return dataHoraFim;
+    }
+
+    public int getCapacidade() {
+        return capacidade;
+    }
+
+    public int getVagasOcupadas() {
+        return vagasOcupadas;
     }
 }

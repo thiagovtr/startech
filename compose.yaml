@@ -324,6 +324,7 @@ services:
       BFF_MOBILE_HEMOCENTROS_URL: http://ms-hemocentros:8000
       BFF_MOBILE_DOADORES_URL: http://ms-doadores:8081
       BFF_MOBILE_ORQUESTRADOR_URL: http://ms-orquestrador:8003
+      BFF_MOBILE_AGENDAMENTOS_URL: http://ms-agendamentos:8082
       BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:

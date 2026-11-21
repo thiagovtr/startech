@@ -62,6 +62,28 @@ class HemocentrosClient:
             raise ServicoIndisponivel("ms-hemocentros", "resposta inválida") from exc
 
 
+async def _chamar(http: httpx.AsyncClient, servico: str, metodo: str, caminho: str, **kwargs) -> tuple[int, dict]:
+    """Chamada cujas respostas de negócio (2xx/4xx) voltam como (status, corpo) para o BFF repassar.
+
+    Falha de rede, timeout, 5xx ou corpo que não é objeto JSON levantam `ServicoIndisponivel`.
+    """
+    try:
+        r = await http.request(metodo, caminho, **kwargs)
+    except httpx.TimeoutException as exc:
+        raise ServicoIndisponivel(servico, "timeout") from exc
+    except httpx.TransportError as exc:
+        raise ServicoIndisponivel(servico, "indisponível") from exc
+    if r.status_code >= 500:
+        raise ServicoIndisponivel(servico, f"HTTP {r.status_code}")
+    try:
+        corpo = r.json()
+    except ValueError as exc:
+        raise ServicoIndisponivel(servico, "resposta inválida") from exc
+    if not isinstance(corpo, dict):
+        raise ServicoIndisponivel(servico, "resposta inválida")
+    return r.status_code, corpo
+
+
 class OrquestradorClient:
     """ms-orquestrador: início e consulta da SAGA de agendamento (contratos §2, "5. orquestrador").
 
@@ -72,31 +94,38 @@ class OrquestradorClient:
     def __init__(self, http: httpx.AsyncClient):
         self._http = http
 
-    async def _chamar(self, metodo: str, caminho: str, **kwargs) -> tuple[int, dict]:
-        try:
-            r = await self._http.request(metodo, caminho, **kwargs)
-        except httpx.TimeoutException as exc:
-            raise ServicoIndisponivel("ms-orquestrador", "timeout") from exc
-        except httpx.TransportError as exc:
-            raise ServicoIndisponivel("ms-orquestrador", "indisponível") from exc
-        if r.status_code >= 500:
-            raise ServicoIndisponivel("ms-orquestrador", f"HTTP {r.status_code}")
-        try:
-            corpo = r.json()
-        except ValueError as exc:
-            raise ServicoIndisponivel("ms-orquestrador", "resposta inválida") from exc
-        if not isinstance(corpo, dict):
-            raise ServicoIndisponivel("ms-orquestrador", "resposta inválida")
-        return r.status_code, corpo
-
     async def iniciar_agendamento(self, doador_id: str, slot_id: str, idempotency_key: str | None) -> tuple[int, dict]:
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else {}
-        return await self._chamar(
-            "POST", "/api/v1/sagas/agendamento", json={"doadorId": doador_id, "slotId": slot_id}, headers=headers
+        return await _chamar(
+            self._http, "ms-orquestrador", "POST", "/api/v1/sagas/agendamento",
+            json={"doadorId": doador_id, "slotId": slot_id}, headers=headers,
         )
 
     async def consultar(self, saga_id: str) -> tuple[int, dict]:
-        return await self._chamar("GET", f"/api/v1/sagas/{saga_id}")
+        return await _chamar(self._http, "ms-orquestrador", "GET", f"/api/v1/sagas/{saga_id}")
+
+
+class AgendamentosClient:
+    """ms-agendamentos: recurso Agendamento com HATEOAS (contratos §2 e §3).
+
+    Respostas de negócio (200, 400, 404, 409) voltam como (status, corpo); falha técnica levanta
+    `ServicoIndisponivel`.
+    """
+
+    def __init__(self, http: httpx.AsyncClient):
+        self._http = http
+
+    async def listar(self, doador_id: str) -> tuple[int, dict]:
+        return await _chamar(self._http, "ms-agendamentos", "GET", "/api/v1/agendamentos",
+                             params={"doadorId": doador_id})
+
+    async def consultar(self, agendamento_id: str) -> tuple[int, dict]:
+        return await _chamar(self._http, "ms-agendamentos", "GET", f"/api/v1/agendamentos/{agendamento_id}")
+
+    async def cancelar(self, agendamento_id: str, motivo: str | None) -> tuple[int, dict]:
+        corpo = {"motivo": motivo} if motivo else {}
+        return await _chamar(self._http, "ms-agendamentos", "POST",
+                             f"/api/v1/agendamentos/{agendamento_id}/cancelamento", json=corpo)
 
 
 class RagClient:
