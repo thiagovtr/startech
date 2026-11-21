@@ -151,6 +151,10 @@ def test_acompanhar_traduz_o_status_para_o_app(status, situacao, finalizada):
     assert (corpo["situacao"], corpo["finalizada"]) == (situacao, finalizada)
     assert corpo["dataHoraInicio"] == "2026-11-25T14:00:00Z"
     assert ("novo-agendamento" in corpo["_links"]) == (status in ("REJECTED", "COMPENSATED"))
+    if status == "CONFIRMED":  # aponta para o recurso Agendamento, pela rota pública
+        assert corpo["_links"]["agendamento"] == {"href": "/api/mobile/agendamentos/ag-1", "method": "GET"}
+    else:
+        assert "agendamento" not in corpo["_links"]
     assert o.requisicoes[0].url.path == f"/api/v1/sagas/{SAGA_ID}"
 
 
