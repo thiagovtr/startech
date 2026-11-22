@@ -1,8 +1,12 @@
 package br.ufla.startech.gateway.config;
 
 import br.ufla.startech.gateway.error.ProblemDetailsWriter;
+import java.util.Arrays;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
@@ -13,9 +17,12 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.authorization.ServerAccessDeniedHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 /**
- * Configura a seguranca reativa na borda do API Gateway (ADR-005).
+ * Configura a seguranca reativa e CORS na borda do API Gateway (ADR-005).
  * Valida tokens JWT RS256 do Keycloak e bloqueia acessos cruzados entre Mobile e Web.
  */
 @Configuration
@@ -27,13 +34,20 @@ public class SecurityConfig {
 
     private final KeycloakJwtAuthenticationConverter jwtAuthenticationConverter;
     private final ProblemDetailsWriter problemDetailsWriter;
+    private final List<String> allowedOrigins;
 
     public SecurityConfig(
             KeycloakJwtAuthenticationConverter jwtAuthenticationConverter,
-            ProblemDetailsWriter problemDetailsWriter
+            ProblemDetailsWriter problemDetailsWriter,
+            @Value("${startech.gateway.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://localhost:8085}")
+            String allowedOriginsCsv
     ) {
         this.jwtAuthenticationConverter = jwtAuthenticationConverter;
         this.problemDetailsWriter = problemDetailsWriter;
+        this.allowedOrigins = Arrays.stream(allowedOriginsCsv.split(","))
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .toList();
     }
 
     @Bean
@@ -42,11 +56,13 @@ public class SecurityConfig {
         ServerAccessDeniedHandler accessDeniedHandler = buildAccessDeniedHandler();
 
         return http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
             .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/health", "/ready", "/actuator/health/**", "/realms/**").permitAll()
+                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .pathMatchers("/health", "/ready", "/actuator/health/**", "/realms/**", "/resources/**").permitAll()
                 .pathMatchers("/api/mobile/**").access(requireRoleAndAudience("doador", "bff-mobile"))
                 .pathMatchers("/api/web/**").access(requireRoleAndAudience("operador", "bff-web"))
                 .anyExchange().authenticated()
@@ -61,6 +77,33 @@ public class SecurityConfig {
                 .accessDeniedHandler(accessDeniedHandler)
             )
             .build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "X-Correlation-Id",
+            "X-Request-Id",
+            "Idempotency-Key"
+        ));
+        config.setExposedHeaders(List.of(
+            "X-Correlation-Id",
+            "X-Request-Id",
+            "X-Total-Count",
+            "Location"
+        ));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     private ReactiveAuthorizationManager<AuthorizationContext> requireRoleAndAudience(

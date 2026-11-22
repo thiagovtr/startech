@@ -34,10 +34,12 @@ spring:
         - id: keycloak-realms
           uri: ${GATEWAY_KEYCLOAK_URI:http://keycloak:8080}
           predicates:
-            - Path=/realms/**
+            - Path=/realms/**, /resources/**
 
 startech:
   gateway:
+    cors:
+      allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8085}
     rate-limit:
       enabled: ${GATEWAY_RATE_LIMIT_ENABLED:true}
       capacity: ${GATEWAY_RATE_LIMIT_CAPACITY:60}
