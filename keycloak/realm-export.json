@@ -1,19 +1,33 @@
 {
   "id": "startech",
   "realm": "startech",
-  "displayName": "StarTech Identity & Access Management",
+  "displayName": "StarTech",
+  "displayNameHtml": "<strong>StarTech</strong> — Doação de Sangue",
   "enabled": true,
   "sslRequired": "none",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "pt-BR",
+    "en"
+  ],
+  "defaultLocale": "pt-BR",
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
   "defaultSignatureAlgorithm": "RS256",
+  "defaultRole": {
+    "name": "default-roles-startech",
+    "description": "Papeis padrao atribuidos automaticamente a novos doadores cadastrados",
+    "composite": true,
+    "clientRole": false
+  },
   "roles": {
     "realm": [
       {
@@ -26,6 +40,17 @@
         "name": "operador",
         "description": "Operador/gestor de hemocentro autenticado no painel administrativo (acesso ao BFF Web)",
         "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "default-roles-startech",
+        "description": "Papeis padrao atribuidos automaticamente a novos doadores cadastrados",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "doador"
+          ]
+        },
         "clientRole": false
       }
     ]
@@ -113,9 +138,9 @@
   ],
   "clients": [
     {
-      "clientId": "mobile",
+      "clientId": "startech-mobile",
       "name": "StarTech App Mobile (Doadores)",
-      "description": "Cliente OIDC publico para o aplicativo React Native / PWA dos doadores",
+      "description": "Cliente OIDC publico com Authorization Code + PKCE (S256) para o app React Native / Expo",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -124,12 +149,82 @@
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": false,
       "redirectUris": [
+        "exp://*",
+        "startech://*",
         "http://localhost:*",
-        "startech://*"
+        "http://127.0.0.1:*"
       ],
       "webOrigins": [
-        "*"
+        "+"
       ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "startech-roles-thin",
+        "startech:mobile"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "startech-web",
+      "name": "StarTech Painel Web (Hemocentros)",
+      "description": "Cliente OIDC publico com Authorization Code + PKCE (S256) para o painel React dos hemocentros",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*",
+        "http://localhost:8085/*",
+        "http://localhost:*",
+        "http://127.0.0.1:*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8085",
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "startech-roles-thin",
+        "startech:web"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "mobile",
+      "name": "StarTech App Mobile (Alias de compatibilidade)",
+      "description": "Cliente OIDC publico de compatibilidade para scripts E2E e configuracoes legadas do app mobile",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "exp://*",
+        "startech://*",
+        "http://localhost:*",
+        "http://127.0.0.1:*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
       "defaultClientScopes": [
         "startech-roles-thin",
         "startech:mobile"
@@ -138,8 +233,8 @@
     },
     {
       "clientId": "web",
-      "name": "StarTech Painel Web (Hemocentros)",
-      "description": "Cliente OIDC para a SPA React dos operadores de hemocentro",
+      "name": "StarTech Painel Web (Alias de compatibilidade)",
+      "description": "Cliente OIDC publico de compatibilidade para scripts E2E e configuracoes legadas do painel web",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -148,11 +243,22 @@
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": false,
       "redirectUris": [
-        "http://localhost:*"
+        "http://localhost:5173/*",
+        "http://localhost:3000/*",
+        "http://localhost:8085/*",
+        "http://localhost:*",
+        "http://127.0.0.1:*"
       ],
       "webOrigins": [
-        "*"
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8085",
+        "+"
       ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
       "defaultClientScopes": [
         "startech-roles-thin",
         "startech:web"
@@ -161,6 +267,18 @@
     }
   ],
   "scopeMappings": [
+    {
+      "client": "startech-mobile",
+      "roles": [
+        "doador"
+      ]
+    },
+    {
+      "client": "startech-web",
+      "roles": [
+        "operador"
+      ]
+    },
     {
       "client": "mobile",
       "roles": [
