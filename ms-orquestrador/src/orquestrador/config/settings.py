@@ -65,7 +65,7 @@ class Settings(BaseSettings):
 
     # Passo 3 (ms-comunicacao). True: aguarda a resposta `comunicacao.lembrete.*` até `timeout_passo3` segundos.
     # False: o passo 3 conta como concluído quando o comando é gravado no Outbox, que garante a entrega (enquanto o
-    # ms-comunicacao não existir; ver contratos §2.1 e .claude/notes/execucao-ms-orquestrador.md Q4).
+    # ms-comunicacao não existir; ver contratos §2.1).
     passo3_aguardar_resposta: bool = True
     timeout_passo3: float = 30.0
 
