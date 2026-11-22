@@ -149,4 +149,28 @@ class GatewaySecurityTests {
         assertThat(downstreamHeaders.get().getFirst(JwtHeaderEnrichmentFilter.HEADER_USER_ROLES)).isNull();
         assertThat(downstreamHeaders.get().getFirst(JwtHeaderEnrichmentFilter.HEADER_CORRELATION_ID)).isNotBlank();
     }
+
+    @Test
+    void preflightCorsDeOrigemPermitidaDeveRetornar200ComCabecalhosCors() {
+        webTestClient.options()
+            .uri("http://localhost:8080/api/web/campanhas")
+            .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization, Content-Type")
+            .exchange()
+            .expectStatus().isOk()
+            .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+            .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+    }
+
+    @Test
+    void preflightCorsDeOrigemNaoPermitidaDeveSerRejeitado() {
+        webTestClient.options()
+            .uri("http://localhost:8080/api/web/campanhas")
+            .header(HttpHeaders.ORIGIN, "https://origem-maliciosa.example")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+            .exchange()
+            .expectStatus().isForbidden()
+            .expectHeader().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN);
+    }
 }
