@@ -3,6 +3,7 @@
   "realm": "startech",
   "displayName": "StarTech",
   "displayNameHtml": "<strong>StarTech</strong> — Doação de Sangue",
+  "loginTheme": "startech",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": true,

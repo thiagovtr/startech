@@ -1,0 +1,4 @@
+theme/node_modules/
+theme/dist/
+theme/dist_keycloak/
+README.md

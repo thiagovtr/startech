@@ -1,6 +1,18 @@
 # syntax=docker/dockerfile:1
 
-# ---- Stage 1: pré-compilação Quarkus (otimiza startup e consumo de RAM para PostgreSQL) ----
+# ---- Stage 1: build do tema StarTech com Keycloakify (React + Vite) ----
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS theme-builder
+WORKDIR /theme
+
+RUN apk add --no-cache nodejs npm
+
+COPY theme/package.json theme/package-lock.json ./
+RUN npm ci
+
+COPY theme/ ./
+RUN npm run build-keycloak-theme
+
+# ---- Stage 2: pré-compilação Quarkus com o tema embutido ----
 FROM quay.io/keycloak/keycloak:26.0 AS builder
 
 ENV KC_HEALTH_ENABLED=true
@@ -8,9 +20,10 @@ ENV KC_METRICS_ENABLED=false
 ENV KC_DB=postgres
 
 WORKDIR /opt/keycloak
+COPY --from=theme-builder /theme/dist_keycloak/startech-theme.jar /opt/keycloak/providers/startech-theme.jar
 RUN /opt/keycloak/bin/kc.sh build
 
-# ---- Stage 2: imagem final enxuta com o realm StarTech embutido ----
+# ---- Stage 3: imagem final enxuta com o realm e tema StarTech embutidos ----
 FROM quay.io/keycloak/keycloak:26.0 AS runtime
 
 COPY --from=builder /opt/keycloak/ /opt/keycloak/
