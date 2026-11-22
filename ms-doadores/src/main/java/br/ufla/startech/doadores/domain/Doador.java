@@ -1,6 +1,7 @@
 package br.ufla.startech.doadores.domain;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +22,12 @@ public class Doador {
     @Column(name = "tipo_sanguineo", nullable = false, length = 3)
     private String tipoSanguineo;
 
+    @Column(name = "sexo", nullable = false, length = 1)
+    private String sexo;
+
+    @Column(name = "data_ultima_doacao")
+    private LocalDate dataUltimaDoacao;
+
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 
@@ -36,5 +43,19 @@ public class Doador {
 
     public String getTipoSanguineo() {
         return tipoSanguineo;
+    }
+
+    public Sexo getSexo() {
+        return Sexo.valueOf(sexo);
+    }
+
+    /** {@code null} se o doador ainda não doou. */
+    public LocalDate getDataUltimaDoacao() {
+        return dataUltimaDoacao;
+    }
+
+    public void registrarDoacao(LocalDate data) {
+        this.dataUltimaDoacao = data;
+        this.atualizadoEm = Instant.now();
     }
 }

@@ -1,27 +1,6 @@
 # Sobreposição do compose.yaml para o E2E da SAGA (scripts/e2e-saga.sh). NÃO faz parte da stack normal.
-# Substitui só o ms-doadores (passo 2 da SAGA, RN01), para o orquestrador, por um participante simulado que
-# implementa o contrato (contratos §2), enquanto o endpoint real não existe. O ms-agendamentos é o real.
-# Os caminhos são relativos ao compose.yaml da raiz (primeiro arquivo).
+# Todos os participantes são os reais; aqui só fica de fora o que a SAGA não usa.
 services:
-  participantes-fake:
-    build: ./ms-orquestrador  # reaproveita a imagem do orquestrador (já tem FastAPI e uvicorn)
-    command: ["uvicorn", "participantes_fake:app", "--app-dir", "/fake", "--host", "0.0.0.0", "--port", "9000"]
-    volumes:
-      - ./scripts/e2e-saga:/fake:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
-    networks: [startech-net-api]
-
-  ms-orquestrador:
-    environment:
-      ORQUESTRADOR_DOADORES_URL: http://participantes-fake:9000
-    depends_on:
-      participantes-fake:
-        condition: service_healthy
-
   # A SAGA não usa a IA: o Ollama fica fora do E2E (economiza RAM e o `up --wait` não trata a saída do
   # job de pull como falha). Suba-o com `--profile ia` se quiser.
   ollama:

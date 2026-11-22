@@ -117,6 +117,8 @@ services:
       MS_DOADORES_DB_URL: jdbc:postgresql://db-doadores:5432/doadores
       MS_DOADORES_DB_USERNAME: doadores
       MS_DOADORES_DB_PASSWORD: ${DOADORES_DB_PASSWORD:-doadores}
+      # Perfil demo: o doador1 fica com a última doação há 10 dias (RN01 da demonstração e dos E2E).
+      SPRING_PROFILES_ACTIVE: demo
     depends_on:
       db-doadores:
         condition: service_healthy

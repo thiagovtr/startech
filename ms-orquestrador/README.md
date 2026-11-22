@@ -96,4 +96,4 @@ MANTER=1 scripts/e2e-saga.sh             # idem, deixando a stack no ar para a d
 
 Os testes usam o banco `orquestrador_test` (criado automaticamente) no PostgreSQL de teste (`ORQUESTRADOR_TEST_POSTGRES_URL`) e um RabbitMQ real (`ORQUESTRADOR_TEST_RABBITMQ_URL`). O script e o CI falham se algum teste for ignorado.
 
-O E2E usa o `ms-agendamentos` real (passos 1 e 4, com a grade de horários do perfil `demo`) e confere a vaga e o agendamento direto no `db-agendamentos`. Só o passo 2 (`ms-doadores`, RN01) ainda é simulado (`scripts/e2e-saga/participantes_fake.py`) até o endpoint real existir: `slot-futuro` confirma, `slot-proximo` é recusado pela RN01 (doação há 10 dias) e compensado, e `slot-lotado` é recusado no passo 1.
+O E2E usa todos os participantes reais, com o perfil `demo` (grade de horários do `ms-agendamentos` e `doador1` com a última doação há 10 dias no `ms-doadores`), e confere o estado direto no `db-agendamentos` e no `db-doadores`: `slot-futuro` confirma (com a trava de elegibilidade), `slot-proximo` é recusado pela RN01 e compensado (vaga devolvida, sem trava), e `slot-lotado` é recusado no passo 1.

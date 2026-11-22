@@ -4,9 +4,8 @@ Cada critério da seção 6 do enunciado tem um passo reproduzível, com o coman
 comandos rodam na raiz do repositório. Os scripts de `scripts/demo/` passam pelo Gateway, como os clientes, e
 leem o estado direto nos bancos de cada serviço para servir de evidência.
 
-> **Passo 2 da SAGA:** enquanto o `ms-doadores` não tem o endpoint da RN01 (contratos §2), os scripts usam o
-> participante simulado do E2E só para esse passo (`scripts/demo/compose.demo.yaml`). Os passos 1 e 4
-> (`ms-agendamentos`), o passo 3 (`ms-comunicacao`, via Outbox e RabbitMQ) e o orquestrador são os reais.
+Todos os participantes da SAGA são os reais: `ms-agendamentos` (passos 1 e 4), `ms-doadores` (passo 2, RN01),
+`ms-comunicacao` (passo 3, via Outbox e RabbitMQ) e o `ms-orquestrador`.
 
 ## 0. Preparação (antes da apresentação)
 
@@ -15,8 +14,9 @@ cp .env.example .env           # só na primeira vez
 scripts/demo/preparar.sh       # sobe tudo, recria a grade de horários, cria uma campanha e aquece o LLM
 ```
 
-O script pode ser rodado de novo entre ensaios: ele zera os agendamentos, recria a grade de horários e as
-travas do passo 2. A grade (perfil `demo` do `ms-agendamentos`) é relativa à data da subida:
+O script pode ser rodado de novo entre ensaios: ele zera os agendamentos e as travas do passo 2 e recria a
+grade de horários. Com o perfil `demo`, o `ms-agendamentos` cria a grade e o `ms-doadores` deixa o `doador1`
+(homem, intervalo de 60 dias) com a última doação há 10 dias, ambos relativos à data da subida:
 
 | Slot | Quando | Capacidade | Uso na demonstração |
 | --- | --- | --- | --- |
@@ -69,12 +69,13 @@ Esperado em cada participante:
   `saga_step_log`, e no `outbox_events` o comando `programar-lembrete` e o evento `saga.agendamento.confirmado`,
   publicados;
 - `ms-agendamentos` (`db-agendamentos`): agendamento `CONFIRMADO` e uma vaga a mais ocupada no slot;
-- passo 2: a trava de elegibilidade criada;
+- `ms-doadores` (`db-doadores`): a última doação do doador e a trava de elegibilidade criada;
 - `ms-comunicacao` (`db-comunicacao`): lembrete `PROGRAMADO` para D-1 e as notificações `CONFIRMACAO` e `DESFECHO`.
 
 **Falha provocada ao vivo, opção A (passo 2, RN01):** agendar o `slot-proximo`.
-Esperado: a situação `CANCELADO` e, no app, o motivo da Portaria MS nº 5/2017 (próxima doação permitida a
-partir de …). No `evidencia-saga.sh`: `STEP1 OK`, `STEP2 RECUSADO`, `STEP1 COMPENSATE OK`, agendamento
+Esperado: a situação `CANCELADO` e, no app, o motivo calculado pelo `ms-doadores` com a Portaria MS nº 5/2017
+("A última doação foi em …, a próxima doação de sangue total é permitida a partir de … (60 dias de intervalo
+para o sexo masculino)"). No `evidencia-saga.sh`: `STEP1 OK`, `STEP2 RECUSADO`, `STEP1 COMPENSATE OK`, agendamento
 `CANCELADO_COMPENSACAO_SAGA`, vaga devolvida (`vagas_ocupadas` volta ao valor anterior), nenhuma trava e só a
 notificação `DESFECHO`.
 
@@ -82,16 +83,16 @@ notificação `DESFECHO`.
 
 ```bash
 COMUNICACAO_SIMULAR_FALHA_DOADORES=11111111-1111-1111-1111-111111111111 \
-  docker compose -f compose.yaml -f scripts/demo/compose.demo.yaml --profile ia up -d ms-comunicacao
+  docker compose --profile ia up -d ms-comunicacao
 scripts/demo/agendar.sh slot-futuro-2
 scripts/demo/evidencia-saga.sh <sagaId>
-docker compose -f compose.yaml -f scripts/demo/compose.demo.yaml --profile ia up -d ms-comunicacao  # volta ao normal
+docker compose --profile ia up -d ms-comunicacao  # volta ao normal
 ```
 
 Esperado: `STEP3 PUBLICADO` e `STEP3 RECUSADO` (o `ms-comunicacao` respondeu `FALHOU`), seguidos das
 compensações em ordem inversa: `STEP3 COMPENSATE PUBLICADO` (o `cancelar-lembrete` vai pelo Outbox),
 `STEP2 COMPENSATE OK` e `STEP1 COMPENSATE OK`. O agendamento fica `CANCELADO_COMPENSACAO_SAGA`, a vaga é devolvida
-e a trava é removida.
+e a trava é removida do `db-doadores`.
 
 **Recusa sem compensação:** `scripts/demo/agendar.sh slot-lotado` → `RECUSADO`, só `STEP1 RECUSADO` e nenhum
 agendamento criado.

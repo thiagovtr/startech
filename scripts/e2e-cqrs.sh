@@ -90,8 +90,16 @@ med=${sorted[$((N / 2))]}; max=${sorted[$((N - 1))]}
 printf ">> latência POST->visível no GET (via Gateway + BFF Web): n=%s mediana=%.3fs max=%.3fs (limite %.1fs)\n" "$N" "$med" "$max" "$LIMITE"
 [ "$(echo "$max < $LIMITE" | bc)" = 1 ] || { echo "FALHA: acima de ${LIMITE}s"; exit 1; }
 
-echo ">> BFF Mobile via Gateway (sem ms-doadores): degradação graciosa + injeção de X-User-Id do JWT"
+echo ">> BFF Mobile via Gateway com o ms-doadores no ar: home completa (perfil + campanhas)"
 resp_mobile=$(curl -s "$GATEWAY/api/mobile/home" -H "Authorization: Bearer $TOKEN_DOADOR")
+echo "$resp_mobile" | grep -q '"status":"ok"' || { echo "FALHA: home esperada completa: $resp_mobile"; exit 1; }
+echo "$resp_mobile" | grep -q '"tipo_sanguineo":"O-"' || { echo "FALHA: perfil do doador ausente: $resp_mobile"; exit 1; }
+echo "   ok: 200 com o perfil do doador e campanhas personalizadas"
+
+echo ">> BFF Mobile via Gateway (ms-doadores parado): degradação graciosa + injeção de X-User-Id do JWT"
+docker compose stop ms-doadores >/dev/null
+resp_mobile=$(curl -s "$GATEWAY/api/mobile/home" -H "Authorization: Bearer $TOKEN_DOADOR")
+docker compose start ms-doadores >/dev/null
 echo "$resp_mobile" | grep -q '"status":"degradado"' || { echo "FALHA: BFF Mobile não retornou status degradado"; exit 1; }
 echo "$resp_mobile" | grep -q '11111111-1111-1111-1111-111111111111' || { echo "FALHA: X-User-Id (sub do JWT) não propagou ao BFF Mobile"; exit 1; }
 echo "   ok: 200 degradado com X-User-Id=11111111-1111-1111-1111-111111111111"
