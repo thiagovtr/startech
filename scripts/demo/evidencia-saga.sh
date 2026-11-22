@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Estado de uma SAGA em cada participante: trilha do orquestrador (db-orquestrador), vaga e agendamento
-# (db-agendamentos), trava de elegibilidade (passo 2) e notificações/lembrete (db-comunicacao).
+# (db-agendamentos), trava de elegibilidade (db-doadores) e notificações/lembrete (db-comunicacao).
 # Uso: scripts/demo/evidencia-saga.sh <sagaId>
 source "$(dirname "$0")/comum.sh"
 [ $# -eq 1 ] || falha "uso: $0 <sagaId>"
@@ -27,12 +27,17 @@ sql db-agendamentos agendamentos agendamentos \
 sql db-agendamentos agendamentos agendamentos \
   "SELECT id, capacidade, vagas_ocupadas FROM slots WHERE id = '$SLOT'"
 
-titulo "passo 2 (ms-doadores, simulado): trava de elegibilidade"
-"${COMPOSE[@]}" exec -T participantes-fake python -c "
-import json, urllib.request
-d = json.load(urllib.request.urlopen('http://127.0.0.1:9000/fake/estado'))
-t = d['travas'].get('$AG')
-print('   trava:', t if t else 'nenhuma (não criada ou removida pela compensação)')"
+titulo "ms-doadores (db-doadores): RN01 e trava de elegibilidade do passo 2"
+DOADOR=$(echo "$s" | json doadorId)
+sql db-doadores doadores doadores \
+  "SELECT id, sexo, data_ultima_doacao FROM doadores WHERE id = '$DOADOR'"
+n=$(sql_valor db-doadores doadores doadores "SELECT count(*) FROM travas_elegibilidade WHERE agendamento_id = '$AG'")
+if [ "$n" = "0" ]; then
+  echo "   trava: nenhuma (não criada ou removida pela compensação)"
+else
+  sql db-doadores doadores doadores \
+    "SELECT agendamento_id, data_slot, criado_em FROM travas_elegibilidade WHERE agendamento_id = '$AG'"
+fi
 
 titulo "ms-comunicacao (db-comunicacao): lembrete e notificações"
 sql db-comunicacao comunicacao comunicacao \

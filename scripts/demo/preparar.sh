@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deixa a stack no estado inicial da demonstração. Pode ser rodado de novo entre ensaios.
 #   1. sobe tudo (com o perfil `ia`); 2. zera agendamentos e recria a grade de horários do ms-agendamentos;
-#   3. zera as travas do passo 2 (simulado); 4. cria uma campanha de exemplo pelo BFF Web.
+#   3. zera as travas do passo 2 (ms-doadores); 4. cria uma campanha de exemplo pelo BFF Web.
 # Uso: scripts/demo/preparar.sh            (SEM_IA=1 não espera o Ollama baixar os modelos)
 source "$(dirname "$0")/comum.sh"
 
@@ -16,7 +16,9 @@ echo "   ok: Gateway em $GATEWAY e Keycloak respondendo"
 
 titulo "zerando agendamentos e recriando a grade de horários"
 sql_valor db-agendamentos agendamentos agendamentos "DELETE FROM agendamentos; DELETE FROM slots;" >/dev/null
-"${COMPOSE[@]}" restart ms-agendamentos participantes-fake >/dev/null
+sql_valor db-doadores doadores doadores "DELETE FROM travas_elegibilidade;" >/dev/null
+# as duas subidas recriam o estado relativo à data de hoje: a grade e a última doação do doador1
+"${COMPOSE[@]}" restart ms-agendamentos ms-doadores >/dev/null
 for _ in $(seq 1 60); do
   n=$(curl -s "$GATEWAY/api/mobile/slots" -H "Authorization: Bearer $(token_doador)" \
       | python3 -c 'import json,sys

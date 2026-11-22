@@ -5,7 +5,7 @@ export LC_ALL=C.UTF-8
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$RAIZ"
-COMPOSE=(docker compose -f compose.yaml -f scripts/demo/compose.demo.yaml --profile ia)
+COMPOSE=(docker compose --profile ia)
 GATEWAY="http://localhost:${GATEWAY_HOST_PORT:-8080}"
 
 json() {  # json '<campo.subcampo>' < corpo

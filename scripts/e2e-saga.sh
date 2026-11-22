@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # E2E da SAGA de agendamento pela borda pública (Gateway -> BFF Mobile -> ms-orquestrador -> participantes),
 # com PostgreSQL, Outbox e RabbitMQ reais. O ms-agendamentos (passos 1 e 4) é o real, com a grade do perfil
-# `demo`, e o estado dele é conferido direto no db-agendamentos. Só o passo 2 (ms-doadores, RN01) ainda é
-# simulado (scripts/e2e-saga/participantes_fake.py), até o endpoint real existir.
+# `demo`; o ms-doadores (passo 2, RN01) também, com o doador1 do perfil `demo` (última doação há 10 dias).
+# O estado de cada participante é conferido direto no banco dele (db-agendamentos e db-doadores).
 #   0. Grade: GET /api/mobile/slots traz slot-futuro e slot-proximo, com o link agendar; slot-lotado não aparece.
 #      As solicitações seguem o link `agendar` da grade, e as vagas disponíveis acompanham reserva e cancelamento
 #   1. Caminho feliz:   slot-futuro  -> CONFIRMADO (passos 1, 2, 3 via Outbox e 4)
@@ -45,7 +45,7 @@ print(v if not isinstance(v,(dict,list)) else json.dumps(v,ensure_ascii=False))'
 }
 falha() { echo "FALHA: $*"; exit 1; }
 
-echo ">> subindo a stack (ms-agendamentos real; passo 2 simulado)"
+echo ">> subindo a stack (participantes reais)"
 "${COMPOSE[@]}" up -d --build --wait >/dev/null
 
 GATEWAY="http://localhost:${GATEWAY_HOST_PORT}"
@@ -106,8 +106,10 @@ sql_agendamentos() {  # sql_agendamentos '<consulta>' -> resultado sem cabeçalh
 vagas() { sql_agendamentos "SELECT vagas_ocupadas FROM slots WHERE id = '$1'"; }
 status_agendamento() { sql_agendamentos "SELECT status FROM agendamentos WHERE id = '$1'"; }
 
-estado_fake() { "${COMPOSE[@]}" exec -T participantes-fake python -c \
-  "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:9000/fake/estado').read().decode())"; }
+trava() {  # trava <agendamentoId> -> 1 se a trava de elegibilidade do passo 2 existe no db-doadores, senão 0
+  "${COMPOSE[@]}" exec -T db-doadores psql -U doadores -d doadores -tAc \
+    "SELECT count(*) FROM travas_elegibilidade WHERE agendamento_id = '$1'"
+}
 
 # ----------------------------------------------------------------------------------------------- 0
 echo ">> 0. grade de horários pelo Gateway"
@@ -141,9 +143,10 @@ final=$(aguardar "$SAGA1")
 [ "$(echo "$final" | json situacao)" = "CONFIRMADO" ] || falha "esperado CONFIRMADO: $final"
 passos "$SAGA1"
 [ "$(status_agendamento "$AG1")" = "CONFIRMADO" ] || falha "agendamento não confirmado no db-agendamentos"
+[ "$(trava "$AG1")" = "1" ] || falha "a trava de elegibilidade não foi criada no db-doadores"
 [ "$(slot_da_grade slot-futuro vagasDisponiveis)" = "$(( VAGAS_FUTURO - 1 ))" ] \
   || falha "a grade não refletiu a vaga ocupada (antes $VAGAS_FUTURO)"
-echo "   ok: CONFIRMADO; db-agendamentos: agendamento $AG1 CONFIRMADO, slot-futuro com $(vagas slot-futuro) vaga(s) ocupada(s)"
+echo "   ok: CONFIRMADO; db-agendamentos: agendamento $AG1 CONFIRMADO, slot-futuro com $(vagas slot-futuro) vaga(s) ocupada(s); db-doadores: trava criada"
 esperar_notificacao "$AG1" LEMBRETE
 echo "   ok: ms-comunicacao registrou: $(notificacoes "$AG1")"
 
@@ -198,9 +201,9 @@ echo "   motivo exibido no app: $(echo "$final" | json motivo)"
 passos "$SAGA2"
 [ "$(status_agendamento "$AG2")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado no db-agendamentos"
 [ "$(vagas slot-proximo)" = "$antes" ] || falha "a vaga não foi liberada no db-agendamentos"
-estado_fake | python3 -c 'import json,sys; sys.exit(sys.argv[1] in json.load(sys.stdin)["travas"])' "$AG2" \
-  || falha "a trava de elegibilidade não deveria existir"
-echo "   ok: CANCELADO; db-agendamentos: vaga devolvida (ocupadas=$antes) e agendamento CANCELADO_COMPENSACAO_SAGA"
+[ "$(trava "$AG2")" = "0" ] || falha "a trava de elegibilidade não deveria existir no db-doadores"
+echo "$final" | json motivo | grep -q "Portaria MS nº 5/2017" || falha "motivo sem a Portaria: $final"
+echo "   ok: CANCELADO; db-agendamentos: vaga devolvida (ocupadas=$antes) e agendamento CANCELADO_COMPENSACAO_SAGA; db-doadores: sem trava"
 
 # ----------------------------------------------------------------------------------------------- 3
 echo ">> 3. recusa sem compensação (slot-lotado: 409 no passo 1)"
@@ -221,8 +224,7 @@ echo "   motivo exibido no app: $(echo "$final" | json motivo)"
 passos "$SAGA4"
 AG4=$(echo "$final" | json agendamentoId)
 [ "$(status_agendamento "$AG4")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado no db-agendamentos"
-estado_fake | python3 -c 'import json,sys; sys.exit(sys.argv[1] in json.load(sys.stdin)["travas"])' "$AG4" \
-  || falha "a trava de elegibilidade não foi removida (compensação do passo 2)"
+[ "$(trava "$AG4")" = "0" ] || falha "a trava de elegibilidade não foi removida (compensação do passo 2)"
 echo "   ok: CANCELADO pela resposta FALHOU, sem esperar o timeout"
 "${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null  # volta sem a falha simulada
 
