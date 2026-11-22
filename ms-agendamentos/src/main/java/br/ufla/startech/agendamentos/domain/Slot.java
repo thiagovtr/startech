@@ -45,6 +45,15 @@ public class Slot {
         this.vagasOcupadas = vagasOcupadas;
     }
 
+    public boolean temVaga() {
+        return vagasOcupadas < capacidade;
+    }
+
+    /** Ocupa uma vaga (o chamador já conferiu {@link #temVaga()} com o slot travado). */
+    public void ocuparVaga() {
+        vagasOcupadas++;
+    }
+
     /** Devolve uma vaga ao slot (cancelamento ou compensação). */
     public void liberarVaga() {
         if (vagasOcupadas > 0) {

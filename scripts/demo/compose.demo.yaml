@@ -1,0 +1,24 @@
+# Sobreposição do compose.yaml para a demonstração ao vivo (scripts/demo/*.sh). NÃO faz parte da stack normal.
+# TEMPORÁRIO: enquanto o ms-doadores não tem o passo 2 da SAGA (RN01, contratos §2), o orquestrador usa o
+# participante simulado do E2E para esse passo. Os passos 1 e 4 são do ms-agendamentos real. Quando o
+# endpoint real existir, apague este arquivo e o `-f scripts/demo/compose.demo.yaml` de comum.sh.
+# Os caminhos são relativos ao compose.yaml da raiz (primeiro arquivo).
+services:
+  participantes-fake:
+    build: ./ms-orquestrador  # reaproveita a imagem do orquestrador (já tem FastAPI e uvicorn)
+    command: ["uvicorn", "participantes_fake:app", "--app-dir", "/fake", "--host", "0.0.0.0", "--port", "9000"]
+    volumes:
+      - ./scripts/e2e-saga:/fake:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks: [startech-net-api]
+
+  ms-orquestrador:
+    environment:
+      ORQUESTRADOR_DOADORES_URL: http://participantes-fake:9000
+    depends_on:
+      participantes-fake:
+        condition: service_healthy

@@ -173,3 +173,35 @@ def test_cancelar_ja_cancelado_repassa_409():
     assert r.status_code == 409
     assert r.json() == problema
     assert r.headers["content-type"].startswith("application/problem+json")
+
+
+# ------------------------------------------------------------------ GET /bff-mobile/slots
+
+
+def test_horarios_trazem_link_agendar_publico_e_repassam_filtros():
+    corpo = {"itens": [{"slotId": "slot-futuro", "postoId": "hemominas-lavras",
+                        "dataHoraInicio": "2027-02-19T14:00:00Z", "dataHoraFim": "2027-02-19T14:20:00Z",
+                        "vagasDisponiveis": 5,
+                        "_links": {"agendar": {"href": "/api/v1/sagas/agendamento", "method": "POST",
+                                               "title": "Solicitar agendamento"}}}],
+             "_links": {"self": {"href": "/api/v1/slots", "method": "GET"}}}
+    a = Agendamentos(_resp(200, corpo))
+    with a.client() as c:
+        r = c.get("/bff-mobile/slots", params={"postoId": "hemominas-lavras"}, headers=USUARIO)
+    assert r.status_code == 200
+    (slot,) = r.json()["itens"]
+    assert slot["slotId"] == "slot-futuro" and slot["vagasDisponiveis"] == 5
+    assert slot["_links"]["agendar"] == {"href": "/api/mobile/agendamentos", "method": "POST",
+                                         "title": "Solicitar agendamento"}
+    assert r.json()["_links"]["self"] == {"href": "/api/mobile/slots", "method": "GET"}
+    (req,) = a.requisicoes
+    assert req.url.path == "/api/v1/slots" and dict(req.url.params) == {"postoId": "hemominas-lavras"}
+
+
+def test_horarios_com_ms_agendamentos_fora_respondem_503():
+    def erro(_req):
+        raise httpx.ReadTimeout("lento")
+
+    with Agendamentos(erro).client() as c:
+        r = c.get("/bff-mobile/slots", headers=USUARIO)
+    assert r.status_code == 503

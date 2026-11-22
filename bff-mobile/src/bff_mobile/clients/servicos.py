@@ -115,6 +115,9 @@ class AgendamentosClient:
     def __init__(self, http: httpx.AsyncClient):
         self._http = http
 
+    async def listar_slots(self, params: dict[str, str]) -> tuple[int, dict]:
+        return await _chamar(self._http, "ms-agendamentos", "GET", "/api/v1/slots", params=params)
+
     async def listar(self, doador_id: str) -> tuple[int, dict]:
         return await _chamar(self._http, "ms-agendamentos", "GET", "/api/v1/agendamentos",
                              params={"doadorId": doador_id})

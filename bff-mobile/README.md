@@ -23,6 +23,7 @@ Repassa o recurso do `ms-agendamentos` (contratos §3), reescrevendo os links in
 
 - `GET /bff-mobile/agendamentos`: agendamentos do doador autenticado, do mais recente para o mais antigo.
 - `GET /bff-mobile/agendamentos/{id}`: `self` sempre; `cancelar` só se `CONFIRMADO` e até 2 h antes; `novo-agendamento` depois de cancelado; nenhum link de ação em provisório, fora do prazo ou concluído.
+- `GET /bff-mobile/slots` `?postoId=&de=&ate=`: horários futuros com vaga do `ms-agendamentos`, cada um com o link `agendar` (`POST /api/mobile/agendamentos`, corpo `{slotId}`).
 - `POST /bff-mobile/agendamentos/{id}/cancelamento` `{motivo?}`: confere o dono, cancela e devolve o agendamento com os links novos. Repassa `409` (já cancelado, ainda provisório ou fora do prazo).
 
 ## Configuração (`BFF_MOBILE_*`)

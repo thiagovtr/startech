@@ -21,6 +21,14 @@ public interface AgendamentoRepository extends JpaRepository<Agendamento, String
     @Query("SELECT a FROM Agendamento a WHERE a.doadorId = :doadorId ORDER BY a.slot.dataHoraInicio DESC")
     List<Agendamento> listarPorDoador(@Param("doadorId") String doadorId);
 
+    @Query("""
+            SELECT COUNT(a) > 0 FROM Agendamento a
+            WHERE a.doadorId = :doadorId
+              AND a.status IN (br.ufla.startech.agendamentos.domain.StatusAgendamento.CRIADO_PROVISORIO,
+                               br.ufla.startech.agendamentos.domain.StatusAgendamento.CONFIRMADO)
+            """)
+    boolean existeAtivoDoDoador(@Param("doadorId") String doadorId);
+
     /** Trava a linha do agendamento: dois cancelamentos simultâneos não devolvem duas vagas. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Agendamento a WHERE a.id = :id")

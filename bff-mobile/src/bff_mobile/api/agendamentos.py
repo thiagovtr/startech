@@ -9,11 +9,13 @@
   (contratos §3). Os links internos (`/api/v1/...`) são reescritos para as rotas públicas do Gateway
   (`/api/mobile/...`); links sem rota pública correspondente são descartados. Agendamento de outro doador
   responde 404.
+- `GET /bff-mobile/slots[?postoId=&de=&ate=]`: horários futuros com vaga, cada um com o link `agendar`
+  (`POST /api/mobile/agendamentos`, corpo `{slotId}`).
 """
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -245,3 +247,24 @@ async def cancelar_agendamento(
     if status != 200:
         return _repassar_problema(status, cancelado)  # 409: já cancelado, ainda provisório ou fora do prazo
     return _agendamento_publico(cancelado)
+
+
+@router.get("/slots")
+async def listar_horarios(
+    request: Request,
+    agendamentos: Annotated[AgendamentosClient, Depends(get_agendamentos)],
+    posto_id: Annotated[str | None, Query(alias="postoId", max_length=64)] = None,
+    de: Annotated[str | None, Query(max_length=40)] = None,
+    ate: Annotated[str | None, Query(max_length=40)] = None,
+):
+    params = {k: v for k, v in {"postoId": posto_id, "de": de, "ate": ate}.items() if v}
+    try:
+        status, lista = await agendamentos.listar_slots(params)
+    except ServicoIndisponivel as exc:
+        return _indisponivel(request, exc)
+    if status != 200:
+        return _repassar_problema(status, lista)
+    return {
+        "itens": [_agendamento_publico(s) for s in lista.get("itens", [])],
+        "_links": {"self": {"href": f"{get_settings().prefixo_publico}/slots", "method": "GET"}},
+    }

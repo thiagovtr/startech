@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # E2E da SAGA de agendamento pela borda pública (Gateway -> BFF Mobile -> ms-orquestrador -> participantes),
-# com PostgreSQL, Outbox e RabbitMQ reais. ms-agendamentos/ms-doadores são substituídos por participantes
-# simulados (scripts/e2e-saga/participantes_fake.py) enquanto os endpoints reais não existem.
+# com PostgreSQL, Outbox e RabbitMQ reais. O ms-agendamentos (passos 1 e 4) é o real, com a grade do perfil
+# `demo`, e o estado dele é conferido direto no db-agendamentos. Só o passo 2 (ms-doadores, RN01) ainda é
+# simulado (scripts/e2e-saga/participantes_fake.py), até o endpoint real existir.
+#   0. Grade: GET /api/mobile/slots traz slot-futuro e slot-proximo, com o link agendar; slot-lotado não aparece.
+#      As solicitações seguem o link `agendar` da grade, e as vagas disponíveis acompanham reserva e cancelamento
 #   1. Caminho feliz:   slot-futuro  -> CONFIRMADO (passos 1, 2, 3 via Outbox e 4)
 #   1b. Consulta e cancelamento com HATEOAS: o link `agendamento` da SAGA confirmada leva ao recurso, que tem
 #       `cancelar`; cancelar libera a vaga e troca os links (`novo-agendamento`, sem `cancelar`); de novo -> 409
@@ -42,7 +45,7 @@ print(v if not isinstance(v,(dict,list)) else json.dumps(v,ensure_ascii=False))'
 }
 falha() { echo "FALHA: $*"; exit 1; }
 
-echo ">> subindo a stack com os participantes simulados"
+echo ">> subindo a stack (ms-agendamentos real; passo 2 simulado)"
 "${COMPOSE[@]}" up -d --build --wait >/dev/null
 
 GATEWAY="http://localhost:${GATEWAY_HOST_PORT}"
@@ -51,9 +54,11 @@ TOKEN=$(curl -s -X POST "$GATEWAY/realms/startech/protocol/openid-connect/token"
 [ -n "$TOKEN" ] || falha "token do doador vazio"
 AUTH=(-H "Authorization: Bearer $TOKEN")
 
+LINK_AGENDAR="/api/mobile/agendamentos"  # trocado pelo link `agendar` da grade no cenário 0
+
 solicitar() {  # solicitar <slot> [idempotency-key] -> imprime "status corpo"
   local chave=${2:-$(python3 -c 'import uuid;print(uuid.uuid4())')}
-  curl -s -w '\n%{http_code}' -X POST "$GATEWAY/api/mobile/agendamentos" "${AUTH[@]}" \
+  curl -s -w '\n%{http_code}' -X POST "$GATEWAY$LINK_AGENDAR" "${AUTH[@]}" \
     -H "Content-Type: application/json" -H "Idempotency-Key: $chave" -d "{\"slotId\":\"$1\"}"
 }
 
@@ -95,8 +100,36 @@ for p in d['passos']:
     print(f\"   {p['passo']:5} {p['direcao']:10} {p['resultado']}\")"
 }
 
+sql_agendamentos() {  # sql_agendamentos '<consulta>' -> resultado sem cabeçalho, direto no banco do participante
+  "${COMPOSE[@]}" exec -T db-agendamentos psql -U agendamentos -d agendamentos -tAc "$1"
+}
+vagas() { sql_agendamentos "SELECT vagas_ocupadas FROM slots WHERE id = '$1'"; }
+status_agendamento() { sql_agendamentos "SELECT status FROM agendamentos WHERE id = '$1'"; }
+
 estado_fake() { "${COMPOSE[@]}" exec -T participantes-fake python -c \
   "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:9000/fake/estado').read().decode())"; }
+
+# ----------------------------------------------------------------------------------------------- 0
+echo ">> 0. grade de horários pelo Gateway"
+slots=$(curl -s "$GATEWAY/api/mobile/slots" "${AUTH[@]}")
+echo "$slots" | python3 -c '
+import json, sys
+d = json.load(sys.stdin); ids = [s["slotId"] for s in d["itens"]]
+assert "slot-futuro" in ids and "slot-proximo" in ids, ids
+assert "slot-lotado" not in ids, ids
+assert all(s["_links"]["agendar"] == {"href": "/api/mobile/agendamentos", "method": "POST", "title": s["_links"]["agendar"]["title"]} for s in d["itens"])
+' || falha "grade inesperada: $slots"
+echo "   ok: $(echo "$slots" | python3 -c 'import json,sys;print(", ".join(s["slotId"]+"("+str(s["vagasDisponiveis"])+")" for s in json.load(sys.stdin)["itens"]))')"
+# como o app: escolhe o horário pela grade e segue o link `agendar` dele
+slot_da_grade() {  # slot_da_grade <slotId> <campo> -> campo do slot na grade atual
+  curl -s "$GATEWAY/api/mobile/slots" "${AUTH[@]}" | python3 -c '
+import json, sys
+s = next((s for s in json.load(sys.stdin)["itens"] if s["slotId"] == sys.argv[1]), None)
+print("" if s is None else (s["_links"]["agendar"]["href"] if sys.argv[2] == "agendar" else s[sys.argv[2]]))' "$1" "$2"
+}
+LINK_AGENDAR=$(slot_da_grade slot-futuro agendar)
+[ "$LINK_AGENDAR" = "/api/mobile/agendamentos" ] || falha "link agendar inesperado: $LINK_AGENDAR"
+VAGAS_FUTURO=$(slot_da_grade slot-futuro vagasDisponiveis)
 
 # ----------------------------------------------------------------------------------------------- 1
 echo ">> 1. caminho feliz (slot-futuro: doador apto)"
@@ -107,8 +140,10 @@ SAGA1=$(echo "$corpo" | json sagaId); AG1=$(echo "$corpo" | json agendamentoId)
 final=$(aguardar "$SAGA1")
 [ "$(echo "$final" | json situacao)" = "CONFIRMADO" ] || falha "esperado CONFIRMADO: $final"
 passos "$SAGA1"
-[ "$(estado_fake | json "agendamentos.$AG1.status")" = "CONFIRMADO" ] || falha "agendamento não confirmado no participante"
-echo "   ok: CONFIRMADO; agendamento $AG1 confirmado em ms-agendamentos (simulado)"
+[ "$(status_agendamento "$AG1")" = "CONFIRMADO" ] || falha "agendamento não confirmado no db-agendamentos"
+[ "$(slot_da_grade slot-futuro vagasDisponiveis)" = "$(( VAGAS_FUTURO - 1 ))" ] \
+  || falha "a grade não refletiu a vaga ocupada (antes $VAGAS_FUTURO)"
+echo "   ok: CONFIRMADO; db-agendamentos: agendamento $AG1 CONFIRMADO, slot-futuro com $(vagas slot-futuro) vaga(s) ocupada(s)"
 esperar_notificacao "$AG1" LEMBRETE
 echo "   ok: ms-comunicacao registrou: $(notificacoes "$AG1")"
 
@@ -131,7 +166,7 @@ lista=$(curl -s "$GATEWAY/api/mobile/agendamentos" "${AUTH[@]}")
 echo "$lista" | python3 -c 'import json,sys; sys.exit(sys.argv[1] not in [i["id"] for i in json.load(sys.stdin)["itens"]])' "$AG1" \
   || falha "agendamento ausente da listagem do doador: $lista"
 echo "   ok: listagem do doador traz $AG1"
-antes=$(estado_fake | json slots.slot-futuro.ocupadas)
+antes=$(vagas slot-futuro)
 resp=$(curl -s -w '\n%{http_code}' -X POST "$GATEWAY$LINK_CANCELAR" "${AUTH[@]}" \
   -H "Content-Type: application/json" -d '{"motivo":"Imprevisto pessoal"}')
 status=$(echo "$resp" | tail -1); ag=$(echo "$resp" | head -1)
@@ -140,17 +175,20 @@ status=$(echo "$resp" | tail -1); ag=$(echo "$resp" | head -1)
 [ "$(echo "$ag" | json _links.novo-agendamento.href)" = "/api/mobile/agendamentos" ] || falha "sem novo-agendamento: $ag"
 echo "$ag" | python3 -c 'import json,sys; sys.exit("cancelar" in json.load(sys.stdin)["_links"])' \
   || falha "cancelado não deveria ter link cancelar: $ag"
-[ "$(estado_fake | json slots.slot-futuro.ocupadas)" = "$(( antes - 1 ))" ] || falha "a vaga não foi liberada"
+[ "$(vagas slot-futuro)" = "$(( antes - 1 ))" ] || falha "a vaga não foi liberada no db-agendamentos"
+[ "$(status_agendamento "$AG1")" = "CANCELADO_DOADOR" ] || falha "db-agendamentos não registrou o cancelamento"
 ag=$(curl -s "$GATEWAY$LINK_AG" "${AUTH[@]}")
 [ "$(echo "$ag" | json status)" = "CANCELADO_DOADOR" ] || falha "consulta após cancelar: $ag"
 echo "   ok: CANCELADO_DOADOR, vaga liberada, links $(echo "$ag" | python3 -c 'import json,sys;print(sorted(json.load(sys.stdin)["_links"]))')"
 status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$GATEWAY$LINK_CANCELAR" "${AUTH[@]}")
 [ "$status" = "409" ] || falha "cancelar de novo esperado 409, veio $status"
 echo "   ok: cancelar de novo -> 409"
+[ "$(slot_da_grade slot-futuro vagasDisponiveis)" = "$VAGAS_FUTURO" ] || falha "a vaga cancelada não voltou à grade"
+echo "   ok: a vaga voltou à grade (slot-futuro com $VAGAS_FUTURO disponíveis)"
 
 # ----------------------------------------------------------------------------------------------- 2
 echo ">> 2. compensação (slot-proximo: doou há 10 dias, RN01 exige 60)"
-antes=$(estado_fake | json slots.slot-proximo.ocupadas)
+antes=$(vagas slot-proximo)
 resp=$(solicitar slot-proximo); status=$(echo "$resp" | tail -1); corpo=$(echo "$resp" | head -1)
 [ "$status" = "202" ] || falha "POST esperado 202, veio $status: $corpo"
 SAGA2=$(echo "$corpo" | json sagaId); AG2=$(echo "$corpo" | json agendamentoId)
@@ -158,10 +196,11 @@ final=$(aguardar "$SAGA2")
 [ "$(echo "$final" | json situacao)" = "CANCELADO" ] || falha "esperado CANCELADO: $final"
 echo "   motivo exibido no app: $(echo "$final" | json motivo)"
 passos "$SAGA2"
-estado=$(estado_fake)
-[ "$(echo "$estado" | json "agendamentos.$AG2.status")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado"
-[ "$(echo "$estado" | json slots.slot-proximo.ocupadas)" = "$antes" ] || falha "a vaga não foi liberada"
-echo "   ok: CANCELADO; vaga devolvida (ocupadas=$antes) e agendamento CANCELADO_COMPENSACAO_SAGA"
+[ "$(status_agendamento "$AG2")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado no db-agendamentos"
+[ "$(vagas slot-proximo)" = "$antes" ] || falha "a vaga não foi liberada no db-agendamentos"
+estado_fake | python3 -c 'import json,sys; sys.exit(sys.argv[1] in json.load(sys.stdin)["travas"])' "$AG2" \
+  || falha "a trava de elegibilidade não deveria existir"
+echo "   ok: CANCELADO; db-agendamentos: vaga devolvida (ocupadas=$antes) e agendamento CANCELADO_COMPENSACAO_SAGA"
 
 # ----------------------------------------------------------------------------------------------- 3
 echo ">> 3. recusa sem compensação (slot-lotado: 409 no passo 1)"
@@ -169,7 +208,8 @@ SAGA3=$(solicitar slot-lotado | head -1 | json sagaId)
 final=$(aguardar "$SAGA3")
 [ "$(echo "$final" | json situacao)" = "RECUSADO" ] || falha "esperado RECUSADO: $final"
 passos "$SAGA3"
-echo "   ok: RECUSADO"
+[ -z "$(status_agendamento "$(echo "$final" | json agendamentoId)")" ] || falha "slot lotado não deveria criar agendamento"
+echo "   ok: RECUSADO; nenhum agendamento criado no db-agendamentos"
 
 # ----------------------------------------------------------------------------------------------- 4
 echo ">> 4. falha no passo 3 (ms-comunicacao responde FALHOU para este doador)"
@@ -180,7 +220,9 @@ final=$(aguardar "$SAGA4")
 echo "   motivo exibido no app: $(echo "$final" | json motivo)"
 passos "$SAGA4"
 AG4=$(echo "$final" | json agendamentoId)
-[ "$(estado_fake | json "agendamentos.$AG4.status")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado"
+[ "$(status_agendamento "$AG4")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado no db-agendamentos"
+estado_fake | python3 -c 'import json,sys; sys.exit(sys.argv[1] in json.load(sys.stdin)["travas"])' "$AG4" \
+  || falha "a trava de elegibilidade não foi removida (compensação do passo 2)"
 echo "   ok: CANCELADO pela resposta FALHOU, sem esperar o timeout"
 "${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null  # volta sem a falha simulada
 
@@ -192,6 +234,7 @@ final=$(aguardar "$SAGA5" 60)
 [ "$(echo "$final" | json situacao)" = "CANCELADO" ] || falha "esperado CANCELADO: $final"
 passos "$SAGA5"
 AG5=$(echo "$final" | json agendamentoId)
+[ "$(status_agendamento "$AG5")" = "CANCELADO_COMPENSACAO_SAGA" ] || falha "agendamento não compensado no db-agendamentos"
 echo "   religando o ms-comunicacao: o programar pendente está expirado e o cancelar não tem o que desfazer"
 "${COMPOSE[@]}" up -d --wait ms-comunicacao >/dev/null
 esperar_notificacao "$AG5" DESFECHO
@@ -210,4 +253,6 @@ for _ in $(seq 1 20); do
 done
 echo "$filas" | grep -E "comunicacao\.|saga.compensations.dlq|orquestrador.saga.respostas" | sed 's/^/   /'
 [ "$pendentes" = "0" ] || falha "ainda há $pendentes mensagens pendentes nas filas da SAGA"
+[ -z "$(sql_agendamentos "SELECT id FROM agendamentos WHERE doador_id = '$DOADOR' AND status IN ('CRIADO_PROVISORIO', 'CONFIRMADO')")" ] \
+  || falha "sobrou agendamento ativo do doador no db-agendamentos"
 echo ">> E2E da SAGA OK"

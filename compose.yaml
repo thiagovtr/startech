@@ -143,6 +143,8 @@ services:
       MS_AGENDAMENTOS_DB_URL: jdbc:postgresql://db-agendamentos:5432/agendamentos
       MS_AGENDAMENTOS_DB_USERNAME: agendamentos
       MS_AGENDAMENTOS_DB_PASSWORD: ${AGENDAMENTOS_DB_PASSWORD:-agendamentos}
+      # grade de horários da demonstração (slot-futuro*, slot-proximo, slot-lotado), relativa à data da subida
+      SPRING_PROFILES_ACTIVE: demo
     depends_on:
       db-agendamentos:
         condition: service_healthy
