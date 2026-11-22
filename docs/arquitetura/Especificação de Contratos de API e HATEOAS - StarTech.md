@@ -1,7 +1,8 @@
 # **Especificação de Contratos de API e HATEOAS — StarTech**
 
-* **Versão:** 1.1.0  
-* **Data da Última Revisão:** 2026-11-16 (SAGA coordenada pelo `ms-orquestrador`, conforme ADR-006)  
+* **Versão:** 2.0.0  
+* **Data da Última Revisão:** 2026-11-21 (SAGA completa com participantes reais, HATEOAS no agendamento e especificação OpenAPI 3.0)  
+* **Especificação OpenAPI / Swagger UI:** [`openapi.yaml`](./openapi.yaml) *(abra em [editor.swagger.io](https://editor.swagger.io/) para navegação interativa de rotas, DTOs e exemplos RFC 7807)*  
 * **Responsável:** Equipe StarTech (Diovani da Cruz, Ezequiel Dominguez, Matheus Freire Costa Pimenta, Thiago Vinícius)  
 * **Status:** Homologado
 

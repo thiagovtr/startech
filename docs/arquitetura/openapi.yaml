@@ -1,0 +1,1474 @@
+openapi: 3.0.3
+info:
+  title: StarTech — Especificação de Contratos REST e HATEOAS
+  version: 2.0.0
+  description: |
+    Especificação OpenAPI 3.0 completa da plataforma distribuída **StarTech** (GCC129 — Sistemas Distribuídos, UFLA 2026/2).
+
+    ### Padrões Arquiteturais Documentados
+    - **Camada de Borda (ADR-005):** Todo tráfego externo passa exclusivamente pelo **API Gateway** (`:8080`), que valida tokens **JWT RS256** (Keycloak), aplica **CORS**, **RBAC + Audience**, *Header Stripping* (`X-User-Id`, `X-User-Roles`) e **Token Bucket Rate Limiting** (`429`).
+    - **Versionamento:** Todos os microsserviços de domínio expõem URIs versionadas em `/api/v1/`.
+    - **Padronização de Erros (RFC 7807):** Todas as falhas 4xx e 5xx retornam `application/problem+json` com `type` (`urn:startech:error:<slug>`), `title`, `status`, `detail`, `instance` e, em erros de validação, `invalidParams`.
+    - **HATEOAS (Richardson Nível 3):** O recurso `Agendamento` e a `SAGA` retornam `_links` dinâmicos conforme o estado atual; o `BFF Mobile` reescreve links internos (`/api/v1/...`) para rotas públicas do Gateway (`/api/mobile/...`).
+    - **CQRS + Outbox (ADR-003 / ADR-004):** `ms-hemocentros` separa escrita transacional (PostgreSQL + Outbox → RabbitMQ) de leitura documental (MongoDB).
+    - **SAGA Orquestrada (ADR-006):** `ms-orquestrador` coordena `ms-agendamentos` (Passo 1/4), `ms-doadores` (Passo 2 — RN01 60/90 dias) e `ms-comunicacao` (Passo 3 via RabbitMQ Outbox), com transações compensatórias idempotentes.
+    - **IA com RAG + Resiliência (ADR-007):** `ms-rag` usa LangChain LCEL + Ollama sobre a Portaria MS nº 5/2017, Tool `campanhas_vigentes`, timeout, circuit breaker e fallback sem 5xx.
+  contact:
+    name: Equipe StarTech (Diovani, Ezequiel, Matheus, Thiago)
+    url: https://github.com/thiagovtr/startech
+
+servers:
+  - url: http://localhost:8080
+    description: API Gateway (Borda pública — /api/mobile/**, /api/web/**, /realms/**)
+  - url: http://localhost:8089
+    description: Keycloak IAM (OIDC / PKCE — acesso direto local)
+  - url: http://ms-hemocentros:8000
+    description: MS-Hemocentros (rede interna startech-net-api)
+  - url: http://ms-doadores:8081
+    description: MS-Doadores (rede interna startech-net-api)
+  - url: http://ms-agendamentos:8082
+    description: MS-Agendamentos (rede interna startech-net-api)
+  - url: http://ms-orquestrador:8003
+    description: MS-Orquestrador (rede interna startech-net-api)
+  - url: http://ms-comunicacao:8004
+    description: MS-Comunicação (rede interna startech-net-api)
+  - url: http://ms-rag:8005
+    description: MS-RAG (rede interna startech-net-api)
+
+tags:
+  - name: Autenticação (Keycloak)
+    description: Emissão de Thin Tokens JWT RS256 (OIDC + Authorization Code PKCE S256).
+  - name: BFF Mobile (Gateway /api/mobile)
+    description: Rotas públicas do aplicativo do doador (exige JWT com role `doador` e `aud=bff-mobile`).
+  - name: BFF Web (Gateway /api/web)
+    description: Rotas públicas do painel administrativo dos hemocentros (exige JWT com role `operador` e `aud=bff-web`).
+  - name: MS-Hemocentros (CQRS)
+    description: Escrita transacional no PostgreSQL + Outbox e leitura rápida no MongoDB (`hemocentros/api/campanhas.py`).
+  - name: MS-Doadores (Elegibilidade RN01)
+    description: Perfil do doador e trava de elegibilidade biológica 60/90 dias (`DoadorController` e `ElegibilidadeController`).
+  - name: MS-Agendamentos (Slots & HATEOAS)
+    description: Grade de slots, passos 1 e 4 da SAGA, compensação e recurso Agendamento com HATEOAS (`ReservaController` e `AgendamentoController`).
+  - name: MS-Orquestrador (SAGA)
+    description: Máquina de estados da SAGA de agendamento com Transactional Outbox (`orquestrador/api/sagas.py`).
+  - name: MS-Comunicação (Histórico)
+    description: Histórico auditável de notificações e lembretes enviados ao doador (`comunicacao/api/historico.py`).
+  - name: MS-RAG (Assistente IA)
+    description: Pipeline RAG com LangChain LCEL, Tool de campanhas vigentes e fallback resiliente (`rag/api/rotas.py`).
+  - name: Saúde & Observabilidade (Probes)
+    description: Endpoints padronizados `/health` (liveness) e `/ready` (readiness) em todos os serviços.
+
+paths:
+  # ===========================================================================
+  # 1. AUTENTICAÇÃO (KEYCLOAK VIA GATEWAY)
+  # ===========================================================================
+  /realms/startech/protocol/openid-connect/token:
+    post:
+      tags: [Autenticação (Keycloak)]
+      summary: Emite Thin Token JWT RS256 (PKCE ou Password Grant de teste)
+      description: |
+        Proxy reverso do API Gateway para o Keycloak (`keycloak:8080`).
+        Em produção/clientes reais (`startech-web` e `startech-mobile`), utiliza `grant_type=authorization_code` com `code_verifier` (PKCE S256).
+        Para scripts automatizados e testes de desenvolvimento, também aceita `grant_type=password`.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [client_id, grant_type]
+              properties:
+                client_id:
+                  type: string
+                  enum: [startech-mobile, startech-web, mobile, web]
+                  example: startech-mobile
+                grant_type:
+                  type: string
+                  enum: [authorization_code, password, refresh_token]
+                  example: password
+                username:
+                  type: string
+                  example: doador1
+                password:
+                  type: string
+                  format: password
+                  example: doador123
+                code:
+                  type: string
+                  description: Authorization Code recebido no callback PKCE.
+                code_verifier:
+                  type: string
+                  description: Verificador PKCE (S256).
+                redirect_uri:
+                  type: string
+                  example: http://localhost:5173/callback
+      responses:
+        "200":
+          description: Token JWT emitido com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  expires_in: { type: integer, example: 900 }
+                  refresh_token: { type: string }
+                  token_type: { type: string, example: Bearer }
+                  scope: { type: string, example: "startech-roles-thin startech:mobile" }
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+
+  # ===========================================================================
+  # 2. BFF MOBILE (BORDA PÚBLICA VIA GATEWAY: /api/mobile/**)
+  # ===========================================================================
+  /api/mobile/home:
+    get:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Home agregada do doador (perfil + campanhas compatíveis)
+      description: |
+        Controlador `bff_mobile/api/home.py`. Agrega em paralelo o perfil do doador (`ms-doadores`) e as campanhas ativas (`ms-hemocentros`).
+        **Degradação Graciosa:** se o `ms-doadores` falhar ou estourar timeout (`0,8 s`), retorna `200 OK` com `status: "degradado"`, `servicosIndisponiveis: ["ms-doadores"]` e campanhas gerais ativas.
+      security:
+        - BearerMobile: []
+      responses:
+        "200":
+          description: Resposta agregada (normal ou degradada).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeMobileResponse"
+              examples:
+                saudavel:
+                  summary: Fluxo normal com personalização por tipo sanguíneo
+                  value:
+                    status: ok
+                    servicosIndisponiveis: []
+                    doador:
+                      id: 11111111-1111-1111-1111-111111111111
+                      tipoSanguineo: O-
+                    tipoSanguineoCampanhas: O-
+                    campanhasPersonalizadas: true
+                    campanhas:
+                      - id: 6e99149c-d03e-450a-a222-f335164a6d28
+                        titulo: Alerta O- - Lavras
+                        hemocentro: Hemocentro de Lavras
+                        tipo_sanguineo: O-
+                        urgencia: CRITICO
+                        status: ATIVA
+                        data_inicio: "2026-11-14"
+                        data_fim: "2026-11-30"
+                degradado:
+                  summary: Degradação graciosa com ms-doadores indisponível
+                  value:
+                    status: degradado
+                    servicosIndisponiveis: [ms-doadores]
+                    doador:
+                      id: 11111111-1111-1111-1111-111111111111
+                      statusDegradado: true
+                    tipoSanguineoCampanhas: null
+                    campanhasPersonalizadas: false
+                    campanhas: []
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "429":
+          $ref: "#/components/responses/TooManyRequests429"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/slots:
+    get:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Lista horários futuros disponíveis com link HATEOAS `agendar`
+      description: |
+        Controlador `bff_mobile/api/agendamentos.py`. Repassa consulta ao `ms-agendamentos` e reescreve `_links.agendar` para `POST /api/mobile/agendamentos`.
+      security:
+        - BearerMobile: []
+      parameters:
+        - name: postoId
+          in: query
+          schema: { type: string }
+          example: posto-central-lavras
+        - name: de
+          in: query
+          schema: { type: string, format: date-time }
+        - name: ate
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Lista de slots com vagas disponíveis.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GradeHorariosResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/agendamentos:
+    get:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Lista os agendamentos do doador autenticado (com HATEOAS público)
+      description: Controlador `bff_mobile/api/agendamentos.py`. Usa o `X-User-Id` injetado pelo Gateway e reescreve `_links` para `/api/mobile/...`.
+      security:
+        - BearerMobile: []
+      responses:
+        "200":
+          description: Lista de agendamentos do doador.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgendamentoRepresentacao"
+                  _links:
+                    type: object
+                    additionalProperties:
+                      $ref: "#/components/schemas/HateoasLink"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+    post:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Solicita novo agendamento iniciando a SAGA Orquestrada
+      description: |
+        Controlador `bff_mobile/api/agendamentos.py`. Extrai `doadorId` do `X-User-Id` (JWT) e inicia a SAGA no `ms-orquestrador`.
+        Retorna `202 Accepted` com cabeçalho `Location` e `_links.acompanhar`.
+      security:
+        - BearerMobile: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 128 }
+          example: app-req-99812
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SolicitacaoAgendamentoMobile"
+      responses:
+        "202":
+          description: Solicitação aceita; SAGA em andamento.
+          headers:
+            Location:
+              description: URI pública para acompanhamento da SAGA.
+              schema: { type: string, example: /api/mobile/sagas/a3d7b3a1-9b82-4e54-83e1-1b2c3d4e5f60 }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SagaIniciadaMobile"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity422"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/sagas/{sagaId}:
+    get:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Acompanha o estado da SAGA de agendamento
+      description: |
+        Controlador `bff_mobile/api/agendamentos.py`. Valida que a SAGA pertence ao doador autenticado (caso contrário retorna `404` sem vazar existência).
+        Quando confirmada (`CONFIRMADO`), inclui `_links.agendamento` apontando para `/api/mobile/agendamentos/{agendamentoId}`.
+      security:
+        - BearerMobile: []
+      parameters:
+        - name: sagaId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Visão compacta do andamento da SAGA para o app.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SagaAcompanhamentoMobile"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/agendamentos/{id}:
+    get:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Consulta um agendamento específico com links HATEOAS públicos
+      description: Controlador `bff_mobile/api/agendamentos.py`. Só retorna agendamentos do próprio doador (`404` para terceiros).
+      security:
+        - BearerMobile: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: appt-88412
+      responses:
+        "200":
+          description: Representação HATEOAS do agendamento.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgendamentoRepresentacao"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/agendamentos/{id}/cancelamento:
+    post:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Cancela um agendamento confirmado do doador (até 2 h antes)
+      description: Controlador `bff_mobile/api/agendamentos.py`. Libera a vaga no slot e devolve o recurso com `_links` atualizados (`self` e `novo-agendamento`).
+      security:
+        - BearerMobile: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: appt-88412
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelamentoRequest"
+      responses:
+        "200":
+          description: Agendamento cancelado com sucesso e novos links HATEOAS.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgendamentoRepresentacao"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/mobile/assistente:
+    post:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Pergunta ao Assistente de IA (RAG Portaria MS nº 5/2017 + Campanhas)
+      description: |
+        Controlador `bff_mobile/api/assistente.py`. Busca o tipo sanguíneo do doador e consulta `ms-rag`.
+        Nunca devolve 5xx por queda do LLM: se `ms-rag` ou Ollama falharem, retorna `200 OK` com `modo: "FALLBACK"` e `degradado: true`.
+      security:
+        - BearerMobile: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerguntaAssistenteMobile"
+      responses:
+        "200":
+          description: Resposta do assistente (RAG, Ferramenta, Fora do Escopo ou Fallback).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespostaAssistenteMobile"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+
+  # ===========================================================================
+  # 3. BFF WEB (BORDA PÚBLICA VIA GATEWAY: /api/web/**)
+  # ===========================================================================
+  /api/web/campanhas:
+    get:
+      tags: [BFF Web (Gateway /api/web)]
+      summary: Lista campanhas paginadas para o painel administrativo do hemocentro
+      description: Controlador `bff_web/api/campanhas.py`. Consulta a view de leitura CQRS (MongoDB) no `ms-hemocentros` e retorna o total no cabeçalho `X-Total-Count`.
+      security:
+        - BearerWeb: []
+      parameters:
+        - name: tipo_sanguineo
+          in: query
+          schema: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-] }
+        - name: status
+          in: query
+          schema: { type: string, example: ATIVA }
+        - name: vigentes
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Lista de campanhas.
+          headers:
+            X-Total-Count:
+              description: Total de campanhas correspondentes ao filtro (para paginação).
+              schema: { type: integer, example: 12 }
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campanha"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "502":
+          $ref: "#/components/responses/ServiceUnavailable503"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+    post:
+      tags: [BFF Web (Gateway /api/web)]
+      summary: Cria uma nova campanha de doação (Command CQRS + Outbox)
+      description: Controlador `bff_web/api/campanhas.py`. Repassa o comando ao `ms-hemocentros`, que persiste atomicamente no PostgreSQL + tabela `outbox_events` e retorna a campanha criada (RYOW).
+      security:
+        - BearerWeb: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampanhaCriar"
+      responses:
+        "201":
+          description: Campanha criada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campanha"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "429":
+          $ref: "#/components/responses/TooManyRequests429"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  # ===========================================================================
+  # 4. MS-HEMOCENTROS (INTERNO: /api/v1/campanhas)
+  # ===========================================================================
+  /api/v1/campanhas:
+    get:
+      tags: [MS-Hemocentros (CQRS)]
+      summary: Consulta campanhas na projeção de leitura CQRS (MongoDB)
+      description: Controlador `hemocentros/api/campanhas.py`. Leitura direta sem bloqueio no MongoDB (`campanhas_view`).
+      parameters:
+        - name: tipo_sanguineo
+          in: query
+          schema: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-] }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: vigentes
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Campanhas encontradas na projeção MongoDB.
+          headers:
+            X-Total-Count:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campanha"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+    post:
+      tags: [MS-Hemocentros (CQRS)]
+      summary: Persiste nova campanha + evento Outbox no PostgreSQL (Command)
+      description: Controlador `hemocentros/api/campanhas.py`. Grava na mesma transação ACID o registro em `campanhas` e o evento `hemocentros.campanha.criada` em `outbox_events`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampanhaCriar"
+      responses:
+        "201":
+          description: Campanha gravada no Command Store.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campanha"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  # ===========================================================================
+  # 5. MS-DOADORES (INTERNO: /api/v1/doadores/**)
+  # ===========================================================================
+  /api/v1/doadores/{id}:
+    get:
+      tags: [MS-Doadores (Elegibilidade RN01)]
+      summary: Consulta perfil público do doador (id e tipo sanguíneo)
+      description: Controlador `DoadorController.java`. Não expõe CPF ou dados clínicos sensíveis (LGPD).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 11111111-1111-1111-1111-111111111111
+      responses:
+        "200":
+          description: Perfil encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoadorPerfilResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/v1/doadores/{id}/reservas-elegibilidade:
+    post:
+      tags: [MS-Doadores (Elegibilidade RN01)]
+      summary: Passo 2 da SAGA — valida RN01 (60/90 dias) e aplica trava temporal
+      description: |
+        Controlador `ElegibilidadeController.java`. Valida o intervalo mínimo da Portaria MS nº 5/2017 (60 dias para homens, 90 dias para mulheres) e grava trava vinculada ao `agendamentoId`.
+        Idempotente pelo `agendamentoId`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string }
+          example: saga-a3d7b3a1-step2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservaElegibilidadeRequest"
+      responses:
+        "200":
+          description: Doador elegível e trava temporal aplicada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservaElegibilidadeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity422"
+
+  /api/v1/doadores/{id}/reservas-elegibilidade/{agendamentoId}:
+    delete:
+      tags: [MS-Doadores (Elegibilidade RN01)]
+      summary: Compensação do Passo 2 — remove trava temporal de elegibilidade
+      description: Controlador `ElegibilidadeController.java`. Operação idempotente; retorna `204 No Content` mesmo se a trava já tiver sido removida.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: agendamentoId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Trava removida com sucesso.
+
+  # ===========================================================================
+  # 6. MS-AGENDAMENTOS (INTERNO: /api/v1/slots/** e /api/v1/agendamentos/**)
+  # ===========================================================================
+  /api/v1/slots:
+    get:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Grade de horários futuros com vagas disponíveis
+      description: Controlador `ReservaController.java`. Retorna apenas slots futuros com `vagasDisponiveis > 0`, ordenados cronologicamente, com link `agendar`.
+      parameters:
+        - name: postoId
+          in: query
+          schema: { type: string }
+        - name: de
+          in: query
+          schema: { type: string, format: date-time }
+        - name: ate
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Grade de slots disponíveis.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GradeHorariosResponse"
+
+  /api/v1/slots/{slotId}/reservas:
+    post:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Passo 1 da SAGA — reserva vaga provisória no slot
+      description: |
+        Controlador `ReservaController.java`. Serializa disputa na última vaga (`SELECT ... FOR UPDATE`), cria o agendamento em `CRIADO_PROVISORIO` e aplica RN09 (índice único parcial de agendamento ativo por doador).
+      parameters:
+        - name: slotId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string }
+          example: saga-a3d7b3a1-step1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservaSlotRequest"
+      responses:
+        "201":
+          description: Vaga provisória reservada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservaSlotResponse"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+
+  /api/v1/slots/{slotId}/reservas/{agendamentoId}:
+    delete:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Compensação do Passo 1 — libera vaga e marca CANCELADO_COMPENSACAO_SAGA
+      description: Controlador `ReservaController.java`. Operação idempotente acionada pelo `ms-orquestrador` em caso de falha nos passos 2 ou 3.
+      parameters:
+        - name: slotId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: agendamentoId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Vaga liberada e agendamento compensado.
+
+  /api/v1/agendamentos/{id}/confirmacao:
+    post:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Passo 4 (final) da SAGA — confirma o agendamento
+      description: Controlador `ReservaController.java`. Transiciona `CRIADO_PROVISORIO` → `CONFIRMADO` de forma idempotente e retorna a representação HATEOAS.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Agendamento confirmado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgendamentoRepresentacao"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+
+  /api/v1/agendamentos:
+    get:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Lista agendamentos de um doador com HATEOAS
+      description: Controlador `AgendamentoController.java`. Requer o parâmetro `doadorId`.
+      parameters:
+        - name: doadorId
+          in: query
+          required: true
+          schema: { type: string }
+          example: 11111111-1111-1111-1111-111111111111
+      responses:
+        "200":
+          description: Lista de agendamentos do doador.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AgendamentoRepresentacao"
+                  _links:
+                    type: object
+                    additionalProperties:
+                      $ref: "#/components/schemas/HateoasLink"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+
+  /api/v1/agendamentos/{id}:
+    get:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Consulta um agendamento com links HATEOAS dinâmicos por estado
+      description: |
+        Controlador `AgendamentoController.java`.
+        - `CRIADO_PROVISORIO`: apenas `self`.
+        - `CONFIRMADO` (até 2 h antes): `self` e `cancelar`.
+        - `CANCELADO_DOADOR` / `CANCELADO_COMPENSACAO_SAGA`: `self` e `novo-agendamento`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: appt-88412
+      responses:
+        "200":
+          description: Recurso Agendamento (Richardson Nível 3).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgendamentoRepresentacao"
+              examples:
+                confirmado:
+                  summary: Agendamento CONFIRMADO (com link cancelar)
+                  value:
+                    id: appt-88412
+                    status: CONFIRMADO
+                    concluido: false
+                    doadorId: 11111111-1111-1111-1111-111111111111
+                    slot:
+                      slotId: slot-20261125-1400
+                      postoId: posto-central-lavras
+                      dataHoraInicio: "2026-11-25T14:00:00Z"
+                      dataHoraFim: "2026-11-25T14:20:00Z"
+                    disclaimerLegal: A confirmação deste agendamento organiza o fluxo no posto e não garante a doação. A aptidão final depende da triagem clínica presencial.
+                    _links:
+                      self:
+                        href: /api/v1/agendamentos/appt-88412
+                        method: GET
+                        title: Consultar dados do agendamento
+                      cancelar:
+                        href: /api/v1/agendamentos/appt-88412/cancelamento
+                        method: POST
+                        title: Efetuar cancelamento e liberar vaga para outros doadores
+                        conditions: Permitido até 2 horas antes do horário agendado
+                cancelado:
+                  summary: Agendamento CANCELADO_DOADOR (com link novo-agendamento)
+                  value:
+                    id: appt-88412
+                    status: CANCELADO_DOADOR
+                    concluido: false
+                    doadorId: 11111111-1111-1111-1111-111111111111
+                    slot:
+                      slotId: slot-20261125-1400
+                      postoId: posto-central-lavras
+                      dataHoraInicio: "2026-11-25T14:00:00Z"
+                      dataHoraFim: "2026-11-25T14:20:00Z"
+                    dataCancelamento: "2026-11-24T10:15:00Z"
+                    motivo: Imprevisto pessoal
+                    slotLiberado: slot-20261125-1400
+                    _links:
+                      self:
+                        href: /api/v1/agendamentos/appt-88412
+                        method: GET
+                        title: Consultar dados do agendamento
+                      novo-agendamento:
+                        href: /api/v1/sagas/agendamento
+                        method: POST
+                        title: Solicitar um novo agendamento
+        "404":
+          $ref: "#/components/responses/NotFound404"
+
+  /api/v1/agendamentos/{id}/cancelamento:
+    post:
+      tags: [MS-Agendamentos (Slots & HATEOAS)]
+      summary: Cancela agendamento confirmado e libera a vaga do slot
+      description: Controlador `AgendamentoController.java`. Retorna `409 Conflict` se já estiver cancelado, provisório ou a menos de 2 h do início.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelamentoRequest"
+      responses:
+        "200":
+          description: Agendamento cancelado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgendamentoRepresentacao"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+
+  # ===========================================================================
+  # 7. MS-ORQUESTRADOR (INTERNO: /api/v1/sagas/**)
+  # ===========================================================================
+  /api/v1/sagas/agendamento:
+    post:
+      tags: [MS-Orquestrador (SAGA)]
+      summary: Inicia a SAGA Orquestrada de agendamento
+      description: Controlador `orquestrador/api/sagas.py`. Persiste o estado inicial no PostgreSQL, gera `sagaId`/`agendamentoId` e dispara os passos 1 → 2 → 3 → 4 (com compensação automática em caso de falha).
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SagaAgendamentoCriar"
+      responses:
+        "202":
+          description: SAGA iniciada com sucesso.
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/sagas/a3d7b3a1-9b82-4e54-83e1-1b2c3d4e5f60 }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SagaCriada"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "409":
+          $ref: "#/components/responses/Conflict409"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity422"
+
+  /api/v1/sagas/{sagaId}:
+    get:
+      tags: [MS-Orquestrador (SAGA)]
+      summary: Consulta estado completo e histórico de passos/compensações da SAGA
+      description: Controlador `orquestrador/api/sagas.py`. Exibe cada passo executado (`AVANCO` ou `COMPENSACAO`) e eventual `problem+json` de recusa.
+      parameters:
+        - name: sagaId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalhes completos da execução da SAGA.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SagaDetalhe"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+
+  # ===========================================================================
+  # 8. MS-COMUNICAÇÃO (INTERNO: /api/v1/comunicacao/historico/{doadorId})
+  # ===========================================================================
+  /api/v1/comunicacao/historico/{doadorId}:
+    get:
+      tags: [MS-Comunicação (Histórico)]
+      summary: Histórico auditável de notificações e lembretes do doador
+      description: Controlador `comunicacao/api/historico.py`. Paginado da notificação mais recente para a mais antiga.
+      parameters:
+        - name: doadorId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pagina
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: tamanho
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Histórico paginado de notificações.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoricoComunicacao"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  # ===========================================================================
+  # 9. MS-RAG (INTERNO: /api/v1/rag/perguntas)
+  # ===========================================================================
+  /api/v1/rag/perguntas:
+    post:
+      tags: [MS-RAG (Assistente IA)]
+      summary: Consulta RAG sobre a Portaria MS nº 5/2017 ou Tool de campanhas
+      description: |
+        Controlador `rag/api/rotas.py`.
+        - `RAG`: busca vetorial (`nomic-embed-text`) + chain LCEL (`PROMPT_RAG | ChatOllama`).
+        - `FERRAMENTA`: invoca a Tool `campanhas_vigentes` no `ms-hemocentros` ("Onde posso doar hoje?").
+        - `FORA_DO_ESCOPO`: guardrail antes do LLM.
+        - `FALLBACK`: ativado em timeout (`4 s`), erro ou circuit breaker aberto (nunca retorna 5xx pelo LLM).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerguntaRagRequest"
+      responses:
+        "200":
+          description: Resposta gerada com metadados de modo, fontes, latência e uso de tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespostaRagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+
+  # ===========================================================================
+  # 10. PROBES DE SAÚDE (PADRONIZADAS EM TODOS OS SERVIÇOS)
+  # ===========================================================================
+  /health:
+    get:
+      tags: [Saúde & Observabilidade (Probes)]
+      summary: Liveness probe (processo ativo)
+      description: Retorna `200 OK` enquanto o processo da aplicação estiver vivo, independentemente de oscilações externas de banco.
+      responses:
+        "200":
+          description: Serviço ativo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /ready:
+    get:
+      tags: [Saúde & Observabilidade (Probes)]
+      summary: Readiness probe (dependências saudáveis)
+      description: Verifica conexões obrigatórias (PostgreSQL / MongoDB). Retorna `503 Service Unavailable` (`application/problem+json`) se alguma dependência crítica estiver fora.
+      responses:
+        "200":
+          description: Serviço pronto para receber tráfego.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+# =============================================================================
+# COMPONENTS: SEGURANÇA, SCHEMAS (DTOS) E RESPOSTAS PADRÃO RFC 7807
+# =============================================================================
+components:
+  securitySchemes:
+    BearerMobile:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Thin Token JWT RS256 emitido pelo Keycloak (`client_id=startech-mobile`, `aud=bff-mobile`, role `doador`).
+    BearerWeb:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Thin Token JWT RS256 emitido pelo Keycloak (`client_id=startech-web`, `aud=bff-web`, role `operador`).
+
+  responses:
+    BadRequest400:
+      description: Payload ou parâmetro inválido (RFC 7807).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:payload-invalido
+            title: Payload inválido
+            status: 400
+            detail: A requisição contém campos ausentes ou inválidos.
+            instance: /api/web/campanhas
+            invalidParams:
+              - name: tipo_sanguineo
+                reason: Valor permitido deve ser um de A+, A-, B+, B-, AB+, AB-, O+, O-.
+    Unauthorized401:
+      description: Token JWT ausente, expirado ou assinatura inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:nao-autenticado
+            title: Autenticação Obrigatória
+            status: 401
+            detail: Token JWT ausente, expirado ou com assinatura inválida.
+            instance: /api/mobile/home
+    Forbidden403:
+      description: Papel ou audience insuficiente para a rota.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:acesso-negado
+            title: Acesso Negado na Borda
+            status: 403
+            detail: O token apresentado não possui o papel ou audience exigido para acessar esta rota.
+            instance: /api/web/campanhas
+    NotFound404:
+      description: Recurso não encontrado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:doador-nao-encontrado
+            title: Doador não encontrado
+            status: 404
+            detail: Não existe doador cadastrado com o identificador informado.
+            instance: /api/v1/doadores/99999999-9999-9999-9999-999999999999
+    Conflict409:
+      description: Conflito de estado ou regra de unicidade (ex. RN09, slot esgotado, já cancelado).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:agendamento-ja-cancelado
+            title: Agendamento já cancelado
+            status: 409
+            detail: O agendamento appt-88412 já está CANCELADO_DOADOR.
+            instance: /api/v1/agendamentos/appt-88412/cancelamento
+    UnprocessableEntity422:
+      description: Violação de regra de negócio (ex. intervalo biológico 60/90 dias da Portaria MS nº 5/2017).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:intervalo-minimo-nao-cumprido
+            title: Violação de Intervalo Biológico Regulamentar
+            status: 422
+            detail: O doador realizou doação recente e ainda não cumpriu o intervalo mínimo regulamentar (60 dias homens / 90 dias mulheres).
+            instance: /api/v1/doadores/11111111-1111-1111-1111-111111111111/reservas-elegibilidade
+            invalidParams:
+              - name: dataSlot
+                reason: Data pretendida anterior à data mínima de liberação.
+    TooManyRequests429:
+      description: Limite de taxa excedido no API Gateway (Token Bucket).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:limite-requisicoes-excedido
+            title: Limite de Requisições Excedido
+            status: 429
+            detail: Muitas requisições em curto intervalo. Aguarde alguns instantes e tente novamente.
+            instance: /api/mobile/home
+    ServiceUnavailable503:
+      description: Dependência interna ou banco temporariamente indisponível.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:servico-indisponivel
+            title: Serviço temporariamente indisponível
+            status: 503
+            detail: Não foi possível comunicar com o serviço interno no momento.
+            instance: /api/mobile/slots
+    InternalServerError500:
+      description: Erro interno inesperado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: urn:startech:error:erro-interno
+            title: Erro interno do servidor
+            status: 500
+            detail: Ocorreu uma falha inesperada ao processar a requisição.
+            instance: /api/web/campanhas
+
+  schemas:
+    InvalidParam:
+      type: object
+      required: [name, reason]
+      properties:
+        name: { type: string, example: dataSlot }
+        reason: { type: string, example: Data anterior ao intervalo mínimo permitido. }
+
+    ProblemDetail:
+      type: object
+      description: Estrutura padrão de erros RFC 7807 (`application/problem+json`).
+      required: [type, title, status, detail]
+      properties:
+        type: { type: string, format: uri, example: urn:startech:error:payload-invalido }
+        title: { type: string, example: Payload inválido }
+        status: { type: integer, example: 400 }
+        detail: { type: string, example: A requisição contém campos ausentes ou inválidos. }
+        instance: { type: string, example: /api/web/campanhas }
+        invalidParams:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvalidParam"
+
+    HateoasLink:
+      type: object
+      required: [href, method]
+      properties:
+        href: { type: string, example: /api/mobile/agendamentos/appt-88412/cancelamento }
+        method: { type: string, enum: [GET, POST, PUT, PATCH, DELETE], example: POST }
+        title: { type: string, example: Efetuar cancelamento e liberar vaga }
+        conditions: { type: string, example: Permitido até 2 horas antes do horário agendado }
+
+    CampanhaCriar:
+      type: object
+      required: [titulo, hemocentro, tipo_sanguineo, data_inicio, data_fim]
+      properties:
+        titulo: { type: string, minLength: 3, maxLength: 200, example: Alerta O- - Lavras }
+        hemocentro: { type: string, minLength: 2, maxLength: 200, example: Hemocentro de Lavras }
+        tipo_sanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
+        urgencia: { type: string, enum: [NORMAL, CRITICO], default: NORMAL, example: CRITICO }
+        data_inicio: { type: string, format: date, example: "2026-11-14" }
+        data_fim: { type: string, format: date, example: "2026-11-30" }
+
+    Campanha:
+      allOf:
+        - $ref: "#/components/schemas/CampanhaCriar"
+        - type: object
+          required: [id, status]
+          properties:
+            id: { type: string, format: uuid, example: 6e99149c-d03e-450a-a222-f335164a6d28 }
+            status: { type: string, example: ATIVA }
+
+    DoadorPerfilResponse:
+      type: object
+      required: [id, tipoSanguineo]
+      properties:
+        id: { type: string, format: uuid, example: 11111111-1111-1111-1111-111111111111 }
+        tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
+
+    HomeMobileResponse:
+      type: object
+      required: [status, servicosIndisponiveis, doador, campanhasPersonalizadas, campanhas]
+      properties:
+        status: { type: string, enum: [ok, degradado] }
+        servicosIndisponiveis:
+          type: array
+          items: { type: string }
+        doador:
+          type: object
+          properties:
+            id: { type: string }
+            tipoSanguineo: { type: string }
+            statusDegradado: { type: boolean }
+        tipoSanguineoCampanhas: { type: string, nullable: true, example: O- }
+        campanhasPersonalizadas: { type: boolean }
+        campanhas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campanha"
+
+    ReservaElegibilidadeRequest:
+      type: object
+      required: [agendamentoId, dataSlot]
+      properties:
+        agendamentoId: { type: string, maxLength: 64, example: appt-88412 }
+        dataSlot: { type: string, format: date-time, example: "2026-11-25T14:00:00Z" }
+
+    ReservaElegibilidadeResponse:
+      type: object
+      required: [doadorId, agendamentoId, dataSlot, travado]
+      properties:
+        doadorId: { type: string, format: uuid }
+        agendamentoId: { type: string }
+        dataSlot: { type: string, format: date-time }
+        travado: { type: boolean, example: true }
+
+    SlotDisponivel:
+      type: object
+      required: [slotId, postoId, dataHoraInicio, dataHoraFim, vagasDisponiveis, _links]
+      properties:
+        slotId: { type: string, example: slot-20261125-1400 }
+        postoId: { type: string, example: posto-central-lavras }
+        dataHoraInicio: { type: string, format: date-time }
+        dataHoraFim: { type: string, format: date-time }
+        vagasDisponiveis: { type: integer, example: 3 }
+        _links:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/HateoasLink"
+
+    GradeHorariosResponse:
+      type: object
+      required: [itens]
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotDisponivel"
+
+    ReservaSlotRequest:
+      type: object
+      required: [agendamentoId, doadorId]
+      properties:
+        agendamentoId: { type: string, example: appt-88412 }
+        doadorId: { type: string, example: 11111111-1111-1111-1111-111111111111 }
+
+    ReservaSlotResponse:
+      type: object
+      required: [agendamentoId, slotId, dataHoraInicio, dataHoraFim, status]
+      properties:
+        agendamentoId: { type: string }
+        slotId: { type: string }
+        dataHoraInicio: { type: string, format: date-time }
+        dataHoraFim: { type: string, format: date-time }
+        status: { type: string, enum: [CRIADO_PROVISORIO, CONFIRMADO, CANCELADO_DOADOR, CANCELADO_COMPENSACAO_SAGA] }
+
+    AgendamentoRepresentacao:
+      type: object
+      required: [id, status, concluido, doadorId, slot, _links]
+      properties:
+        id: { type: string, example: appt-88412 }
+        status:
+          type: string
+          enum: [CRIADO_PROVISORIO, CONFIRMADO, CANCELADO_DOADOR, CANCELADO_COMPENSACAO_SAGA]
+        concluido: { type: boolean }
+        doadorId: { type: string }
+        slot:
+          type: object
+          properties:
+            slotId: { type: string }
+            postoId: { type: string }
+            dataHoraInicio: { type: string, format: date-time }
+            dataHoraFim: { type: string, format: date-time }
+        disclaimerLegal: { type: string, nullable: true }
+        dataCancelamento: { type: string, format: date-time, nullable: true }
+        motivo: { type: string, nullable: true }
+        slotLiberado: { type: string, nullable: true }
+        _links:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/HateoasLink"
+
+    CancelamentoRequest:
+      type: object
+      properties:
+        motivo: { type: string, maxLength: 255, example: Imprevisto pessoal }
+
+    SolicitacaoAgendamentoMobile:
+      type: object
+      required: [slotId]
+      properties:
+        slotId: { type: string, maxLength: 64, example: slot-20261125-1400 }
+
+    SagaIniciadaMobile:
+      type: object
+      required: [sagaId, agendamentoId, situacao, _links]
+      properties:
+        sagaId: { type: string, format: uuid }
+        agendamentoId: { type: string }
+        situacao: { type: string, example: EM_ANDAMENTO }
+        _links:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/HateoasLink"
+
+    SagaAcompanhamentoMobile:
+      type: object
+      required: [sagaId, agendamentoId, situacao, finalizada, _links]
+      properties:
+        sagaId: { type: string, format: uuid }
+        agendamentoId: { type: string }
+        situacao: { type: string, enum: [EM_ANDAMENTO, CONFIRMADO, RECUSADO, CANCELADO, ERRO] }
+        finalizada: { type: boolean }
+        motivo: { type: string, nullable: true }
+        _links:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/HateoasLink"
+
+    SagaAgendamentoCriar:
+      type: object
+      required: [doadorId, slotId]
+      properties:
+        doadorId: { type: string, example: 11111111-1111-1111-1111-111111111111 }
+        slotId: { type: string, example: slot-20261125-1400 }
+
+    SagaCriada:
+      type: object
+      required: [sagaId, agendamentoId, status, _links]
+      properties:
+        sagaId: { type: string, format: uuid }
+        agendamentoId: { type: string }
+        status: { type: string, example: STARTED }
+        _links:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/HateoasLink"
+
+    PassoExecutado:
+      type: object
+      properties:
+        passo: { type: string }
+        direcao: { type: string, enum: [AVANCO, COMPENSACAO] }
+        resultado: { type: string }
+        detalhe: { type: object, nullable: true }
+        em: { type: string, format: date-time }
+
+    SagaDetalhe:
+      type: object
+      properties:
+        sagaId: { type: string, format: uuid }
+        agendamentoId: { type: string }
+        doadorId: { type: string }
+        slotId: { type: string }
+        status: { type: string, example: CONFIRMED }
+        finalizada: { type: boolean }
+        passoAtual: { type: string }
+        tentativas: { type: integer }
+        dataHoraInicio: { type: string, nullable: true }
+        recusa:
+          $ref: "#/components/schemas/ProblemDetail"
+        erro: { type: string, nullable: true }
+        criadaEm: { type: string, format: date-time }
+        atualizadaEm: { type: string, format: date-time }
+        passos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PassoExecutado"
+
+    PerguntaAssistenteMobile:
+      type: object
+      required: [pergunta]
+      properties:
+        pergunta: { type: string, minLength: 3, maxLength: 500, example: "Fiz uma tatuagem há 3 meses. Posso doar?" }
+
+    FonteRag:
+      type: object
+      required: [secao, fonte, trecho]
+      properties:
+        secao: { type: string, example: Tatuagem }
+        fonte: { type: string, example: Portaria de Consolidação MS nº 5/2017, Anexo IV }
+        trecho: { type: string }
+
+    RespostaAssistenteMobile:
+      type: object
+      required: [resposta, modo, fontes, degradado]
+      properties:
+        resposta: { type: string }
+        modo: { type: string, enum: [RAG, FERRAMENTA, FORA_DO_ESCOPO, FALLBACK] }
+        fontes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FonteRag"
+        degradado: { type: boolean }
+        motivo: { type: string, nullable: true }
+
+    PerguntaRagRequest:
+      type: object
+      required: [pergunta]
+      properties:
+        pergunta: { type: string, minLength: 3, maxLength: 500, example: "Qual o peso mínimo para doar sangue?" }
+        usarRag: { type: boolean, default: true }
+        tipoSanguineo: { type: string, nullable: true, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-] }
+
+    RespostaRagResponse:
+      type: object
+      required: [resposta, modo, fontes, latenciaMs]
+      properties:
+        resposta: { type: string }
+        modo: { type: string, enum: [RAG, SEM_RAG, FERRAMENTA, FORA_DO_ESCOPO, FALLBACK] }
+        fontes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FonteRag"
+        latenciaMs: { type: number, format: float, example: 653.4 }
+        uso:
+          type: object
+          nullable: true
+          properties:
+            tokensEntrada: { type: integer }
+            tokensSaida: { type: integer }
+        motivoFallback: { type: string, nullable: true }
+
+    NotificacaoItem:
+      type: object
+      properties:
+        id: { type: integer }
+        tipo: { type: string, enum: [CONFIRMACAO, LEMBRETE, CANCELAMENTO, DESFECHO] }
+        canal: { type: string, example: PUSH }
+        agendamentoId: { type: string, nullable: true }
+        conteudo: { type: string }
+        criadoEm: { type: string, format: date-time }
+
+    HistoricoComunicacao:
+      type: object
+      properties:
+        doadorId: { type: string }
+        total: { type: integer }
+        pagina: { type: integer }
+        tamanho: { type: integer }
+        itens:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificacaoItem"
+
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        servico: { type: string, example: gateway }
