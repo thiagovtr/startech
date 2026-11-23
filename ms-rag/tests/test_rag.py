@@ -143,6 +143,23 @@ def test_pergunta_fora_do_escopo_recusa_sem_llm(base):
     assert r.modo == "FORA_DO_ESCOPO" and r.resposta.startswith("Não encontrei") and r.uso is None
 
 
+def test_saudacao_e_ajuda_sobre_o_app_respondem_de_forma_amigavel(base):
+    lento = LLMLento(messages=iter([]), atraso=5)
+    assistente = montar_assistente(base, llm=lento, timeout=0.2)
+
+    r_oi = asyncio.run(assistente.responder("Olá, boa noite!"))
+    assert r_oi.modo == "RAG" and "assistente virtual da StarTech" in r_oi.resposta
+
+    r_app = asyncio.run(assistente.responder("Queria ajuda sobre esse app. Do que ele se trata? Tô perdido"))
+    assert r_app.modo == "RAG" and "plataforma de apoio à doação de sangue" in r_app.resposta
+    assert r_app.fontes[0]["secao"] == "Sobre a StarTech"
+
+
+def test_saudacao_com_pergunta_de_dominio_segue_para_rag(base):
+    r = asyncio.run(montar_assistente(base).responder("Olá, boa noite! Qual o peso mínimo para doar?"))
+    assert r.modo == "RAG" and "50 kg" in r.resposta and r.fontes[0]["secao"] == "Peso mínimo"
+
+
 def test_ferramenta_filtra_vigentes_e_passa_os_filtros():
     chamadas: list = []
 

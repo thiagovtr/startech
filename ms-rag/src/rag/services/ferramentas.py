@@ -17,6 +17,14 @@ _INTENCAO = re.compile(
     r"\bonde\b.*\b(doar|doacao|hemocentro|campanha)|\b(campanhas?|hemocentros?)\b.*\b(hoje|perto|ativas?|abertas?|vigentes?)"
 )
 
+_SAUDACAO = re.compile(
+    r"^\s*(oi+|ola+|opa+|e\s+ai|salve|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+bem|como\s+vai|obrigad[oa]|valeu)\b"
+)
+
+_AJUDA_APP = re.compile(
+    r"\b(app|aplicativo|startech|plataforma|sistema)\b|\b(como\s+funciona|do\s+que\s+se\s+trata|o\s+que\s+(voce|vc|ele)\s+faz|preciso\s+de\s+ajuda|queria\s+ajuda|to\s+perdido|estou\s+perdido|me\s+ajuda|como\s+usar|como\s+agendar)\b"
+)
+
 
 # Radicais de termos do domínio (doação de sangue e critérios da Portaria). Pergunta sem nenhum deles está fora
 # do escopo do assistente e é recusada sem chamar o LLM.
@@ -41,6 +49,16 @@ def _normalizar(texto: str) -> str:
 
 def e_pergunta_de_campanhas(pergunta: str) -> bool:
     return bool(_INTENCAO.search(_normalizar(pergunta)))
+
+
+def e_saudacao(pergunta: str) -> bool:
+    """Identifica cumprimentos curtos para responder com boas-vindas sem acionar recusa fria."""
+    return bool(_SAUDACAO.search(_normalizar(pergunta)))
+
+
+def e_pergunta_sobre_app(pergunta: str) -> bool:
+    """Identifica dúvidas sobre o propósito ou uso do aplicativo StarTech."""
+    return bool(_AJUDA_APP.search(_normalizar(pergunta)))
 
 
 async def buscar_campanhas(cliente: httpx.AsyncClient, tipo_sanguineo: str | None, limite: int) -> list[dict[str, Any]]:

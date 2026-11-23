@@ -29,6 +29,15 @@ SEM_RESPOSTA = (
     "Não encontrei essa informação na Portaria de Consolidação MS nº 5/2017. "
     "Procure a equipe de triagem do hemocentro para orientação."
 )
+SAUDACAO = (
+    "Olá! Sou o assistente virtual da StarTech. Posso tirar dúvidas sobre critérios de doação de sangue "
+    "(Portaria MS nº 5/2017) e mostrar campanhas ativas hoje. Como posso ajudar?"
+)
+AJUDA_APP = (
+    "A StarTech é uma plataforma de apoio à doação de sangue. Pelo aplicativo você pode acompanhar campanhas "
+    "compatíveis com seu tipo sanguíneo, agendar horários nos hemocentros, acompanhar ou cancelar seus pedidos "
+    "e tirar dúvidas comigo sobre critérios de doação (ex.: peso mínimo, tatuagem, gripe ou 'Onde posso doar hoje?')."
+)
 AVISO = "Orientação informativa: a decisão final sobre a aptidão é da triagem clínica do hemocentro."
 FALLBACK_LLM = (
     "O assistente está temporariamente indisponível. Para dúvidas sobre quem pode doar, "
@@ -101,11 +110,19 @@ class Assistente:
         inicio = time.perf_counter()
         if usar_rag and ferramentas.e_pergunta_de_campanhas(pergunta):
             r = await self._campanhas(tipo_sanguineo)
-        elif usar_rag and not ferramentas.e_do_dominio(pergunta):
+        elif usar_rag and ferramentas.e_do_dominio(pergunta):
+            r = await self._rag(pergunta)
+        elif usar_rag and ferramentas.e_pergunta_sobre_app(pergunta):
+            r = Resposta(
+                AJUDA_APP,
+                "RAG",
+                fontes=[{"secao": "Sobre a StarTech", "fonte": "Guia do Aplicativo StarTech", "trecho": ""}],
+            )
+        elif usar_rag and ferramentas.e_saudacao(pergunta):
+            r = Resposta(SAUDACAO, "RAG")
+        elif usar_rag:
             # Recusa determinística: um LLM de 1,5B responde perguntas gerais mesmo instruído a não fazê-lo.
             r = Resposta(SEM_RESPOSTA, "FORA_DO_ESCOPO")
-        elif usar_rag:
-            r = await self._rag(pergunta)
         else:
             r = await self._sem_rag(pergunta)
         r.latencia_ms = round((time.perf_counter() - inicio) * 1000, 1)
