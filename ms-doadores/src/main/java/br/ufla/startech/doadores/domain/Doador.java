@@ -18,6 +18,10 @@ public class Doador {
     private UUID id;
 
     @NotBlank
+    @Column(name = "nome", nullable = false, length = 120)
+    private String nome;
+
+    @NotBlank
     @Pattern(regexp = "A[+-]|B[+-]|AB[+-]|O[+-]")
     @Column(name = "tipo_sanguineo", nullable = false, length = 3)
     private String tipoSanguineo;
@@ -39,6 +43,10 @@ public class Doador {
 
     public UUID getId() {
         return id;
+    }
+
+    public String getNome() {
+        return nome;
     }
 
     public String getTipoSanguineo() {
