@@ -162,6 +162,19 @@ export async function consultarAgendamento(
   return resposta.corpo;
 }
 
+export async function cancelarAgendamento(
+  clienteHttp: ClienteHttp,
+  linkCancelar: LinkHateoas,
+): Promise<Agendamento> {
+  const resposta = await clienteHttp.requisitarLink<Agendamento>(linkCancelar);
+
+  if (!resposta.corpo) {
+    throw new Error('A resposta não contém o agendamento cancelado.');
+  }
+
+  return resposta.corpo;
+}
+
 export async function acompanharSaga(
   clienteHttp: ClienteHttp,
   linkAcompanhar: LinkAcompanharAgendamento,

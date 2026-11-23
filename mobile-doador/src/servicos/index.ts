@@ -3,6 +3,7 @@ export { perguntarAssistente } from './assistente';
 export type { FonteAssistente, ModoAssistente, PerguntaAssistente, RespostaAssistente } from './assistente';
 export {
   acompanharSaga,
+  cancelarAgendamento,
   consultarAgendamento,
   listarAgendamentos,
   listarSlotsDisponiveis,
