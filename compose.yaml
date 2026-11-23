@@ -349,6 +349,17 @@ services:
         condition: service_healthy
     networks: [startech-net-api]
 
+  web-hemocentros:
+    build:
+      context: ./web-hemocentros
+      args:
+        VITE_GATEWAY_URL: ${WEB_GATEWAY_URL:-http://localhost:${GATEWAY_HOST_PORT:-8080}}
+        VITE_KEYCLOAK_URL: ${WEB_KEYCLOAK_URL:-http://localhost:${KEYCLOAK_HOST_PORT:-8089}}
+    ports:
+      - "${WEB_HEMOCENTROS_PORT:-8085}:80"
+    depends_on: [gateway]
+    networks: [startech-net-api]
+
 # Redes compartilhadas (nomes definidos no plano: startech-net-db e startech-net-api).
 # [DEV 1] pode ajustar/estender as redes aqui.
 networks:
