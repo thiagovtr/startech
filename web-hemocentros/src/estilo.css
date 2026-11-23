@@ -1,0 +1,76 @@
+:root {
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  color: #1f2937;
+  background: #f6f8fc;
+  font-synthesis: none;
+  --azul: #2563eb;
+  --linha: #dbe2ec;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, select, input { font: inherit; }
+button, select, input:not([type="checkbox"]) { border: 1px solid #b9c5d5; border-radius: 8px; min-height: 42px; }
+button { background: white; color: #334155; cursor: pointer; font-weight: 600; padding: 8px 16px; }
+button:hover:enabled { background: #eff4fc; }
+button:disabled { opacity: .5; cursor: default; }
+button.primario { background: var(--azul); border-color: var(--azul); color: white; }
+button.primario:hover:enabled { background: #1d4ed8; }
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+
+header { background: white; border-bottom: 1px solid var(--linha); }
+.barra, .conteudo { max-width: 1184px; padding-inline: clamp(16px, 4vw, 48px); margin: auto; }
+.barra, .identidade, .conta, .cabecalho, .paginacao, .paginacao nav, .acoes { display: flex; align-items: center; gap: 16px; }
+.barra { min-height: 74px; justify-content: space-between; }
+.marca { color: #1d4ed8; font-size: 1.45rem; font-weight: 750; letter-spacing: -.06em; }
+.identidade > span + span { padding-left: 16px; border-left: 1px solid var(--linha); color: #475569; }
+.conta { font-size: .92rem; overflow-wrap: anywhere; }
+.conteudo { padding-block: clamp(32px, 5vw, 64px); }
+.cabecalho { justify-content: space-between; margin-bottom: 24px; }
+h1 { font-size: clamp(1.85rem, 4vw, 2.65rem); margin: 0; letter-spacing: -.045em; line-height: 1.15; }
+.cartao { background: white; border: 1px solid var(--linha); border-radius: 16px; }
+.filtros { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; padding: 24px; }
+label { display: grid; gap: 7px; font-weight: 600; font-size: .9rem; }
+input:not([type="checkbox"]), select { padding: 9px 12px; color: inherit; background: white; width: 100%; min-width: 0; }
+.filtros select { min-width: 136px; }
+.check { display: flex; align-items: center; min-height: 42px; gap: 8px; }
+.check input { accent-color: var(--azul); width: 18px; height: 18px; }
+.atualizar { margin-left: auto; }
+.rolagem { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .92rem; }
+td, th { border-top: 1px solid var(--linha); padding: 16px; vertical-align: middle; }
+td:first-child, th:first-child { padding-left: 24px; }
+thead th { font-size: .82rem; background: #f7f9fc; color: #475569; white-space: nowrap; }
+tbody th { min-width: 180px; max-width: 340px; overflow-wrap: anywhere; }
+small { display: block; font-size: .84rem; margin-block: 4px; font-weight: 400; }
+tbody small { color: #59677b; }
+.tipo, .ativa, .critica, .neutra { display: inline-block; border-radius: 8px; padding: 4px 9px; font-size: .83rem; font-weight: 650; white-space: nowrap; }
+.tipo { background: #dbeafe; color: #1e40af; }
+.ativa { background: #e1f4e8; color: #19613b; }
+.critica, .erro { background: #fff0ef; color: #982d2a; }
+.neutra { background: #edf1f5; color: #475569; }
+.estado { padding: 32px 24px; margin: 0; border-top: 1px solid var(--linha); }
+.paginacao { border-top: 1px solid var(--linha); padding: 16px 24px; justify-content: space-between; color: #475569; font-size: .9rem; flex-wrap: wrap; }
+.paginacao nav { gap: 10px; }
+.aviso { border-radius: 12px; padding: 16px 20px; margin: 0 0 20px; overflow-wrap: anywhere; }
+.sucesso { background: #e7f5eb; color: #205637; }
+.voltar { background: transparent; border: 0; color: #1d4ed8; padding-inline: 0; margin-bottom: 8px; }
+.formulario { max-width: 740px; margin-top: 24px; padding: clamp(18px, 4vw, 32px); }
+.formulario fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.formulario legend { font-size: 1.12rem; font-weight: 650; padding: 0 0 20px; }
+.formulario label { margin-bottom: 18px; }
+.dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.acoes { justify-content: flex-end; border-top: 1px solid var(--linha); padding-top: 20px; }
+.entrada { max-width: 470px; margin: 12vh auto 0; padding: 32px; }
+.entrada h1 { font-size: 2rem; margin-top: 24px; }
+.entrada p { line-height: 1.6; }
+@media (max-width: 650px) {
+  .barra, .identidade, .conta { gap: 8px; }
+  .identidade > span + span { padding-left: 8px; font-size: .8rem; }
+  .filtros { gap: 12px; padding: 16px; }
+  .filtros > label:not(.check) { flex: 1 1 116px; }
+  .filtros select { min-width: 0; }
+  .paginacao { padding: 16px; }
+  .dupla { grid-template-columns: 1fr; gap: 0; }
+  .entrada { margin-inline: 16px; }
+}
