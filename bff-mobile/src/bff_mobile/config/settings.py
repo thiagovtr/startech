@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     doadores_timeout: float = 0.8  # ms-doadores (valor do ADR; falha rápida para degradar)
     orquestrador_timeout: float = 3.0  # ms-orquestrador (só grava a SAGA e responde 202)
     agendamentos_timeout: float = 3.0  # ms-agendamentos (consulta e cancelamento de agendamento)
-    # ms-rag: busca (1,5 s) + LLM (4 s) no pior caso; abaixo dos 6 s do Gateway. O ms-rag já degrada sozinho.
-    rag_timeout: float = 5.8
+    # ms-rag: busca (3 s) + LLM (10 s) no pior caso; abaixo dos 15 s do Gateway. O ms-rag já degrada sozinho.
+    rag_timeout: float = 14.0
 
     # Prefixo público das rotas do BFF (o Gateway reescreve /api/mobile/** para /bff-mobile/**): usado nos links
     # devolvidos ao app, para que apontem para o Gateway e não para o endereço interno do BFF.

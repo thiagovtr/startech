@@ -75,6 +75,7 @@ services:
       GATEWAY_BFF_WEB_URI: http://bff-web:8002
       GATEWAY_KEYCLOAK_URI: http://keycloak:8080
       GATEWAY_CORS_ALLOWED_ORIGINS: ${GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8085}
+      GATEWAY_RESPONSE_TIMEOUT: ${GATEWAY_RESPONSE_TIMEOUT:-15s}
       GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
       GATEWAY_RATE_LIMIT_CAPACITY: ${GATEWAY_RATE_LIMIT_CAPACITY:-60}
       GATEWAY_RATE_LIMIT_REFILL_PER_SEC: ${GATEWAY_RATE_LIMIT_REFILL_PER_SEC:-30}
@@ -200,7 +201,8 @@ services:
       RAG_MODELO_CHAT: ${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}
       RAG_MODELO_EMBEDDINGS: ${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}
       RAG_HEMOCENTROS_URL: http://ms-hemocentros:8000
-      RAG_TIMEOUT_LLM: ${RAG_TIMEOUT_LLM:-4}
+      RAG_TIMEOUT_LLM: ${RAG_TIMEOUT_LLM:-10}
+      RAG_TIMEOUT_BUSCA: ${RAG_TIMEOUT_BUSCA:-3}
       RAG_NUM_THREAD: ${RAG_NUM_THREAD:-8}  # nº de núcleos de desempenho da CPU (ver ms-rag/README.md)
     depends_on:
       ollama-pull:
@@ -330,6 +332,7 @@ services:
       BFF_MOBILE_DOADORES_URL: http://ms-doadores:8081
       BFF_MOBILE_ORQUESTRADOR_URL: http://ms-orquestrador:8003
       BFF_MOBILE_AGENDAMENTOS_URL: http://ms-agendamentos:8082
+      BFF_MOBILE_RAG_TIMEOUT: ${BFF_MOBILE_RAG_TIMEOUT:-14}
       BFF_MOBILE_EXIGIR_PAPEL: "true"
     depends_on:
       ms-hemocentros:
