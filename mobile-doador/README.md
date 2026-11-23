@@ -91,7 +91,7 @@ Edite o arquivo `.env`:
 ```dotenv
 EXPO_PUBLIC_API_URL=http://IP_DO_COMPUTADOR:8080
 EXPO_PUBLIC_KEYCLOAK_URL=http://IP_DO_COMPUTADOR:8089
-EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=mobile
+EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=startech-mobile
 ```
 
 Substitua `IP_DO_COMPUTADOR` pelo endereço IP do computador que está executando a infraestrutura StarTech.
@@ -101,7 +101,7 @@ Exemplo ilustrativo:
 ```dotenv
 EXPO_PUBLIC_API_URL=http://192.168.1.100:8080
 EXPO_PUBLIC_KEYCLOAK_URL=http://192.168.1.100:8089
-EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=mobile
+EXPO_PUBLIC_KEYCLOAK_CLIENT_ID=startech-mobile
 ```
 
 As portas apresentadas correspondem aos valores padrão definidos no Docker Compose. Caso sejam alteradas, ajuste as URLs.
@@ -195,7 +195,7 @@ Verifique se o login foi realizado corretamente nos dois ambientes.
 
 Essa autenticação é utilizada para acessar o ambiente de desenvolvimento Expo e **não substitui o login do StarTech com Keycloak**.
 
-**Atenção:** o Expo Go não é suficiente para validar o fluxo completo de autenticação OIDC do StarTech com esquema de redirecionamento personalizado. Para isso, utilize um development build.
+No ambiente Azure já testado, o login e o retorno ao aplicativo funcionaram no Expo Go em um iPhone. Ainda assim, a validação do esquema personalizado `startech://` em um development build permanece necessária, pois ela cobre o comportamento nativo da configuração distribuída do aplicativo.
 
 ## 7. Development build e autenticação OIDC
 
@@ -207,7 +207,7 @@ startech://autenticacao
 
 Esse endereço permite que o provedor de autenticação redirecione o usuário de volta ao aplicativo após o login.
 
-Para testar o fluxo completo, é necessário utilizar uma versão de desenvolvimento que suporte o esquema personalizado.
+Para validar especificamente o esquema personalizado em uma instalação nativa, utilize uma versão de desenvolvimento que o suporte.
 
 ### Android
 
@@ -315,15 +315,14 @@ A autenticação utiliza o Keycloak com o realm `startech`.
 
 Configuração atualmente identificada no repositório:
 
-- Client público: `mobile`.
+- Client público principal: `startech-mobile`.
+- Client público `mobile`: alias de compatibilidade para configurações legadas e testes E2E.
 - Fluxo: Authorization Code + PKCE.
 - Papel exigido: `doador`.
 - Audience exigida pelo Gateway: `bff-mobile`.
 - Redirecionamento do aplicativo: `startech://autenticacao`.
 
-**Atenção à issue #21:** a especificação prevê um client chamado `startech-mobile`, mas o arquivo `keycloak/realm-export.json` consultado ainda utiliza `mobile`.
-
-O identificador configurado no aplicativo deve corresponder ao client realmente disponível no ambiente Keycloak. Essa divergência precisa ser alinhada com o responsável pela issue #21.
+Os dois clients estão presentes em `keycloak/realm-export.json`, são públicos, utilizam Authorization Code com PKCE S256 e aceitam os redirecionamentos `exp://*` e `startech://*`. Para novas configurações, utilizar `startech-mobile`; em ambientes já configurados com o alias, utilizar o valor efetivamente disponibilizado pelo Keycloak.
 
 O aplicativo utiliza Expo SecureStore para armazenar os tokens e implementa restauração e renovação de sessão.
 
@@ -349,9 +348,9 @@ Os cabeçalhos internos `X-User-Id` e `X-User-Roles` não são enviados manualme
 - Autenticação OIDC com PKCE.
 - Armazenamento seguro dos tokens.
 - Restauração e renovação da sessão.
-- Logout e tratamento de erros de autenticação.
+- Logout, revogação de refresh token quando suportada e tratamento de erros de autenticação.
 
-A autenticação completa ainda precisa ser validada com Keycloak em um development build.
+Login, logout e restauração de sessão foram testados com sucesso em um iPhone pelo Expo Go, usando a infraestrutura Azure. A validação do esquema personalizado em development build continua pendente.
 
 ### Home
 
@@ -377,16 +376,19 @@ A Home não realiza avaliação clínica da aptidão do doador.
 Endpoint:
 
 ```http
+GET /api/mobile/slots
 POST /api/mobile/agendamentos
 ```
 
-O endpoint recebe um `slotId` real e inicia o processamento da SAGA.
+O Back-End implementa a consulta de slots reais, com os filtros opcionais `postoId`, `de` e `ate`. Cada item fornece, entre outros campos, `slotId`, `postoId`, período, vagas disponíveis e o link HATEOAS `_links.agendar`.
+
+O endpoint de solicitação recebe um `slotId` real e inicia o processamento da SAGA.
 
 Quando a solicitação é aceita, o BFF retorna HTTP `202 Accepted`, com identificadores e um link HATEOAS para acompanhamento.
 
 Os horários atualmente apresentados na interface são demonstrativos e **não enviam requisições reais de agendamento**.
 
-O fluxo real depende de uma fonte pública que disponibilize horários válidos e seus respectivos identificadores.
+Portanto, a consulta, seleção e envio do `slotId` recebido por HATEOAS ainda precisam ser integrados ao aplicativo. Os contratos existem no código do Back-End, mas sua disponibilidade efetiva no ambiente Azure ainda deve ser confirmada.
 
 ### Acompanhamento da SAGA
 
@@ -416,13 +418,23 @@ O aplicativo realiza consultas periódicas controladas durante o processamento e
 
 A liberação efetiva de uma vaga em caso de compensação deve ser confirmada pelo comportamento do Back-End nos testes de integração.
 
+O Back-End também fornece `_links.agendamento` quando a SAGA é confirmada. O aproveitamento desse link pelo aplicativo será integrado junto da consulta de detalhes.
+
 ### Meus pedidos
 
 A aba apresenta uma interface destinada à consulta de agendamentos.
 
-Entretanto, os endpoints públicos de listagem, detalhes e cancelamento ainda não estão disponíveis nos contratos implementados do BFF Mobile.
+O Back-End já implementa os contratos públicos abaixo:
 
-Por esse motivo, a tela informa a indisponibilidade dessas funcionalidades, sem apresentar dados fictícios como reais.
+```http
+GET /api/mobile/agendamentos
+GET /api/mobile/agendamentos/{id}
+POST /api/mobile/agendamentos/{id}/cancelamento
+```
+
+O cancelamento somente é oferecido quando a representação fornecer o link HATEOAS `_links.cancelar`, com o método indicado. O corpo pode conter o motivo opcional do cancelamento.
+
+Esses recursos ainda não foram integrados à aba; por isso ela continua informando a indisponibilidade, sem apresentar dados fictícios como reais. A disponibilidade efetiva dos endpoints na Azure também precisa ser confirmada.
 
 ### Assistente de dúvidas
 
@@ -459,11 +471,11 @@ O Assistente não substitui a avaliação realizada por profissionais de saúde.
 
 O aplicativo utiliza HATEOAS para respeitar os links de navegação e as ações disponibilizadas pelo Back-End.
 
-Na solicitação de agendamento, o link `_links.acompanhar` é utilizado para consultar a SAGA.
+Na solicitação de agendamento, o link `_links.acompanhar` é utilizado para consultar a SAGA. Os slots retornam `_links.agendar`; uma SAGA confirmada pode retornar `_links.agendamento`; e um agendamento cancelável pode retornar `_links.cancelar`.
 
-A consulta e o cancelamento de agendamentos dependem da implementação da issue [#16 — Consultar e cancelar agendamento com HATEOAS](https://github.com/thiagovtr/startech/issues/16).
+Os contratos da issue [#16 — Consultar e cancelar agendamento com HATEOAS](https://github.com/thiagovtr/startech/issues/16) já estão implementados no código do Back-End. A integração correspondente no aplicativo e a confirmação de disponibilidade na Azure permanecem pendentes.
 
-Quando os endpoints estiverem disponíveis, o aplicativo deverá:
+Na integração pendente, o aplicativo deverá:
 
 - Consultar o recurso de agendamento pelos links públicos fornecidos.
 - Exibir o botão de cancelamento somente quando existir o link HATEOAS `cancelar`.
@@ -478,14 +490,14 @@ Essas funcionalidades ainda não foram consideradas concluídas.
 |---|---|
 | React Native + Expo + TypeScript | Implementado |
 | URLs configuráveis do Gateway e Keycloak | Implementado |
-| Login OIDC com PKCE | Implementado; teste integrado pendente |
-| Armazenamento e renovação de tokens | Implementado; validação integrada pendente |
-| Home com perfil e campanhas | Integrada no código; teste real pendente |
-| Solicitação de agendamento | Preparada; depende de `slotId` real |
-| Acompanhamento da SAGA | Integrado no código; teste real pendente |
-| Exibição de compensação e motivo | Implementada; confirmação da liberação de vaga pendente |
-| Consulta e cancelamento com HATEOAS | Dependem da issue #16 |
-| Assistente com identificação de fallback | Integrado no código; teste real pendente |
+| Login OIDC com PKCE | Implementado e testado no iPhone com Expo Go e Azure |
+| Armazenamento e renovação de tokens | Implementado; restauração de sessão testada no ambiente citado |
+| Home com perfil e campanhas | Integrada e testada no iPhone com Azure |
+| Solicitação de agendamento | Serviço preparado; integração de slots e envio real pendentes |
+| Acompanhamento da SAGA | Integrado por HATEOAS; validação em agendamento real pendente |
+| Exibição de compensação e motivo | Implementada; confirmação e compensação reais pendentes |
+| Consulta e cancelamento com HATEOAS | Contratos do Back-End implementados; integração mobile pendente |
+| Assistente com identificação de fallback | Integrado e testado no iPhone com Azure |
 | Documentação e execução pelo Expo | Documentado |
 
 A implementação das interfaces e dos serviços do cliente mobile está avançada, mas **os critérios de aceite da issue #15 ainda não foram integralmente validados**.
@@ -494,14 +506,13 @@ A implementação das interfaces e dos serviços do cliente mobile está avança
 
 As principais pendências são:
 
-1. **Disponibilidade de horários:** ainda não existe um endpoint público confirmado para consultar slots disponíveis.
-2. **Consulta de agendamentos:** depende dos recursos públicos previstos na issue #16.
-3. **Cancelamento:** depende dos links HATEOAS e dos endpoints da issue #16.
-4. **Autenticação:** o fluxo OIDC precisa ser validado com um development build e um Keycloak acessível.
-5. **Client Keycloak:** alinhar a diferença entre o client `mobile` configurado e `startech-mobile` previsto na issue #21.
-6. **SAGA:** validar a confirmação, a compensação e seus efeitos reais com a infraestrutura em execução.
-7. **Assistente:** validar respostas e fallback do RAG em execução.
-8. **Compatibilidade:** realizar testes funcionais completos em Android e iOS.
+1. **Integração de horários:** o contrato `GET /api/mobile/slots` está implementado no Back-End, mas ainda precisa ser conectado à tela Agendar e validado na Azure.
+2. **Solicitação real:** o envio de um `slotId` recebido da API e a abertura do acompanhamento ainda precisam ser validados em ponta a ponta.
+3. **Meus pedidos:** listagem, detalhes e cancelamento têm contratos implementados no Back-End, mas ainda precisam ser integrados ao aplicativo e confirmados na Azure.
+4. **SAGA:** validar a confirmação, a compensação e seus efeitos reais com a infraestrutura em execução.
+5. **Cadastro de novos doadores:** há um problema em investigação por outro integrante do Back-End; ele não está resolvido nesta documentação.
+6. **Autenticação:** o fluxo funcionou no Expo Go testado, mas o esquema personalizado ainda deve ser validado em development build.
+7. **Compatibilidade:** realizar testes funcionais completos em Android e iOS.
 
 As integrações ainda não testadas não devem ser consideradas automaticamente funcionais apenas porque o código compila.
 
@@ -537,10 +548,10 @@ Com a infraestrutura StarTech acessível:
 3. Verificar o carregamento do perfil na Home.
 4. Consultar as campanhas personalizadas.
 5. Navegar entre Início, Agendar, Meus pedidos e Assistente.
-6. Validar uma solicitação de agendamento utilizando um `slotId` real, quando disponível.
-7. Acompanhar uma SAGA até a confirmação ou compensação.
-8. Confirmar os efeitos da compensação no Back-End.
-9. Consultar e cancelar um agendamento, quando os endpoints da issue #16 estiverem disponíveis.
+6. Confirmar a consulta de slots reais em `GET /api/mobile/slots` na Azure, com os filtros aplicáveis.
+7. Selecionar um slot retornado pela API e solicitar o agendamento pelo link HATEOAS disponibilizado.
+8. Acompanhar uma SAGA real até a confirmação ou compensação e confirmar seus efeitos no Back-End.
+9. Consultar lista e detalhes de um agendamento e cancelar somente quando `_links.cancelar` estiver disponível.
 10. Enviar perguntas ao Assistente e verificar respostas, fontes e fallback.
 11. Validar o comportamento em caso de indisponibilidade de serviços.
 12. Repetir os testes necessários em Android e iOS.
