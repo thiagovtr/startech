@@ -1,14 +1,30 @@
 export { criarClienteHttp, ErroHttp } from './clienteHttp';
 export { perguntarAssistente } from './assistente';
 export type { FonteAssistente, ModoAssistente, PerguntaAssistente, RespostaAssistente } from './assistente';
-export { acompanharSaga, solicitarAgendamento, slotIdEhValido } from './agendamentos';
+export {
+  acompanharSaga,
+  cancelarAgendamento,
+  consultarAgendamento,
+  listarAgendamentos,
+  listarSlotsDisponiveis,
+  solicitarAgendamento,
+  slotIdEhValido,
+} from './agendamentos';
 export type {
+  Agendamento,
+  DadosSlotAgendamento,
+  LinkAgendarSlot,
   LinkAcompanharAgendamento,
+  LinkConsultarAgendamento,
   RespostaAcompanhamentoSaga,
+  RespostaListaAgendamentos,
   RespostaSolicitacaoAgendamento,
+  RespostaSlotsDisponiveis,
+  SituacaoAgendamento,
   SituacaoAcompanhamentoSaga,
   SituacaoSolicitacaoAgendamento,
   SolicitacaoAgendamento,
+  SlotDisponivel,
 } from './agendamentos';
 export type { CampanhaHome, DoadorHome, RespostaHome, UrgenciaCampanha } from './home';
 export type {

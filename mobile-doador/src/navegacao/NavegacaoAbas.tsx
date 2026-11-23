@@ -6,7 +6,7 @@ import { cores, espacamentos, pesosFonte, tamanhosFonte } from '../tema';
 
 export type ParametrosAbas = {
   Inicio: undefined;
-  Agendar: { slotIdReal?: string } | undefined;
+  Agendar: undefined;
   MeusPedidos: undefined;
   Assistente: undefined;
 };
