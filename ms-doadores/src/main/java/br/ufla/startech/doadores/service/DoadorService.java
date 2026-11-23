@@ -19,7 +19,7 @@ public class DoadorService {
     @Transactional(readOnly = true)
     public DoadorPerfilResponse buscarPerfil(UUID id) {
         return doadorRepository.findById(id)
-                .map(doador -> new DoadorPerfilResponse(doador.getId(), doador.getTipoSanguineo()))
+                .map(doador -> new DoadorPerfilResponse(doador.getId(), doador.getNome(), doador.getTipoSanguineo()))
                 .orElseThrow(() -> new DoadorNaoEncontradoException(id));
     }
 }

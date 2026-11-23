@@ -46,11 +46,13 @@ class MsDoadoresApplicationTests {
         var doador = doadorRepository.findById(java.util.UUID.fromString(DOADOR_ID));
 
         assertThat(doador).isPresent();
+        assertThat(doador.orElseThrow().getNome()).isEqualTo("Doador StarTech");
         assertThat(doador.orElseThrow().getTipoSanguineo()).isEqualTo("O-");
 
         mockMvc.perform(get("/api/v1/doadores/{id}", DOADOR_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(DOADOR_ID))
+                .andExpect(jsonPath("$.nome").value("Doador StarTech"))
                 .andExpect(jsonPath("$.tipoSanguineo").value("O-"));
     }
 }
