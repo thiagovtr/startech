@@ -350,7 +350,7 @@ Os cabeçalhos internos `X-User-Id` e `X-User-Roles` não são enviados manualme
 - Restauração e renovação da sessão.
 - Logout, revogação de refresh token quando suportada e tratamento de erros de autenticação.
 
-Login, logout e restauração de sessão foram testados com sucesso em um iPhone pelo Expo Go, usando a infraestrutura Azure. A validação do esquema personalizado em development build continua pendente.
+Login, logout e restauração de sessão foram testados com sucesso em um iPhone pelo Expo Go, usando a infraestrutura Azure.
 
 ### Home
 
@@ -386,9 +386,9 @@ O endpoint de solicitação recebe um `slotId` real e inicia o processamento da 
 
 Quando a solicitação é aceita, o BFF retorna HTTP `202 Accepted`, com identificadores e um link HATEOAS para acompanhamento.
 
-Os horários atualmente apresentados na interface são demonstrativos e **não enviam requisições reais de agendamento**.
+No aplicativo, a disponibilidade é carregada pelo Gateway, e o doador seleciona um slot real antes da confirmação. A solicitação utiliza exclusivamente o link HATEOAS `_links.agendar` retornado para esse slot.
 
-Portanto, a consulta, seleção e envio do `slotId` recebido por HATEOAS ainda precisam ser integrados ao aplicativo. Os contratos existem no código do Back-End, mas sua disponibilidade efetiva no ambiente Azure ainda deve ser confirmada.
+A consulta e a seleção de slots, bem como a solicitação real, foram testadas com sucesso no iPhone conectado à Azure.
 
 ### Acompanhamento da SAGA
 
@@ -418,7 +418,7 @@ O aplicativo realiza consultas periódicas controladas durante o processamento e
 
 A liberação efetiva de uma vaga em caso de compensação deve ser confirmada pelo comportamento do Back-End nos testes de integração.
 
-O Back-End também fornece `_links.agendamento` quando a SAGA é confirmada. O aproveitamento desse link pelo aplicativo será integrado junto da consulta de detalhes.
+Quando a SAGA é confirmada, o Back-End fornece `_links.agendamento`. O aplicativo utiliza esse link para abrir os detalhes do agendamento; essa navegação foi testada com sucesso.
 
 ### Meus pedidos
 
@@ -434,7 +434,7 @@ POST /api/mobile/agendamentos/{id}/cancelamento
 
 O cancelamento somente é oferecido quando a representação fornecer o link HATEOAS `_links.cancelar`, com o método indicado. O corpo pode conter o motivo opcional do cancelamento.
 
-Esses recursos ainda não foram integrados à aba; por isso ela continua informando a indisponibilidade, sem apresentar dados fictícios como reais. A disponibilidade efetiva dos endpoints na Azure também precisa ser confirmada.
+A aba lista os agendamentos reais do doador, abre os detalhes pelo link `_links.self` e é atualizada ao retornar da tela de detalhes. A listagem, os detalhes e o cancelamento real foram testados com sucesso no iPhone conectado à Azure.
 
 ### Assistente de dúvidas
 
@@ -473,16 +473,16 @@ O aplicativo utiliza HATEOAS para respeitar os links de navegação e as ações
 
 Na solicitação de agendamento, o link `_links.acompanhar` é utilizado para consultar a SAGA. Os slots retornam `_links.agendar`; uma SAGA confirmada pode retornar `_links.agendamento`; e um agendamento cancelável pode retornar `_links.cancelar`.
 
-Os contratos da issue [#16 — Consultar e cancelar agendamento com HATEOAS](https://github.com/thiagovtr/startech/issues/16) já estão implementados no código do Back-End. A integração correspondente no aplicativo e a confirmação de disponibilidade na Azure permanecem pendentes.
+Os contratos da issue [#16 — Consultar e cancelar agendamento com HATEOAS](https://github.com/thiagovtr/startech/issues/16) estão integrados ao aplicativo e foram testados com a infraestrutura Azure.
 
-Na integração pendente, o aplicativo deverá:
+O aplicativo:
 
-- Consultar o recurso de agendamento pelos links públicos fornecidos.
-- Exibir o botão de cancelamento somente quando existir o link HATEOAS `cancelar`.
-- Utilizar o método HTTP indicado pelo link.
-- Não apresentar ações que o estado atual do agendamento não permita.
+- Consulta o recurso de agendamento pelos links públicos fornecidos.
+- Exibe o botão de cancelamento somente quando existir o link HATEOAS `cancelar`.
+- Utiliza o método HTTP indicado pelo link.
+- Não apresenta ações que o estado atual do agendamento não permita.
 
-Essas funcionalidades ainda não foram consideradas concluídas.
+Após um cancelamento confirmado, a representação atualizada retornada pelo Back-End substitui a anterior e remove a ação quando o link `cancelar` deixa de existir.
 
 ## 12. Situação em relação à issue #15
 
@@ -493,26 +493,23 @@ Essas funcionalidades ainda não foram consideradas concluídas.
 | Login OIDC com PKCE | Implementado e testado no iPhone com Expo Go e Azure |
 | Armazenamento e renovação de tokens | Implementado; restauração de sessão testada no ambiente citado |
 | Home com perfil e campanhas | Integrada e testada no iPhone com Azure |
-| Solicitação de agendamento | Serviço preparado; integração de slots e envio real pendentes |
-| Acompanhamento da SAGA | Integrado por HATEOAS; validação em agendamento real pendente |
-| Exibição de compensação e motivo | Implementada; confirmação e compensação reais pendentes |
-| Consulta e cancelamento com HATEOAS | Contratos do Back-End implementados; integração mobile pendente |
+| Consulta e solicitação de agendamento | Integradas e testadas no iPhone com Azure |
+| Acompanhamento da SAGA | Integrado por HATEOAS; acesso a partir da solicitação e navegação para detalhes confirmados em teste |
+| Exibição de compensação e motivo | Implementada; teste de compensação real pendente |
+| Consulta e cancelamento com HATEOAS | Integrados e testados no iPhone com Azure |
 | Assistente com identificação de fallback | Integrado e testado no iPhone com Azure |
 | Documentação e execução pelo Expo | Documentado |
 
-A implementação das interfaces e dos serviços do cliente mobile está avançada, mas **os critérios de aceite da issue #15 ainda não foram integralmente validados**.
+As funcionalidades principais da issue #15 estão implementadas e tiveram validação manual no iPhone com a infraestrutura Azure. Os cenários excepcionais e a compensação real da SAGA permanecem como validações pendentes.
 
 ## 13. Limitações e dependências conhecidas
 
 As principais pendências são:
 
-1. **Integração de horários:** o contrato `GET /api/mobile/slots` está implementado no Back-End, mas ainda precisa ser conectado à tela Agendar e validado na Azure.
-2. **Solicitação real:** o envio de um `slotId` recebido da API e a abertura do acompanhamento ainda precisam ser validados em ponta a ponta.
-3. **Meus pedidos:** listagem, detalhes e cancelamento têm contratos implementados no Back-End, mas ainda precisam ser integrados ao aplicativo e confirmados na Azure.
-4. **SAGA:** validar a confirmação, a compensação e seus efeitos reais com a infraestrutura em execução.
-5. **Cadastro de novos doadores:** há um problema em investigação por outro integrante do Back-End; ele não está resolvido nesta documentação.
-6. **Autenticação:** o fluxo funcionou no Expo Go testado, mas o esquema personalizado ainda deve ser validado em development build.
-7. **Compatibilidade:** realizar testes funcionais completos em Android e iOS.
+1. **SAGA:** a compensação real e a liberação efetiva de vagas ainda precisam ser validadas com a infraestrutura em execução.
+2. **Cenários excepcionais:** conflitos de concorrência, indisponibilidade dos serviços e respostas de erro ainda precisam de testes manuais específicos.
+3. **Cadastro de novos doadores:** há um problema em investigação no Back-End; ele não está resolvido nesta documentação.
+4. **Testes automatizados:** o aplicativo ainda não possui uma suíte própria de testes automatizados.
 
 As integrações ainda não testadas não devem ser consideradas automaticamente funcionais apenas porque o código compila.
 
@@ -539,24 +536,20 @@ No momento da elaboração desta documentação, o cliente mobile não possui um
 
 As verificações de compilação e tipagem não substituem testes funcionais de autenticação, rede ou integração com o Back-End.
 
-## 15. Testes manuais recomendados
+## 15. Testes manuais
 
-Com a infraestrutura StarTech acessível:
+Os testes abaixo foram realizados com sucesso em um iPhone, pelo Expo Go, conectado à infraestrutura Azure:
 
-1. Abrir o aplicativo em um dispositivo compatível.
-2. Realizar Login com um usuário autorizado.
-3. Verificar o carregamento do perfil na Home.
-4. Consultar as campanhas personalizadas.
-5. Navegar entre Início, Agendar, Meus pedidos e Assistente.
-6. Confirmar a consulta de slots reais em `GET /api/mobile/slots` na Azure, com os filtros aplicáveis.
-7. Selecionar um slot retornado pela API e solicitar o agendamento pelo link HATEOAS disponibilizado.
-8. Acompanhar uma SAGA real até a confirmação ou compensação e confirmar seus efeitos no Back-End.
-9. Consultar lista e detalhes de um agendamento e cancelar somente quando `_links.cancelar` estiver disponível.
-10. Enviar perguntas ao Assistente e verificar respostas, fontes e fallback.
-11. Validar o comportamento em caso de indisponibilidade de serviços.
-12. Repetir os testes necessários em Android e iOS.
+1. Login, logout e restauração de sessão com Keycloak.
+2. Navegação entre Início, Agendar, Meus pedidos e Assistente.
+3. Carregamento de nome, tipo sanguíneo e campanhas na Home.
+4. Respostas, fontes e fallback do Assistente RAG, além de verificações básicas de estabilidade.
+5. Consulta, seleção e solicitação de um slot real pelo link `_links.agendar`.
+6. Acesso ao acompanhamento da SAGA após a solicitação e navegação da SAGA confirmada para os detalhes.
+7. Listagem e detalhes de agendamentos reais, incluindo atualização da lista ao retornar; oito testes manuais desse fluxo foram aprovados.
+8. Exibição condicional do cancelamento, confirmação, desistência, cancelamento real e atualização da situação e da listagem; oito testes manuais desse fluxo foram aprovados.
 
-Registrar como concluídos somente os testes efetivamente executados.
+Permanecem recomendados testes específicos de compensação da SAGA, liberação de vaga, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
 
 ## 16. Issues e documentação relacionada
 
