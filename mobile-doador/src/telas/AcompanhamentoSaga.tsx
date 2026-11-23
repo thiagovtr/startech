@@ -136,7 +136,7 @@ export function AcompanhamentoSaga() {
           <Cartao estilo={estilos.cartaoSolicitacao}>
             <View style={estilos.linhaSolicitacao}>
               <View style={estilos.detalhesSolicitacao}>
-                <Text style={estilos.rotulo}>{linkAcompanhar ? 'Solicitação real' : 'Solicitação demonstrativa'}</Text>
+                <Text style={estilos.rotulo}>{linkAcompanhar ? 'Solicitação' : 'Solicitação demonstrativa'}</Text>
                 <Text style={estilos.identificador}>{respostaAcompanhamento?.sagaId ?? 'Demonstração visual'}</Text>
                 {respostaAcompanhamento && <Text style={estilos.textoSecundario}>Agendamento: {respostaAcompanhamento.agendamentoId}</Text>}
               </View>

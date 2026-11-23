@@ -7,6 +7,30 @@ export type SolicitacaoAgendamento = {
   slotId: string;
 };
 
+export type LinkAgendarSlot = {
+  href: string;
+  method: 'POST';
+  title?: string;
+};
+
+export type SlotDisponivel = {
+  slotId: string;
+  postoId: string;
+  dataHoraInicio: string;
+  dataHoraFim: string;
+  vagasDisponiveis: number;
+  _links: {
+    agendar: LinkAgendarSlot;
+  };
+};
+
+export type RespostaSlotsDisponiveis = {
+  itens: SlotDisponivel[];
+  _links: {
+    self: LinkHateoas;
+  };
+};
+
 export type SituacaoSolicitacaoAgendamento = 'EM_ANDAMENTO';
 
 export type LinkAcompanharAgendamento = {
@@ -47,18 +71,28 @@ export function slotIdEhValido(slotId: string | undefined): slotId is string {
 export async function solicitarAgendamento(
   clienteHttp: ClienteHttp,
   solicitacao: SolicitacaoAgendamento,
+  linkAgendar: LinkAgendarSlot,
 ): Promise<RespostaSolicitacaoAgendamento> {
   if (!slotIdEhValido(solicitacao.slotId)) {
     throw new Error('O identificador do horário selecionado é inválido.');
   }
 
-  const resposta = await clienteHttp.requisitar<RespostaSolicitacaoAgendamento>('/api/mobile/agendamentos', {
+  const resposta = await clienteHttp.requisitarLink<RespostaSolicitacaoAgendamento>(linkAgendar, {
     corpo: { slotId: solicitacao.slotId.trim() },
-    metodo: 'POST',
   });
 
   if (resposta.status !== 202 || resposta.categoria !== 'ACEITO' || !resposta.corpo) {
     throw new Error('A solicitação de agendamento não foi aceita pelo serviço.');
+  }
+
+  return resposta.corpo;
+}
+
+export async function listarSlotsDisponiveis(clienteHttp: ClienteHttp): Promise<RespostaSlotsDisponiveis> {
+  const resposta = await clienteHttp.requisitar<RespostaSlotsDisponiveis>('/api/mobile/slots');
+
+  if (!resposta.corpo) {
+    throw new Error('A resposta de disponibilidade não contém horários para exibir.');
   }
 
   return resposta.corpo;
