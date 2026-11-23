@@ -147,6 +147,15 @@ export function AcompanhamentoSaga() {
             <Text style={estilos.descricaoSituacao}>{conteudo.descricao}</Text>
             {respostaAcompanhamento?.motivo && <Motivo texto={respostaAcompanhamento.motivo} />}
             {!linkAcompanhar && motivoDemonstrativo(situacao) && <Motivo texto={motivoDemonstrativo(situacao)!} />}
+            {respostaAcompanhamento?._links.agendamento && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: respostaAcompanhamento._links.agendamento! })}
+                style={({ pressed }) => [estilos.acaoDetalhes, pressed && estilos.acaoDetalhesPressionada]}
+              >
+                <Text style={estilos.textoAcaoDetalhes}>Ver detalhes do agendamento</Text>
+              </Pressable>
+            )}
           </Cartao>
         )}
 
@@ -218,6 +227,9 @@ const estilos = StyleSheet.create({
   motivo: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, gap: espacamentos.minimo, padding: espacamentos.medio },
   rotuloMotivo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   textoMotivo: { color: cores.texto, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, lineHeight: 20 },
+  acaoDetalhes: { alignItems: 'center', minHeight: 48, justifyContent: 'center' },
+  acaoDetalhesPressionada: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
+  textoAcaoDetalhes: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   secaoDesenvolvimento: { gap: espacamentos.medio },
   tituloDesenvolvimento: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   opcoesSituacao: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.pequeno },

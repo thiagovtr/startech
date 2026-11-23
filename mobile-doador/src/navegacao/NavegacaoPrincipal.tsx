@@ -5,14 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProvedorAutenticacao, useAutenticacao } from '../autenticacao';
 import { EstadoFeedback } from '../componentes';
-import type { LinkAcompanharAgendamento } from '../servicos';
+import type { LinkAcompanharAgendamento, LinkConsultarAgendamento } from '../servicos';
 import { NavegacaoAbas } from './NavegacaoAbas';
-import { AcompanhamentoSaga, Login } from '../telas';
+import { AcompanhamentoSaga, DetalhesAgendamento, Login } from '../telas';
 import { cores } from '../tema';
 
 export type ParametrosRaiz = {
   Abas: undefined;
   AcompanhamentoSaga: { linkAcompanhar?: LinkAcompanharAgendamento } | undefined;
+  DetalhesAgendamento: { linkConsultar: LinkConsultarAgendamento };
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
@@ -33,6 +34,7 @@ export function NavegacaoPrincipal() {
           <PilhaRaiz.Navigator screenOptions={{ headerShown: false }}>
             <PilhaRaiz.Screen component={NavegacaoAbas} name="Abas" />
             <PilhaRaiz.Screen component={AcompanhamentoSaga} name="AcompanhamentoSaga" />
+            <PilhaRaiz.Screen component={DetalhesAgendamento} name="DetalhesAgendamento" />
           </PilhaRaiz.Navigator>
         ) : (
           <Login
