@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
-import { Cartao, EstadoFeedback, SeloStatus } from '../componentes';
+import { BotaoPrimario, Cartao, EstadoFeedback, SeloStatus } from '../componentes';
 import type { ParametrosAbas } from '../navegacao/NavegacaoAbas';
 import { ErroHttp, type RespostaHome } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
@@ -21,10 +21,11 @@ const atalhos: { titulo: string; icone: string; destino: DestinoAtalho }[] = [
 
 export function Inicio() {
   const navegacao = useNavigation<BottomTabNavigationProp<ParametrosAbas>>();
-  const { clienteHttp } = useContextoAutenticacao();
+  const { clienteHttp, encerrarSessao } = useContextoAutenticacao();
   const [estadoCarregamento, definirEstadoCarregamento] = useState<EstadoCarregamento>('CARREGANDO');
   const [respostaHome, definirRespostaHome] = useState<RespostaHome | null>(null);
   const [mensagemErro, definirMensagemErro] = useState('');
+  const [encerrandoSessao, definirEncerrandoSessao] = useState(false);
 
   const carregarHome = useCallback(async (signal?: AbortSignal) => {
     definirEstadoCarregamento('CARREGANDO');
@@ -59,6 +60,16 @@ export function Inicio() {
   const tipoSanguineo = doador?.tipoSanguineo ?? doador?.tipo_sanguineo;
   const perfilNaoCadastrado = doador?.cadastrado === false;
 
+  async function sairDaConta() {
+    definirEncerrandoSessao(true);
+
+    try {
+      await encerrarSessao();
+    } finally {
+      definirEncerrandoSessao(false);
+    }
+  }
+
   return (
     <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
@@ -73,6 +84,14 @@ export function Inicio() {
         </View>
 
         <SecaoAtalhos navegacao={navegacao} />
+
+        <View style={estilos.secaoSaida}>
+          <BotaoPrimario
+            aoPressionar={() => void sairDaConta()}
+            carregando={encerrandoSessao}
+            titulo="Sair da conta"
+          />
+        </View>
 
         {estadoCarregamento === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Carregando sua Home" />}
 
@@ -229,6 +248,7 @@ const estilos = StyleSheet.create({
   avisoNaoPersonalizado: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   descricaoNaoPersonalizada: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   gradeAtalhos: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.medio },
+  secaoSaida: { gap: espacamentos.pequeno },
   atalho: { backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flexBasis: '47%', flexGrow: 1, gap: espacamentos.pequeno, minHeight: 108, padding: espacamentos.padrao },
   atalhoPressionado: { backgroundColor: cores.principalClaro },
   iconeAtalho: { color: cores.principal, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },

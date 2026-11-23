@@ -176,10 +176,17 @@ export function useAutenticacao() {
           descoberta,
         );
       }
+    } catch {
+      definirMensagemErro('A sessão foi encerrada neste aparelho, mas o Keycloak não confirmou a revogação do token.');
     } finally {
-      await limparSessaoArmazenada();
-      definirSessao(null);
-      definirEstado('ANONIMO');
+      try {
+        await limparSessaoArmazenada();
+      } catch {
+        definirMensagemErro('Não foi possível remover os dados locais da sessão. Faça login novamente apenas após confirmar a limpeza do aparelho.');
+      } finally {
+        definirSessao(null);
+        definirEstado('ANONIMO');
+      }
     }
   }, [configuracao, descoberta, sessao]);
 
