@@ -416,7 +416,9 @@ Quando existir, o motivo retornado pelo Back-End é exibido ao doador.
 
 O aplicativo realiza consultas periódicas controladas durante o processamento e as interrompe quando a operação termina ou a tela deixa de estar ativa.
 
-A liberação efetiva de uma vaga em caso de compensação deve ser confirmada pelo comportamento do Back-End nos testes de integração.
+O cancelamento automático por compensação foi testado com sucesso no iPhone conectado à Azure. Após solicitar um horário com 5 vagas disponíveis, a SAGA terminou como `CANCELADO`, com a mensagem “Solicitação compensada” e o motivo de que a última doação ocorreu em 13/11/2026 e uma nova doação seria permitida a partir de 12/01/2027, respeitando o intervalo de 60 dias. Ao retornar à tela Agendar, o mesmo horário continuava com 5 vagas disponíveis; o comportamento foi reproduzido em novas tentativas.
+
+Esse resultado confirma o comportamento observado pelo aplicativo, mas não comprova diretamente nos bancos a reserva provisória nem a execução interna de `STEP1 COMPENSATE OK`.
 
 Quando a SAGA é confirmada, o Back-End fornece `_links.agendamento`. O aplicativo utiliza esse link para abrir os detalhes do agendamento; essa navegação foi testada com sucesso.
 
@@ -495,18 +497,18 @@ Após um cancelamento confirmado, a representação atualizada retornada pelo Ba
 | Home com perfil e campanhas | Integrada e testada no iPhone com Azure |
 | Consulta e solicitação de agendamento | Integradas e testadas no iPhone com Azure |
 | Acompanhamento da SAGA | Integrado por HATEOAS; acesso a partir da solicitação e navegação para detalhes confirmados em teste |
-| Exibição de compensação e motivo | Implementada; teste de compensação real pendente |
+| Exibição de compensação e motivo | Implementada e testada no iPhone com Azure |
 | Consulta e cancelamento com HATEOAS | Integrados e testados no iPhone com Azure |
 | Assistente com identificação de fallback | Integrado e testado no iPhone com Azure |
 | Documentação e execução pelo Expo | Documentado |
 
-As funcionalidades principais da issue #15 estão implementadas e tiveram validação manual no iPhone com a infraestrutura Azure. Os cenários excepcionais e a compensação real da SAGA permanecem como validações pendentes.
+As funcionalidades principais da issue #15 estão implementadas e tiveram validação manual no iPhone com a infraestrutura Azure. Permanecem pendentes os cenários excepcionais e a comprovação interna da sequência de compensação da SAGA.
 
 ## 13. Limitações e dependências conhecidas
 
 As principais pendências são:
 
-1. **SAGA:** a compensação real e a liberação efetiva de vagas ainda precisam ser validadas com a infraestrutura em execução.
+1. **SAGA:** a compensação automática e a preservação das vagas foram observadas pelo aplicativo; ainda falta comprovar internamente a reserva provisória e a execução de `STEP1 COMPENSATE OK` no Back-End.
 2. **Cenários excepcionais:** conflitos de concorrência, indisponibilidade dos serviços e respostas de erro ainda precisam de testes manuais específicos.
 3. **Cadastro de novos doadores:** há um problema em investigação no Back-End; ele não está resolvido nesta documentação.
 4. **Testes automatizados:** o aplicativo ainda não possui uma suíte própria de testes automatizados.
@@ -548,8 +550,9 @@ Os testes abaixo foram realizados com sucesso em um iPhone, pelo Expo Go, conect
 6. Acesso ao acompanhamento da SAGA após a solicitação e navegação da SAGA confirmada para os detalhes.
 7. Listagem e detalhes de agendamentos reais, incluindo atualização da lista ao retornar; oito testes manuais desse fluxo foram aprovados.
 8. Exibição condicional do cancelamento, confirmação, desistência, cancelamento real e atualização da situação e da listagem; oito testes manuais desse fluxo foram aprovados.
+9. Compensação automática da SAGA: um horário com 5 vagas foi solicitado, terminou como `CANCELADO` com “Solicitação compensada” e motivo de intervalo mínimo; após o retorno à tela Agendar, o mesmo horário permaneceu com 5 vagas. O cenário foi reproduzido em novas tentativas.
 
-Permanecem recomendados testes específicos de compensação da SAGA, liberação de vaga, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
+Permanecem recomendados testes da sequência interna de compensação da SAGA, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
 
 ## 16. Issues e documentação relacionada
 
