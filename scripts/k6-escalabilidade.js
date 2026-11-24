@@ -9,22 +9,21 @@ const latenciaBordaBFF = new Trend('latencia_borda_bff', true);
 const campanhasCriadasOutbox = new Counter('campanhas_criadas_outbox');
 const taxaSucessoGlobal = new Rate('taxa_sucesso_global');
 
-const HEMOCENTROS_BASE = __ENV.HEMOCENTROS_BASE || 'http://172.29.0.2:30080';
-const GATEWAY_BASE = __ENV.GATEWAY_BASE || 'http://172.29.0.2:30088';
+const HEMOCENTROS_BASE = __ENV.HEMOCENTROS_BASE || 'http://ms-hemocentros:8000';
+const GATEWAY_BASE = __ENV.GATEWAY_BASE || 'http://gateway:8080';
+const RODADA = __ENV.RODADA || '1-replica';
 
 export const options = {
   scenarios: {
-    // 1. Estresse de Leitura CQRS (MongoDB Read View) para acionar o HPA (CPU > 70% de 200m = 140m)
+    // 1. Estresse de Leitura CQRS (MongoDB Read View) distribuído entre réplicas do ms-hemocentros
     cqrs_leitura_estresse: {
       executor: 'ramping-vus',
       exec: 'cenarioLeituraCQRS',
       startVUs: 5,
       stages: [
-        { duration: '15s', target: 30 },  // Aquecimento e subida inicial de carga
-        { duration: '30s', target: 75 },  // Carga alta (>140m CPU): dispara HPA (1 -> 2 -> 3 réplicas)
-        { duration: '35s', target: 95 },  // Pico sustentado distribuído entre as 3 réplicas
-        { duration: '10s', target: 20 },  // Redução gradual (cooldown)
-        { duration: '5s', target: 0 },
+        { duration: '10s', target: 30 },
+        { duration: '25s', target: 60 },
+        { duration: '10s', target: 0 },
       ],
       gracefulRampDown: '5s',
     },
@@ -34,20 +33,20 @@ export const options = {
       exec: 'cenarioEscritaOutbox',
       rate: 4,
       timeUnit: '1s',
-      duration: '85s',
-      preAllocatedVUs: 8,
-      maxVUs: 20,
+      duration: '35s',
+      preAllocatedVUs: 6,
+      maxVUs: 15,
       startTime: '5s',
     },
     // 3. Fluxo de Borda Distribuído (API Gateway + JWT RS256 + BFF Mobile & BFF Web)
     borda_gateway_bff: {
       executor: 'constant-arrival-rate',
       exec: 'cenarioBordaBFF',
-      rate: 12,
+      rate: 10,
       timeUnit: '1s',
-      duration: '85s',
-      preAllocatedVUs: 10,
-      maxVUs: 25,
+      duration: '35s',
+      preAllocatedVUs: 8,
+      maxVUs: 20,
       startTime: '5s',
     },
   },
@@ -84,17 +83,17 @@ export function setup() {
 
   // Semeia campanhas iniciais para popular a view de leitura do MongoDB
   const tipos = ['O-', 'O+', 'A-', 'A+', 'B-', 'AB-'];
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 6; i++) {
     const tipo = tipos[i % tipos.length];
     http.post(
       `${HEMOCENTROS_BASE}/api/v1/campanhas`,
       JSON.stringify({
-        titulo: `Alerta Estoque ${tipo} #${i + 1}`,
+        titulo: `Campanha Base ${tipo} #${i + 1}`,
         hemocentro: 'Hemocentro Regional de Lavras',
         tipo_sanguineo: tipo,
-        urgencia: i % 2 === 0 ? 'CRITICO' : 'ALTO',
-        data_inicio: '2026-11-10',
-        data_fim: '2026-12-20',
+        urgencia: i % 2 === 0 ? 'CRITICO' : 'NORMAL',
+        data_inicio: '2026-11-20',
+        data_fim: '2026-12-31',
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -111,8 +110,8 @@ export function cenarioLeituraCQRS() {
     'vigentes=true&limit=100',
   ];
   const qs = filtros[__ITER % filtros.length];
-  // Rotaciona a conexão TCP a cada 25 iterações para o kube-proxy distribuir carga às novas réplicas sem exaurir portas efêmeras
-  const headers = __ITER % 25 === 0 ? { Connection: 'close' } : {};
+  // Rotaciona a conexão TCP a cada 10 iterações para o DNS round-robin do Docker distribuir carga entre as réplicas
+  const headers = __ITER % 10 === 0 ? { Connection: 'close' } : {};
   const res = http.get(`${HEMOCENTROS_BASE}/api/v1/campanhas?${qs}`, {
     headers,
     tags: { cenario: 'cqrs_leitura' },
@@ -129,16 +128,16 @@ export function cenarioLeituraCQRS() {
 
 export function cenarioEscritaOutbox() {
   const payload = JSON.stringify({
-    titulo: `Campanha K6 Outbox VU${__VU}-${__ITER}`,
+    titulo: `Campanha K6 Outbox ${RODADA} VU${__VU}-${__ITER}`,
     hemocentro: 'Hemocentro Regional de Lavras',
     tipo_sanguineo: 'O-',
     urgencia: 'CRITICO',
-    data_inicio: '2026-11-15',
-    data_fim: '2026-12-30',
+    data_inicio: '2026-11-20',
+    data_fim: '2026-12-31',
   });
 
   const res = http.post(`${HEMOCENTROS_BASE}/api/v1/campanhas`, payload, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Connection: 'close' },
     tags: { cenario: 'cqrs_escrita_outbox' },
   });
 
@@ -174,4 +173,29 @@ export function cenarioBordaBFF(data) {
     });
     taxaSucessoGlobal.add(ok);
   }
+}
+
+export function handleSummary(data) {
+  const m = data.metrics;
+  const resumo = {
+    rodada: RODADA,
+    reqs_total: m.http_reqs?.values?.count ?? 0,
+    reqs_por_seg: Number((m.http_reqs?.values?.rate ?? 0).toFixed(2)),
+    sucesso_pct: Number(((1 - (m.http_req_failed?.values?.rate ?? 0)) * 100).toFixed(2)),
+    checks_pct: Number(((m.checks?.values?.rate ?? 0) * 100).toFixed(2)),
+    http_med_ms: Number((m.http_req_duration?.values?.med ?? 0).toFixed(2)),
+    http_p90_ms: Number((m.http_req_duration?.values?.['p(90)'] ?? 0).toFixed(2)),
+    http_p95_ms: Number((m.http_req_duration?.values?.['p(95)'] ?? 0).toFixed(2)),
+    cqrs_leitura_med_ms: Number((m.latencia_leitura_cqrs?.values?.med ?? 0).toFixed(2)),
+    cqrs_leitura_p95_ms: Number((m.latencia_leitura_cqrs?.values?.['p(95)'] ?? 0).toFixed(2)),
+    outbox_escrita_med_ms: Number((m.latencia_escrita_outbox?.values?.med ?? 0).toFixed(2)),
+    outbox_escrita_p95_ms: Number((m.latencia_escrita_outbox?.values?.['p(95)'] ?? 0).toFixed(2)),
+    borda_bff_med_ms: Number((m.latencia_borda_bff?.values?.med ?? 0).toFixed(2)),
+    borda_bff_p95_ms: Number((m.latencia_borda_bff?.values?.['p(95)'] ?? 0).toFixed(2)),
+    campanhas_criadas: m.campanhas_criadas_outbox?.values?.count ?? 0,
+    vus_max: m.vus_max?.values?.max ?? 0,
+  };
+  return {
+    stdout: `\n=== RESUMO_K6_JSON (${RODADA}) ===\n${JSON.stringify(resumo)}\n`,
+  };
 }
