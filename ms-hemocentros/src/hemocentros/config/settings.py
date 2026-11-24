@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # True: declara a fila e o binding (idempotente, exige mesmos argumentos). False: só verifica que a fila existe.
     rabbitmq_declarar_fila: bool = True
     # Dead-letter (mensagens inválidas, rejeitadas sem requeue). Desligado por padrão: argumentos de fila
-    # não podem mudar numa fila já existente (PRECONDITION_FAILED). Ver antigravity/docs/dlq-rabbitmq-para-dev1.md.
+    # não podem mudar numa fila já existente (PRECONDITION_FAILED).
     rabbitmq_dlq_habilitada: bool = False
     rabbitmq_dlx_exchange: str = "startech.events.dlx"
     rabbitmq_dlq_queue: str = "hemocentros.cqrs.dlq"

@@ -66,7 +66,7 @@ A disciplina GCC129 (Seção 4.1) exige a decomposição em **ao menos 4 micross
 > * **Vantagens (Prós):**  
   * **Stack 100% dominada pela equipe:** Java/Spring Boot garante robustez transacional e tipagem forte nos serviços relacionais críticos (doadores e agendamentos), enquanto Python/FastAPI entrega alta produtividade assíncrona nos BFFs, no CQRS (hemocentros), na mensageria (comunicacao) e na futura IA (IA com RAG);  
   * **Eficiência na RN01:** Consolidar perfil do doador e ciclo de elegibilidade em doadores evita chamadas de rede extras para obter SexoBiologico e DataNascimento durante a SAGA;  
-  * **Desacoplamento de Auth:** O Keycloak assume toda a complexidade de login, sessões e OIDC (/realms/login/clientId=mobile e web).  
+  * **Desacoplamento de Auth:** O Keycloak assume toda a complexidade de login, sessões e OIDC (realm `startech`, OIDC com PKCE S256).
 > * **Desvantagens (Contras / Trade-offs aceitos):**  
   * O serviço doadores exige organização modular interna limpa (pacotes profile e eligibility e tabelas separadas donors e eligibility\_cycles).
 
@@ -89,7 +89,7 @@ A disciplina GCC129 (Seção 4.1) exige a decomposição em **ao menos 4 micross
 > 2. **Por que consolidamos Doadores e Fidelização no serviço doadores?**  
 >    A fórmula legal da Portaria MS nº 5/2017 (RN01) (DataMinimaProximaDoacao \= DataUltimaDoacao \+ Delta\_sexo) exige o SexoBiologico (60 dias para homens, 90 dias para mulheres) e a DataNascimento (16 a 69 anos). Manter esses dados juntos no PostgreSQL de doadores permite validar a elegibilidade em uma única consulta local durante a SAGA.  
 > 3. **Por que delegar a Autenticação ao Keycloak?**  
->    O **Keycloak** gerencia usuários em banco próprio, concede permissões e emite tokens JWT (/realms/login/clientId=mobile e clientId=web). Isso evita reimplementar mecanismos de segurança dentro do serviço doadores e permite que o **API Gateway** valide o JWT na borda antes de a requisição chegar aos BFFs.
+>    O **Keycloak** gerencia usuários em banco próprio, concede permissões e emite tokens JWT (realm `startech`, clientes `startech-mobile` e `startech-web`). Isso evita reimplementar mecanismos de segurança dentro do serviço doadores e permite que o **API Gateway** valide o JWT na borda antes de a requisição chegar aos BFFs.
 
 ## **5\. Consequências e Impactos**
 
@@ -409,8 +409,8 @@ A disciplina GCC129 (Seção 4.7) exige a aplicação do padrão **CQRS (Command
 
 A plataforma StarTech atende a dois clientes frontend construídos em **React**, mas com perfis de uso, permissões e requisitos de payload completamente distintos:
 
-> 1. **App Mobile do Doador (React PWA / React Native):** Autentica no **Keycloak** via /realms/login/clientId=mobile e envia requisições GET /api/mobile/home passando o **token JWT**. Exige agregação rápida em *Single Roundtrip* combinando os dados do doador (GET doadores/api/v1/doadores/{123}) com as campanhas compatíveis com seu tipo sanguíneo (GET hemocentros/api/v1/campanhas?tipo\_sanguineo=O-), além de conexão futura com o serviço IA com RAG (Parte 4);  
-> 2. **Painel Web do Hemocentro (React Desktop SPA):** Autentica no **Keycloak** via /realms/login/clientId=web e envia comandos POST /api/web/campanhas passando o **token JWT**. Exige interfaces administrativas ricas, publicação de campanhas (POST api/v1/campanhas no serviço hemocentros), controle de agendamentos por slot e relatórios de notificações.
+> 1. **App do doador (React Native e Expo).** Autentica com o cliente `startech-mobile`. O BFF agrega perfil e campanhas em `GET /api/mobile/home` e oferece as rotas de perfil, agendamentos e assistente.
+> 2. **Painel do hemocentro (React e Vite).** Autentica com o cliente `startech-web`. O operador consulta e cria campanhas com `GET` e `POST /api/web/campanhas`.
 
 A disciplina GCC129 (Seções 4.3 e 4.4) exige a definição clara do **API Gateway** (regras de roteamento, autenticação e rate limiting) e a implementação de **ao menos 2 BFFs distintos**, demonstrando como as respostas diferem para cada cliente.
 
@@ -438,7 +438,7 @@ A disciplina GCC129 (Seções 4.3 e 4.4) exige a definição clara do **API Gate
 
 ## **4\. Decisão Tomada**
 
-*Decidimos adotar a Opção 1: Autenticação centralizada no Keycloak (/realms/login/clientId=mobile e clientId=web), validação de JWT e Rate Limiting no API Gateway, e 2 BFFs independentes desenvolvidos em Python (FastAPI) (BFF Mobile e BFF Web) servindo os frontends em React com payloads diferenciados e degradação graciosa.*
+*Decidimos adotar a Opção 1: Autenticação centralizada no Keycloak (realm `startech`, clientes `startech-mobile` e `startech-web`), validação de JWT e Rate Limiting no API Gateway, e 2 BFFs independentes desenvolvidos em Python (FastAPI) (BFF Mobile e BFF Web) servindo os frontends em React com payloads diferenciados e degradação graciosa.*
 
 ## **5\. Especificação de Roteamento, Segurança e Agregação Resiliente**
 
@@ -589,7 +589,7 @@ Dupla proteção: índice único parcial em saga\_execution\_state(doador\_id) p
 > * **RabbitMQ:** novas filas comunicacao.saga.comandos e orquestrador.saga.respostas; a fila agendamentos.saga deixa de ser necessária;  
 > * **BFF Mobile:** novo endpoint de criação de agendamento, que encaminha ao orquestrador;  
 > * **Contratos de API:** POST /api/v1/agendamentos (202) é substituído por POST /api/v1/sagas/agendamento no ms-orquestrador; o GET /api/v1/agendamentos/{id} com HATEOAS permanece em agendamentos;  
-> * **Infraestrutura:** novo serviço e novo banco no compose.yaml e nos manifestos Kubernetes; novo job no CI.
+> * **Infraestrutura:** novo serviço e novo banco no `compose.yaml`; novo job no CI.
 
 ## **7\. Referências**
 
@@ -618,14 +618,14 @@ Doadores têm dúvidas recorrentes sobre os critérios de doação (intervalos, 
 > * **Fidelidade à fonte oficial:** respostas baseadas na Portaria de Consolidação MS nº 5/2017 (Anexo IV), com a seção citada;  
 > * **Escopo do projeto:** a plataforma não avalia aptidão clínica; o assistente informa a regra, e a decisão é da triagem;  
 > * **Custo e privacidade:** sem envio de perguntas de saúde a terceiros e sem custo por token na demonstração;  
-> * **Latência e resiliência:** resposta em até 4 s ou fallback amigável, nunca erro 5xx;  
-> * **Reprodutibilidade:** subir com docker compose up -d --build e com os manifestos do Kubernetes.
+> * **Latência e resiliência:** na avaliação inicial, o limite de geração era de 4 s. O serviço retorna fallback em caso de timeout;
+> * **Reprodutibilidade:** executar com `docker compose --profile ia up -d --build`.
 
 ## **3\. Alternativas Consideradas**
 
 ### **Opção 1: Microsserviço ms-rag com LangChain, Ollama local (qwen2.5:1.5b + nomic-embed-text) e índice vetorial em memória (Opção Escolhida)**
 
-> * **Descrição Técnica:** a base curada da Portaria é dividida em trechos por seção e indexada na subida (InMemoryVectorStore do LangChain). A cadeia RAG recupera os 2 trechos mais próximos e os passa a uma chain LCEL (prompt | ChatOllama), com temperature 0 e um prompt restrito ao contexto. Perguntas do tipo "onde doar" são roteadas por intenção para uma Tool do LangChain que consulta as campanhas vigentes no hemocentros (leitura CQRS). Perguntas sem termos de doação são recusadas sem chamar o LLM. Timeouts de 1,5 s na busca e 4 s na geração, três circuit breakers (busca, LLM, campanhas) e fallback com o trecho recuperado;  
+> * **Descrição Técnica:** a base curada da Portaria é dividida em trechos por seção e indexada na subida (InMemoryVectorStore do LangChain). A cadeia RAG recupera os 2 trechos mais próximos e os passa a uma chain LCEL (prompt | ChatOllama), com temperature 0 e um prompt restrito ao contexto. Perguntas do tipo "onde doar" são roteadas por intenção para uma Tool do LangChain que consulta as campanhas vigentes no hemocentros (leitura CQRS). Saudações e dúvidas sobre o aplicativo recebem respostas locais. Perguntas fora do escopo são recusadas. Na configuração atual, há limites de 3 s na busca e 10 s na geração, três circuit breakers (busca, LLM, campanhas) e fallback com o trecho recuperado;
 > * **Vantagens (Prós):** sem custo variável nem dados enviados a terceiros; respostas citam a fonte (25/25 acertos com RAG contra 0/25 sem RAG); serviço isolado e substituível; degrada sem afetar o restante do app;  
 > * **Desvantagens (Contras / Trade-offs aceitos):** modelo pequeno, com raciocínio limitado (erra ao decidir "pode/não pode" a partir de datas, por isso o prompt pede apenas a regra); ~2 GB de RAM para o Ollama; desempenho sensível ao hardware (num\_thread precisa acompanhar os núcleos de desempenho da CPU).
 
@@ -647,7 +647,7 @@ Doadores têm dúvidas recorrentes sobre os critérios de doação (intervalos, 
 
 ## **4\. Decisão Tomada**
 
-*Decidimos adotar a Opção 1: microsserviço ms-rag (Python 3.12 / FastAPI + LangChain) com Ollama local, base curada da Portaria MS nº 5/2017 indexada em memória, roteamento por intenção para a ferramenta de campanhas, recusa determinística fora do domínio e resiliência por timeout (4 s), circuit breaker e fallback. O acesso do app é feito pelo BFF Mobile (POST /bff-mobile/assistente), que injeta o tipo sanguíneo do doador.*
+*Decidimos adotar a Opção 1: microsserviço ms-rag (Python 3.12 / FastAPI + LangChain) com Ollama local, base curada da Portaria MS nº 5/2017 indexada em memória, roteamento por intenção para a ferramenta de campanhas, recusa determinística fora do domínio e resiliência por timeout configurável, circuit breaker e fallback. O acesso do app é feito pelo BFF Mobile (POST /bff-mobile/assistente), que injeta o tipo sanguíneo do doador.*
 
 ## **5\. Especificação Técnica**
 
@@ -655,11 +655,11 @@ Doadores têm dúvidas recorrentes sobre os critérios de doação (intervalos, 
 > 2. **Circuit breaker:** 3 falhas ou timeouts seguidos abrem o circuito por 30 s (falha imediata, ~1 ms); depois, uma chamada de teste (meio-aberto) fecha ou reabre o circuito. Busca e LLM têm circuitos separados, para que o sucesso de um não zere as falhas do outro;  
 > 3. **Fallback:** mensagem amigável e, quando a busca funcionou, o trecho da Portaria recuperado (sem geração). O BFF devolve o fallback com 200 se o ms-rag estiver fora;  
 > 4. **Aquecimento:** o modelo é carregado na subida e mantido por keep\_alive de 30 min (a frio, a primeira geração leva ~10 s);  
-> 5. **Orçamento de tempo:** 1,5 s (busca) + 4 s (LLM) < 5,8 s (timeout do BFF) < 6 s (response-timeout do Gateway).
+> 5. **Orçamento de tempo:** no Compose, 3 s para a busca e 10 s para o LLM, com limites de 14 s no BFF e 15 s no Gateway. O relatório de avaliação mantém os tempos usados no ensaio original.
 
 ## **6\. Consequências e Impactos**
 
-> * **Novos componentes:** ms-rag (porta 8005) e Ollama (StatefulSet com volume no Kubernetes; serviços ollama e ollama-pull no Compose);  
+> * **Novos componentes:** ms-rag (porta 8005) e Ollama (volume persistente e serviços `ollama` e `ollama-pull` no perfil `ia` do Compose);
 > * **BFF Mobile:** novo endpoint POST /bff-mobile/assistente;  
 > * **hemocentros:** passa a ser consultado também pela ferramenta do ms-rag (somente leitura);  
 > * **Avaliação:** scripts/avaliar-rag.py gera docs/ia/avaliacao-rag.md (5 perguntas com e sem RAG, latência, tokens, custo e resiliência).

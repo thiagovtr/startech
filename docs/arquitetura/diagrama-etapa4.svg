@@ -10,26 +10,23 @@
 <rect x="10" y="190" width="1220" height="80" rx="10" fill="#fafafa" stroke="#ddd"/>
 <text x="22" y="208" class="f" text-anchor="start">BFFs (Python / FastAPI)</text>
 <rect x="10" y="280" width="1220" height="120" rx="10" fill="#fafafa" stroke="#ddd"/>
-<text x="22" y="298" class="f" text-anchor="start">Serviços (cada um com banco próprio)</text>
+<text x="22" y="298" class="f" text-anchor="start">Serviços de domínio, orquestração e IA</text>
 <rect x="10" y="410" width="1220" height="60" rx="10" fill="#fafafa" stroke="#ddd"/>
 <text x="22" y="428" class="f" text-anchor="start">Mensageria</text>
 <rect x="10" y="480" width="1220" height="120" rx="10" fill="#fafafa" stroke="#ddd"/>
 <text x="22" y="498" class="f" text-anchor="start">Dados e IA</text>
 <rect x="330" y="32" width="200" height="40" rx="8" fill="#fff" stroke="#888" stroke-width="1.5"/>
 <text x="430.0" y="46.0" class="t">App do doador</text>
-<text x="430.0" y="62.0" class="s">React (PWA)</text>
+<text x="430.0" y="62.0" class="s">React Native · Expo</text>
 <rect x="710" y="32" width="200" height="40" rx="8" fill="#fff" stroke="#888" stroke-width="1.5"/>
 <text x="810.0" y="46.0" class="t">Painel do hemocentro</text>
-<text x="810.0" y="62.0" class="s">React (Web)</text>
-<rect x="330" y="112" width="170" height="54" rx="8" fill="#f1f3f4" stroke="#777" stroke-width="1.5"/>
-<text x="415.0" y="133.0" class="t">Ingress NGINX</text>
-<text x="415.0" y="149.0" class="s">startech.local (K8s)</text>
+<text x="810.0" y="62.0" class="s">React · Vite · nginx :8085</text>
 <rect x="550" y="112" width="280" height="54" rx="8" fill="#fde7e9" stroke="#c5221f" stroke-width="1.5"/>
-<text x="690.0" y="133.0" class="t">API Gateway</text>
+<text x="690.0" y="133.0" class="t">API Gateway :8080</text>
 <text x="690.0" y="149.0" class="s">Spring Cloud Gateway · JWT RS256 · RBAC · rate limit</text>
 <rect x="880" y="112" width="200" height="54" rx="8" fill="#fde7e9" stroke="#c5221f" stroke-width="1.5"/>
 <text x="980.0" y="133.0" class="t">Keycloak</text>
-<text x="980.0" y="149.0" class="s">OIDC, realm startech</text>
+<text x="980.0" y="149.0" class="s">OIDC · realm startech · :8089 no host</text>
 <rect x="420" y="210" width="220" height="48" rx="8" fill="#e8f0fe" stroke="#3b6fd4" stroke-width="1.5"/>
 <text x="530.0" y="228.0" class="t">BFF Mobile :8001</text>
 <text x="530.0" y="244.0" class="s">agregação + degradação graciosa</text>
@@ -72,15 +69,17 @@
 <rect x="1020" y="520" width="180" height="56" rx="20" fill="#fff" stroke="#8430ce" stroke-width="1.5"/>
 <text x="1110.0" y="542.0" class="t">Ollama</text>
 <text x="1110.0" y="558.0" class="s">qwen2.5:1.5b + nomic-embed</text>
-<line x1="430.0" y1="72" x2="435.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
-<line x1="810.0" y1="72" x2="475.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
-<line x1="500" y1="139" x2="550" y2="139" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="430.0" y1="72" x2="610.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<line x1="810.0" y1="72" x2="740.0" y2="112" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
+<path d="M 465 32 V 19 H 975 V 112" fill="none" stroke="#777" stroke-width="1.2" marker-end="url(#m)"/>
+<path d="M 910 61 H 1000 V 112" fill="none" stroke="#777" stroke-width="1.2" marker-end="url(#m)"/>
 <line x1="830" y1="139" x2="880" y2="139" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <text x="855" y="132" class="r">/realms</text>
 <line x1="630.0" y1="166" x2="530.0" y2="210" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <text x="586.0" y="184.0" class="r" text-anchor="start">/api/mobile</text>
 <line x1="750.0" y1="166" x2="870.0" y2="210" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <text x="816.0" y="184.0" class="r" text-anchor="start">/api/web</text>
+<line x1="495" y1="258" x2="326" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <line x1="530.0" y1="258" x2="130.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <line x1="530.0" y1="258" x2="522.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
 <line x1="530.0" y1="258" x2="718.0" y2="312" stroke="#555" stroke-width="1.4" marker-end="url(#m)"/>
@@ -108,5 +107,5 @@
 <text x="26" y="668" class="lg" text-anchor="start"><tspan font-weight="600">⇢ laranja:</tspan> RabbitMQ via Transactional Outbox: comandos/respostas da SAGA (comunicacao.saga.comandos, orquestrador.saga.respostas), evento hemocentros.campanha.criada → projeção MongoDB</text>
 <text x="26" y="690" class="lg" text-anchor="start"><tspan font-weight="600">⇢ roxa:</tspan> ferramenta LangChain do ms-rag: campanhas vigentes (leitura CQRS) para "Onde posso doar hoje?"</text>
 <text x="26" y="712" class="lg" text-anchor="start"><tspan font-weight="600">SAGA:</tspan> 1 reserva vaga (agendamentos) · 2 RN01 + trava (doadores) · 3 lembrete D-1 + confirmação (comunicacao, assíncrono) · 4 confirma; compensações 3→2→1</text>
-<text x="26" y="734" class="lg" text-anchor="start"><tspan font-weight="600">Execução:</tspan> docker compose up -d --build  ·  Kubernetes: k8s/ (Ingress → Gateway; HPA no ms-hemocentros)</text>
+<text x="26" y="734" class="lg" text-anchor="start"><tspan font-weight="600">Execução:</tspan> docker compose up -d --build  ·  Com Ollama e ms-rag: docker compose --profile ia up -d --build</text>
 </svg>

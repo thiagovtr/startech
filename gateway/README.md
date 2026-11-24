@@ -26,7 +26,7 @@ Ponto único de entrada (*Single Point of Entry*) da plataforma **StarTech**, re
 5. **Rate Limiting (`RateLimitGlobalFilter`):**
    * Algoritmo *Token Bucket* em memória por usuário autenticado (`X-User-Id`) ou IP de origem (`X-Forwarded-For`), retornando `429 Too Many Requests` (`urn:startech:error:rate-limit-excedido`) quando excedido.
 6. **Timeouts Calibrados para Degradação Graciosa:**
-   * `response-timeout: 6s` (superior ao teto de `3.8s` do `bff-mobile`, garantindo que respostas degradadas graciosamente nunca sejam cortadas pelo Gateway).
+   * O padrão de `GATEWAY_RESPONSE_TIMEOUT` é `15s`. Nas consultas ao assistente, o BFF Mobile espera até 14 s pelo RAG antes de devolver a resposta de contingência.
 
 ---
 
