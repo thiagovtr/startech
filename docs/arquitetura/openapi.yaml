@@ -461,10 +461,11 @@ paths:
           schema: { type: string, example: ATIVA }
         - name: vigentes
           in: query
-          schema: { type: boolean }
+          description: Filtra por data de término igual ou posterior ao dia da consulta.
+          schema: { type: boolean, default: false }
         - name: limit
           in: query
-          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
           schema: { type: integer, minimum: 0, default: 0 }
@@ -481,14 +482,20 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Campanha"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
         "401":
           $ref: "#/components/responses/Unauthorized401"
         "403":
           $ref: "#/components/responses/Forbidden403"
+        "429":
+          $ref: "#/components/responses/TooManyRequests429"
         "502":
-          $ref: "#/components/responses/ServiceUnavailable503"
+          $ref: "#/components/responses/BadGateway502"
         "503":
           $ref: "#/components/responses/ServiceUnavailable503"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout504"
     post:
       tags: [BFF Web (Gateway /api/web)]
       summary: Cria uma nova campanha de doação (Command CQRS + Outbox)
@@ -516,8 +523,12 @@ paths:
           $ref: "#/components/responses/Forbidden403"
         "429":
           $ref: "#/components/responses/TooManyRequests429"
+        "502":
+          $ref: "#/components/responses/BadGateway502"
         "503":
           $ref: "#/components/responses/ServiceUnavailable503"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout504"
 
   # ===========================================================================
   # 4. MS-HEMOCENTROS (INTERNO: /api/v1/campanhas)
@@ -536,13 +547,14 @@ paths:
           schema: { type: string }
         - name: vigentes
           in: query
-          schema: { type: boolean }
+          description: Filtra por data de término igual ou posterior ao dia da consulta.
+          schema: { type: boolean, default: false }
         - name: limit
           in: query
-          schema: { type: integer, default: 20 }
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
-          schema: { type: integer, default: 0 }
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         "200":
           description: Campanhas encontradas na projeção MongoDB.
@@ -555,6 +567,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Campanha"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
         "503":
           $ref: "#/components/responses/ServiceUnavailable503"
     post:
@@ -1023,7 +1037,7 @@ paths:
         - `RAG`: busca vetorial (`nomic-embed-text`) + chain LCEL (`PROMPT_RAG | ChatOllama`).
         - `FERRAMENTA`: invoca a Tool `campanhas_vigentes` no `ms-hemocentros` ("Onde posso doar hoje?").
         - `FORA_DO_ESCOPO`: guardrail antes do LLM.
-        - `FALLBACK`: ativado em timeout (`4 s`), erro ou circuit breaker aberto (nunca retorna 5xx pelo LLM).
+        - `FALLBACK`: ativado em timeout (3 s na busca ou 10 s na geração, por padrão), erro ou circuit breaker aberto (nunca retorna 5xx pelo LLM).
       requestBody:
         required: true
         content:
@@ -1172,11 +1186,23 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetail"
           example:
-            type: urn:startech:error:limite-requisicoes-excedido
+            type: urn:startech:error:rate-limit-excedido
             title: Limite de Requisições Excedido
             status: 429
             detail: Muitas requisições em curto intervalo. Aguarde alguns instantes e tente novamente.
             instance: /api/mobile/home
+    BadGateway502:
+      description: O serviço de hemocentros respondeu ao BFF Web com erro interno.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+    GatewayTimeout504:
+      description: O BFF Web excedeu o tempo de espera pela resposta do serviço de hemocentros.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
     ServiceUnavailable503:
       description: Dependência interna ou banco temporariamente indisponível.
       content:
@@ -1243,7 +1269,7 @@ components:
         tipo_sanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
         urgencia: { type: string, enum: [NORMAL, CRITICO], default: NORMAL, example: CRITICO }
         data_inicio: { type: string, format: date, example: "2026-11-14" }
-        data_fim: { type: string, format: date, example: "2026-11-30" }
+        data_fim: { type: string, format: date, description: Igual ou posterior à data de início., example: "2026-11-30" }
 
     Campanha:
       allOf:

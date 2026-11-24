@@ -10,7 +10,7 @@ A **StarTech** propõe uma plataforma voltada ao contexto da doação de sangue 
 - **Instituição:** Universidade Federal de Lavras (UFLA)
 - **Semestre:** 2026/2
 
-**Acesso rápido:** [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
+**Acesso rápido:** [Como executar](#como-executar) · [Concepção](./docs/concepcao.md) · [Diagrama da Arquitetura (Etapa 4)](./docs/arquitetura/diagrama-etapa4.svg) · [Diagrama da Parte 2](./docs/arquitetura/diagram.svg) · [Avaliação do RAG](./docs/ia/avaliacao-rag.md) · [Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) · [Decisões Arquiteturais (ADRs)](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) · [Contratos de API e HATEOAS](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md)
 
 ## Problema
 
@@ -65,47 +65,57 @@ As tecnologias e os padrões descritos a seguir estão **implementados** neste r
 
 Além dos serviços de domínio, o **Orquestrador** (`orquestrador`, Python, FastAPI e PostgreSQL) é um microsserviço dedicado à coordenação da SAGA de agendamento: mantém o estado de cada transação distribuída e publica seus comandos pelo Transactional Outbox, sem regras de domínio próprias (ver ADR-006).
 
-O **Assistente do doador** (`rag`, Python, FastAPI, LangChain e Ollama local) responde dúvidas sobre critérios de doação com base na Portaria de Consolidação MS nº 5/2017 (RAG) e informa as campanhas ativas, com timeout de 4 s, circuit breaker e fallback (ver ADR-007).
+O **Assistente do doador** (`rag`, Python, FastAPI, LangChain e Ollama local) responde dúvidas sobre critérios de doação com base na Portaria de Consolidação MS nº 5/2017 (RAG) e informa as campanhas ativas, com limites de tempo, circuit breaker e fallback (ver ADR-007).
 
 Cada microsserviço mantém sua própria persistência. No serviço `hemocentros`, o PostgreSQL é utilizado no modelo de escrita, enquanto o MongoDB mantém uma visão de leitura para consultas.
 
-### Acesso, Clientes e Comunicação
+### Acesso pelos dois clientes
 
-A solução prevê dois tipos de clientes, com necessidades distintas:
+| Cliente | Acesso e conta de desenvolvimento | Operações |
+| --- | --- | --- |
+| [Painel dos hemocentros](./web-hemocentros/README.md) | Navegador em `http://localhost:8085`, usuário `operador1` | Criar, filtrar e consultar campanhas. |
+| [Aplicativo do doador](./mobile-doador/README.md) | React Native com Expo, usuário `doador1` ou conta criada no aplicativo | Cadastrar o perfil, consultar campanhas e horários, agendar, acompanhar a SAGA e usar o assistente. |
 
-- **Cliente móvel do doador:** acesso a informações pessoais, campanhas, oportunidades de doação e agendamentos, por meio de um **BFF Mobile**.
-- **Painel web dos serviços de hemoterapia:** cadastro e acompanhamento de campanhas e necessidades de doação, por meio de um **BFF Web**.
-
-Ambos os BFFs foram projetados em **Python/FastAPI**, com interfaces planejadas em **React** (a forma final do cliente móvel, PWA ou React Native, ainda será definida). A autenticação e a gestão de identidade ficam a cargo do **Keycloak**, enquanto o **API Gateway** centraliza a entrada das requisições, a validação de acesso e o roteamento para os BFFs.
-
-De forma simplificada, as requisições seguem o percurso **cliente → API Gateway → BFF correspondente → microsserviços de domínio**. A comunicação entre componentes combina **APIs REST versionadas** (`/api/v1/`) e processamento assíncrono de mensagens com **RabbitMQ**, conforme a necessidade de cada operação.
+Os clientes se autenticam no realm `startech` do Keycloak pelo fluxo Authorization Code com PKCE S256. O Gateway recebe o token Bearer e verifica o papel e a audiência antes de encaminhar as chamadas. O painel usa `startech-web` (papel `operador`, audiência `bff-web`) em `/api/web/**`. O aplicativo usa `startech-mobile` (papel `doador`, audiência `bff-mobile`) em `/api/mobile/**`. As contas de desenvolvimento e as opções de redirecionamento estão no [guia do Keycloak](./keycloak/README.md).
 
 ### Padrões de Sistemas Distribuídos
 
 Os principais padrões definidos para a arquitetura são:
 
-- **SAGA orquestrada:** o microsserviço dedicado `orquestrador` coordena uma transação de reserva que envolve `agendamentos`, `doadores` e `comunicacao`. O fluxo prevê reserva provisória de vaga, verificação administrativa dos intervalos registrados entre doações, registro de lembrete e envio de confirmação. Em caso de falha, são previstas compensações para as operações reversíveis, como liberar a vaga e remover um bloqueio temporal. Essa verificação não substitui a avaliação clínica realizada pelo serviço de hemoterapia.
+- **SAGA orquestrada:** o microsserviço dedicado `orquestrador` coordena uma transação de reserva que envolve `agendamentos`, `doadores` e `comunicacao`. A reserva provisória da vaga é seguida pela verificação do intervalo, pelo registro do lembrete e pela confirmação da reserva. Em caso de falha, o orquestrador coordena compensações para as operações reversíveis, como liberar a vaga e remover um bloqueio temporal. Essa verificação não substitui a avaliação clínica realizada pelo serviço de hemoterapia.
 - **CQRS:** aplicado em `hemocentros`, separando as operações de escrita no PostgreSQL das consultas à visão de leitura no MongoDB. As alterações são propagadas de forma assíncrona por eventos, com **consistência eventual** entre os modelos.
 - **Database per Service:** cada microsserviço é responsável pelos próprios dados, sem compartilhamento direto de seu banco com os demais serviços.
-- **Transactional Outbox:** o projeto prevê o registro de alterações de domínio e eventos na mesma transação local. Um processo posterior publicará os eventos no RabbitMQ, reduzindo o risco de inconsistência associado ao *dual write*. O `orquestrador` aplica o mesmo padrão às transições de estado da SAGA e aos comandos enviados a `comunicacao`.
-- **HATEOAS:** previsto nos contratos REST de agendamento. Os links de navegação e ações disponíveis variam de acordo com o estado do agendamento, como confirmado ou cancelado.
-- **RAG com resiliência:** o `rag` recupera trechos da Portaria MS nº 5/2017 e gera respostas restritas a esse contexto. Perguntas sobre locais de doação vão para uma ferramenta que lê as campanhas vigentes (CQRS). Timeout de 4 s, circuit breaker e fallback garantem que o assistente nunca derrube o app.
+- **Transactional Outbox:** os serviços registram alterações de domínio e eventos na mesma transação local. Um processo separado publica os eventos no RabbitMQ, reduzindo o risco de inconsistência associado ao *dual write*. O `orquestrador` aplica o mesmo padrão às transições de estado da SAGA e aos comandos enviados a `comunicacao`.
+- **HATEOAS:** implementado nos contratos REST de agendamento. Os links de navegação e ações disponíveis variam de acordo com o estado do agendamento, como confirmado ou cancelado.
+- **RAG com resiliência:** o `rag` recupera trechos da Portaria MS nº 5/2017 e gera respostas restritas a esse contexto. Perguntas sobre locais de doação vão para uma ferramenta que lê as campanhas vigentes (CQRS). Na configuração do Compose, a recuperação tem limite de 3 s e a geração, de 10 s. O BFF espera até 14 s pelo RAG e pode devolver uma resposta de contingência.
 
 Os detalhes das decisões, alternativas consideradas e fluxos de comunicação estão disponíveis no [catálogo de decisões arquiteturais](./docs/arquitetura/Cat%C3%A1logo%20de%20Decis%C3%B5es%20Arquiteturais%20%28ADRs%29%20-%20StarTech.md) e na [especificação de contratos de API](./docs/arquitetura/Especificac%CC%A7a%CC%83o%20de%20Contratos%20de%20API%20e%20HATEOAS%20-%20StarTech.md).
 
-### Como Executar
+### Como executar
 
-```bash
-cp .env.example .env               # opcional: credenciais de desenvolvimento
-docker compose up -d --build       # stack completa; na 1ª vez baixa os modelos do Ollama (~1,3 GB)
-scripts/e2e-saga.sh                # E2E da SAGA pelo Gateway (caminho feliz, compensações e timeout)
-scripts/e2e-cqrs.sh                # E2E do CQRS (escrita no PostgreSQL, leitura no MongoDB)
-scripts/test-docker.sh             # testes dos serviços Python com bancos e broker reais
+Na raiz do repositório, execute os comandos abaixo com Docker e o plugin Compose.
+
+```sh
+docker compose up -d --build
+docker compose ps
 ```
 
-Roteiro da demonstração ao vivo, com um script de evidência por critério: [docs/demonstracao.md](./docs/demonstracao.md) (`scripts/demo/preparar.sh` deixa a stack pronta).
+Com a configuração padrão, o painel atende em `http://localhost:8085`, o Gateway em `http://localhost:8080` e o Keycloak em `http://localhost:8089`. Essa execução atende ao fluxo de campanhas e agendamento. Para incluir o assistente com inferência local, execute:
 
-Avaliação do RAG: `docker compose exec -T ms-rag python - < scripts/avaliar-rag.py`.
+```sh
+docker compose --profile ia up -d --build
+docker compose --profile ia ps -a
+```
+
+O perfil `ia` acrescenta `ollama`, `ollama-pull` e `ms-rag`. Na primeira execução, o download dos modelos exige acesso à internet. O término de `ollama-pull` com código 0 é esperado. O serviço RAG constrói seu índice em memória. Sem esse perfil, o BFF Mobile mantém a rota do assistente disponível com resposta de contingência. As portas e os modelos podem ser ajustados seguindo o [exemplo de configuração](./.env.example).
+
+**Como conferir uma campanha nos dois clientes**
+
+1. Abra o painel como operador. Crie uma campanha com título identificável, início hoje, término hoje ou depois e o mesmo tipo sanguíneo do perfil do doador. Guarde o ID devolvido pelo `POST /api/web/campanhas` (HTTP 201).
+2. Inicie o app seguindo o [guia do doador](./mobile-doador/README.md). No dispositivo físico, configure `EXPO_PUBLIC_API_URL` e `EXPO_PUBLIC_KEYCLOAK_URL` com endereços do servidor acessíveis pelo aparelho. Entre como doador e confira o tipo sanguíneo no perfil.
+3. Após alguns segundos, abra novamente a tela inicial de modo que ela faça uma nova consulta. A campanha deve aparecer com o mesmo título e hemocentro. O ID em `campanhas` na resposta de `GET /api/mobile/home` deve coincidir com o do painel. Essa leitura vem da projeção em MongoDB atualizada via RabbitMQ.
+
+O [roteiro da Parte 4](./docs/demonstracao.md) traz comandos e resultados esperados para a SAGA, as compensações, a projeção CQRS e o assistente. Use `scripts/demo/preparar.sh` apenas em um ambiente de demonstração: ele apaga agendamentos, horários e travas de elegibilidade antes de recriar a grade. Os testes automatizados têm scripts próprios para [SAGA](./scripts/e2e-saga.sh), [CQRS](./scripts/e2e-cqrs.sh) e [serviços Python](./scripts/test-docker.sh). A [avaliação do RAG](./docs/ia/avaliacao-rag.md) registra as medições e as condições do ensaio.
 
 ## Organização do Repositório
 
@@ -114,6 +124,8 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 ```text
 .
 ├── docs/                    # concepção, ADRs, contratos, diagramas e avaliação do RAG (docs/ia/)
+├── mobile-doador/           # aplicativo React Native / Expo
+├── web-hemocentros/         # painel React / Vite servido por nginx
 ├── gateway/                 # API Gateway (Spring Cloud Gateway)
 ├── keycloak/                # Keycloak com o realm startech
 ├── bff-mobile/, bff-web/    # BFFs (Python / FastAPI)
@@ -124,7 +136,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 ├── ms-comunicacao/          # Python / FastAPI, passo 3 da SAGA, lembretes
 ├── ms-rag/                  # Python / FastAPI + LangChain + Ollama (RAG)
 ├── scripts/                 # testes, E2E e avaliação do RAG
-├── compose.yaml             # stack completa (docker compose up -d --build)
+├── compose.yaml             # execução local e perfil opcional ia
 └── README.md
 ```
 
@@ -134,7 +146,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 - [`docs/concepcao.md`](./docs/concepcao.md) — fundamentação do problema, motivação, impacto social esperado e esboço conceitual da solução;
 - [`docs/arquitetura/`](./docs/arquitetura/) — decisões arquiteturais, contratos de API e diagramas de componentes;
 - [`docs/ia/`](./docs/ia/) — avaliação do assistente RAG (com e sem RAG, latência, custo e resiliência);
-- cada serviço tem um `README.md` com execução, configuração e testes;
+- [OpenAPI](./docs/arquitetura/openapi.yaml) — métodos, parâmetros, respostas e erros das APIs;
 - [`.gitignore`](./.gitignore) — definição de arquivos e diretórios que não devem ser versionados;
 - [`LICENCE`](./LICENCE) — licença MIT do repositório;
 - [`README.md`](./README.md) — visão geral e ponto de entrada do repositório.

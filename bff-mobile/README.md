@@ -4,13 +4,15 @@ Backend for Frontend (Python 3.12 / FastAPI), sem banco e sem estado. App móvel
 
 ## Executar
 
-Pela raiz: `docker compose up -d --build` (porta 8001). Localmente:
+Na raiz, execute `docker compose up -d --build`. A porta 8001 é interna ao Compose. O cliente usa o Gateway em `http://localhost:8080/api/mobile/home` com o token correspondente. Para iniciar o BFF isoladamente:
 
 ```bash
 cd bff-mobile
 python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 BFF_MOBILE_HEMOCENTROS_URL=http://127.0.0.1:8000 .venv/bin/uvicorn bff_mobile.main:app --app-dir src --port 8001
 ```
+
+O app salva o perfil com `PUT /api/mobile/perfil`. O BFF usa a identidade recebida do Gateway para encaminhar o cadastro ou atualização ao `ms-doadores`. A consulta seguinte da tela inicial pode então usar o tipo sanguíneo cadastrado.
 
 ## Agendamento (SAGA)
 
@@ -36,7 +38,7 @@ Repassa o recurso do `ms-agendamentos` (contratos §3), reescrevendo os links in
 | `AGENDAMENTOS_URL` | `http://ms-agendamentos:8082` | Recurso Agendamento (`AGENDAMENTOS_TIMEOUT`, padrão 3 s). |
 | `PREFIXO_PUBLICO` | `/api/mobile` | Prefixo dos links devolvidos ao app (rota pública no Gateway). |
 | `TIPO_SANGUINEO_FALLBACK` | vazio | Sem tipo conhecido, lista todas as vigentes (`campanhasPersonalizadas: false`). |
-| `EXIGIR_PAPEL` / `PAPEL_EXIGIDO` | `false` / `doador` | Checagem de `X-User-Roles` (ligar quando o Gateway injetar o cabeçalho). |
+| `EXIGIR_PAPEL` / `PAPEL_EXIGIDO` | `false` / `doador` | No Compose, a checagem está habilitada e o Gateway fornece `X-User-Roles`. |
 
 O BFF confia em `X-User-Id` (e `X-User-Roles`) injetados pelo Gateway e propaga `X-Request-Id` às chamadas internas. Logs em JSON (`LOG_FORMAT=texto` para texto).
 

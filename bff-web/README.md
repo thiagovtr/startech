@@ -4,7 +4,7 @@ Backend for Frontend (Python 3.12 / FastAPI), sem banco e sem estado. Painel web
 
 ## Executar
 
-Pela raiz: `docker compose up -d --build` (porta 8002). Localmente:
+Na raiz, execute `docker compose up -d --build`. A porta 8002 é interna ao Compose. O cliente usa o Gateway em `http://localhost:8080/api/web/campanhas` com o token correspondente. Para iniciar o BFF isoladamente:
 
 ```bash
 cd bff-web
@@ -17,7 +17,7 @@ BFF_WEB_HEMOCENTROS_URL=http://127.0.0.1:8000 .venv/bin/uvicorn bff_web.main:app
 | Variável | Padrão | Observação |
 | --- | --- | --- |
 | `HEMOCENTROS_URL` | `http://ms-hemocentros:8000` | |
-| `EXIGIR_PAPEL` / `PAPEL_EXIGIDO` | `false` / `operador` | Checagem de `X-User-Roles` (ligar quando o Gateway injetar o cabeçalho). |
+| `EXIGIR_PAPEL` / `PAPEL_EXIGIDO` | `false` / `operador` | No Compose, a checagem está habilitada e o Gateway fornece `X-User-Roles`. |
 
 O BFF confia em `X-User-Id` (e `X-User-Roles`) injetados pelo Gateway e propaga `X-Request-Id` às chamadas internas. Logs em JSON (`LOG_FORMAT=texto` para texto).
 
