@@ -26,7 +26,10 @@ export type {
   SolicitacaoAgendamento,
   SlotDisponivel,
 } from './agendamentos';
+export { consultarHome } from './home';
 export type { CampanhaHome, DoadorHome, RespostaHome, UrgenciaCampanha } from './home';
+export { salvarPerfil } from './perfil';
+export type { FormularioPerfil, RespostaPerfil, SexoDoador, TipoSanguineo } from './perfil';
 export type {
   CategoriaErroHttp,
   CategoriaRespostaHttp,
