@@ -352,6 +352,28 @@ Os cabeçalhos internos `X-User-Id` e `X-User-Roles` não são enviados manualme
 
 Login, logout e restauração de sessão foram testados com sucesso em um iPhone pelo Expo Go, usando a infraestrutura Azure.
 
+### Cadastro de perfil
+
+Após o primeiro login, e também após a restauração de uma sessão, o aplicativo consulta:
+
+```http
+GET /api/mobile/home
+```
+
+Quando a resposta indicar `doador.cadastrado: false`, as abas permanecem bloqueadas até a conclusão do cadastro. Uma resposta degradada ou `doador.statusDegradado` não é tratada como ausência de perfil.
+
+O formulário envia os dados exclusivamente pelo Gateway:
+
+```http
+PUT /api/mobile/perfil
+```
+
+Os campos são nome completo, tipo sanguíneo (`A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+` ou `O-`), sexo (`M` ou `F`) e data da última doação opcional, no formato `AAAA-MM-DD`. O aplicativo valida nome, data inexistente e data futura antes do envio; também apresenta falhas de conexão e os campos devolvidos em `invalidParams`.
+
+Após salvar, o aplicativo consulta a Home novamente e libera as abas somente se o perfil estiver cadastrado. A tela também permite encerrar a sessão para trocar de usuário.
+
+A tela e a seleção de tipo sanguíneo foram verificadas visualmente em um iPhone com Expo Go. O salvamento integrado ainda não foi aprovado: a Azure respondeu `404 Not Found` para o endpoint de perfil, pois a PR #36 já está na `main`, mas ainda não foi publicada nesse ambiente. O teste completo será repetido após a atualização da infraestrutura.
+
 ### Home
 
 Endpoint:
@@ -494,6 +516,7 @@ Após um cancelamento confirmado, a representação atualizada retornada pelo Ba
 | URLs configuráveis do Gateway e Keycloak | Implementado |
 | Login OIDC com PKCE | Implementado e testado no iPhone com Expo Go e Azure |
 | Armazenamento e renovação de tokens | Implementado; restauração de sessão testada no ambiente citado |
+| Cadastro de perfil após o primeiro login | Implementado no aplicativo; interface validada visualmente no iPhone, com integração de salvamento pendente da publicação da PR #36 na Azure |
 | Home com perfil e campanhas | Integrada e testada no iPhone com Azure |
 | Consulta e solicitação de agendamento | Integradas e testadas no iPhone com Azure |
 | Acompanhamento da SAGA | Integrado por HATEOAS; acesso a partir da solicitação e navegação para detalhes confirmados em teste |
@@ -510,7 +533,7 @@ As principais pendências são:
 
 1. **SAGA:** a compensação automática e a preservação das vagas foram observadas pelo aplicativo; ainda falta comprovar internamente a reserva provisória e a execução de `STEP1 COMPENSATE OK` no Back-End.
 2. **Cenários excepcionais:** conflitos de concorrência, indisponibilidade dos serviços e respostas de erro ainda precisam de testes manuais específicos.
-3. **Cadastro de novos doadores:** há um problema em investigação no Back-End; ele não está resolvido nesta documentação.
+3. **Cadastro de perfil na Azure:** a PR #36 está integrada à `main`, mas o endpoint `PUT /api/mobile/perfil` ainda não foi publicado na infraestrutura Azure. No teste realizado, o salvamento recebeu `404 Not Found`; o fluxo integrado deve ser repetido após a atualização do ambiente.
 4. **Testes automatizados:** o aplicativo ainda não possui uma suíte própria de testes automatizados.
 
 As integrações ainda não testadas não devem ser consideradas automaticamente funcionais apenas porque o código compila.
@@ -551,6 +574,7 @@ Os testes abaixo foram realizados com sucesso em um iPhone, pelo Expo Go, conect
 7. Listagem e detalhes de agendamentos reais, incluindo atualização da lista ao retornar; oito testes manuais desse fluxo foram aprovados.
 8. Exibição condicional do cancelamento, confirmação, desistência, cancelamento real e atualização da situação e da listagem; oito testes manuais desse fluxo foram aprovados.
 9. Compensação automática da SAGA: um horário com 5 vagas foi solicitado, terminou como `CANCELADO` com “Solicitação compensada” e motivo de intervalo mínimo; após o retorno à tela Agendar, o mesmo horário permaneceu com 5 vagas. O cenário foi reproduzido em novas tentativas.
+10. Tela de conclusão de perfil e seleção de tipo sanguíneo visualizadas no iPhone com Expo Go. O envio não foi aprovado como teste integrado: a Azure respondeu `404 Not Found` para `PUT /api/mobile/perfil`, antes da publicação da PR #36 nesse ambiente.
 
 Permanecem recomendados testes da sequência interna de compensação da SAGA, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
 

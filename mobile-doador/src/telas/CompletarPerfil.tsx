@@ -205,7 +205,7 @@ function OpcaoSelecionavel({ aoPressionar, selecionada, titulo }: PropriedadesOp
       style={({ pressed }) => [
         estilos.opcao,
         selecionada && estilos.opcaoSelecionada,
-        pressed && estilos.opcaoPressionada,
+        pressed && !selecionada && estilos.opcaoPressionada,
       ]}
     >
       <Text style={[estilos.textoOpcao, selecionada && estilos.textoOpcaoSelecionada]}>{titulo}</Text>
