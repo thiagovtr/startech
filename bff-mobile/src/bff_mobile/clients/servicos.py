@@ -45,6 +45,13 @@ class DoadoresClient:
         except ValueError as exc:
             raise ServicoIndisponivel("ms-doadores", "resposta inválida") from exc
 
+    async def salvar(self, doador_id: str, dados: dict) -> tuple[int, dict]:
+        """Cadastra ou atualiza o perfil do doador no ms-doadores (PUT /api/v1/doadores/{id})."""
+        return await _chamar(
+            self._http, "ms-doadores", "PUT", f"/api/v1/doadores/{doador_id}",
+            headers={"X-User-Id": doador_id}, json=dados,
+        )
+
 
 class HemocentrosClient:
     def __init__(self, http: httpx.AsyncClient):
