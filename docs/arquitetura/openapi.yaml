@@ -178,6 +178,39 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable503"
 
+  /api/mobile/perfil:
+    put:
+      tags: [BFF Mobile (Gateway /api/mobile)]
+      summary: Cadastra ou atualiza o perfil do doador autenticado
+      description: |
+        Controlador `bff_mobile/api/home.py`. Encaminha para `PUT /api/v1/doadores/{id}` no `ms-doadores` usando o `X-User-Id` extraído do JWT pelo Gateway.
+        Permite que doadores recém-cadastrados pelo Keycloak (`cadastrado: false`) completem seu perfil e passem a receber campanhas personalizadas.
+      security:
+        - BearerMobile: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoadorPerfilRequest"
+      responses:
+        "200":
+          description: Perfil cadastrado ou atualizado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoadorPerfilResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "429":
+          $ref: "#/components/responses/TooManyRequests429"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
   /api/mobile/slots:
     get:
       tags: [BFF Mobile (Gateway /api/mobile)]
@@ -571,6 +604,33 @@ paths:
           $ref: "#/components/responses/BadRequest400"
         "404":
           $ref: "#/components/responses/NotFound404"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+    put:
+      tags: [MS-Doadores (Elegibilidade RN01)]
+      summary: Cadastra ou atualiza o perfil do doador (upsert)
+      description: Controlador `DoadorController.java`. Cria o registro do doador caso ainda não exista ou atualiza nome, tipo sanguíneo, sexo e data da última doação.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 11111111-1111-1111-1111-111111111111
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoadorPerfilRequest"
+      responses:
+        "200":
+          description: Perfil salvo com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoadorPerfilResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
         "503":
           $ref: "#/components/responses/ServiceUnavailable503"
 
@@ -1194,11 +1254,21 @@ components:
             id: { type: string, format: uuid, example: 6e99149c-d03e-450a-a222-f335164a6d28 }
             status: { type: string, example: ATIVA }
 
+    DoadorPerfilRequest:
+      type: object
+      required: [nome, tipoSanguineo, sexo]
+      properties:
+        nome: { type: string, minLength: 2, maxLength: 120, example: Maria Silva }
+        tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
+        sexo: { type: string, enum: [M, F], example: F }
+        dataUltimaDoacao: { type: string, format: date, nullable: true, example: "2026-01-10" }
+
     DoadorPerfilResponse:
       type: object
-      required: [id, tipoSanguineo]
+      required: [id, nome, tipoSanguineo]
       properties:
         id: { type: string, format: uuid, example: 11111111-1111-1111-1111-111111111111 }
+        nome: { type: string, example: Maria Silva }
         tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
 
     HomeMobileResponse:
@@ -1213,7 +1283,9 @@ components:
           type: object
           properties:
             id: { type: string }
+            nome: { type: string }
             tipoSanguineo: { type: string }
+            cadastrado: { type: boolean }
             statusDegradado: { type: boolean }
         tipoSanguineoCampanhas: { type: string, nullable: true, example: O- }
         campanhasPersonalizadas: { type: boolean }
