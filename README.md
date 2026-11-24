@@ -162,7 +162,7 @@ A documentação e os artefatos do projeto são mantidos neste repositório. Sua
 | [Diagrama de Arquitetura (Parte 2)](./docs/arquitetura/diagram.svg) | Projeto arquitetural original da Parte 2. |
 | [Avaliação do RAG](./docs/ia/avaliacao-rag.md) | 5 perguntas com e sem RAG, latência, tokens, projeção de custo e teste de resiliência. |
 | [Roteiro da Demonstração](./docs/demonstracao.md) | Passo a passo da Parte 4 com os comandos de `scripts/demo/` e o resultado esperado de cada critério. |
-| [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | *(Histórico)* Teste de estresse e auto-scaling no Kubernetes (HPA 1 → 3 → 1 réplicas), painel geral e prints do Grafana k6. |
+| [Relatório de Escalabilidade (Grafana k6)](./docs/escalabilidade/relatorio-escalabilidade-k6.md) | Benchmark comparativo no Docker Compose (`1` vs. `3` réplicas do `ms-hemocentros` na Azure), consistência CQRS/Outbox e painel de métricas do Grafana k6. |
 
 
 ## Equipe
