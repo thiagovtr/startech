@@ -49,3 +49,23 @@ Na triagem, a hemoglobina mínima exigida é de 12,5 g/dL para mulheres e 13,0 g
 ## Documento e alimentação
 
 O candidato deve apresentar documento oficial com foto. Recomenda-se estar descansado e alimentado, evitando alimentos gordurosos nas 3 horas anteriores à doação.
+
+## Uso de drogas ilícitas e injetáveis
+
+O uso de drogas ilícitas injetáveis (com seringa ou agulha) gera inaptidão definitiva para doação de sangue. O uso de drogas ilícitas não injetáveis de maior risco, como cocaína, crack ou anfetaminas, gera inaptidão temporária de 12 meses após o último uso. O uso de maconha gera inaptidão temporária de 12 horas antes da doação.
+
+## Impedimentos definitivos e doenças infecciosas
+
+São motivos de inaptidão definitiva para doação de sangue: evidência clínica ou laboratorial de HIV/AIDS, hepatites B ou C (ou hepatite após os 11 anos de idade), doença de Chagas, infecção por HTLV I/II e histórico de malária (conforme critérios epidemiológicos avaliados na triagem).
+
+## Cirurgias e transfusões de sangue
+
+Após cirurgias de pequeno ou médio porte, a inaptidão temporária varia em geral de 3 a 6 meses; após cirurgias de grande porte, de 6 a 12 meses, conforme avaliação clínica na triagem. Quem recebeu transfusão de sangue ou hemocomponentes fica inapto por 12 meses após o procedimento.
+
+## Medicamentos e antibióticos
+
+Analgésicos e antitérmicos simples, quando não há infecção ou sintomas ativos, geralmente não impedem a doação. O uso de antibióticos gera inaptidão temporária: é necessário aguardar o término completo do tratamento e a cura total da infecção (em geral ao menos 7 a 15 dias após o fim do medicamento, avaliado na triagem).
+
+## Diabetes e hipertensão arterial
+
+Pessoas com hipertensão arterial controlada com medicação e pressão estável no momento da triagem geralmente podem doar. Pessoas com diabetes controlada apenas por dieta ou hipoglicemiantes orais podem doar se não houver complicações; o uso de insulina gera inaptidão definitiva para doação de sangue.

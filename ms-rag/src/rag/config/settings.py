@@ -23,10 +23,10 @@ class Settings(BaseSettings):
 
     # Resiliência (plano Dev 4, Bloco 18): sem resposta do LLM em `timeout_llm` s -> fallback amigável.
     # Calibrado para rodar com folga em VMs de 4 vCPUs sem GPU, mantendo fallback rápido se o Ollama travar.
-    timeout_llm: float = 10.0
-    # Busca (embedding da pergunta): orçamento próprio. Total no pior caso = timeout_busca + timeout_llm (13 s),
-    # abaixo dos 14 s do BFF Mobile e dos 15 s do Gateway (response-timeout).
-    timeout_busca: float = 3.0
+    timeout_llm: float = 25.0
+    # Busca (embedding da pergunta): orçamento próprio. Total no pior caso = timeout_busca + timeout_llm (30 s),
+    # abaixo dos 32 s do BFF Mobile e dos 35 s do Gateway (response-timeout).
+    timeout_busca: float = 5.0
     # Circuit breaker: `cb_falhas` falhas seguidas abrem o circuito por `cb_aberto_segundos`; depois, uma
     # chamada de teste (meio-aberto) decide se fecha de novo.
     cb_falhas: int = 3

@@ -33,7 +33,9 @@ function lerConfiguracao(): ResultadoConfiguracao {
 export function useAutenticacao() {
   const [resultadoConfiguracao] = useState<ResultadoConfiguracao>(lerConfiguracao);
   const configuracao = resultadoConfiguracao.configuracao;
-  const uriRedirecionamento = AuthSession.makeRedirectUri({ scheme: 'startech', path: 'autenticacao' });
+  const uriRedirecionamento =
+    process.env.EXPO_PUBLIC_REDIRECT_URI?.trim()
+    || AuthSession.makeRedirectUri({ scheme: 'startech', path: 'autenticacao' });
   const [descoberta, definirDescoberta] = useState<AuthSession.DiscoveryDocument | null>(null);
   const [requisicao, , solicitarAutorizacao] = AuthSession.useAuthRequest(
     {
