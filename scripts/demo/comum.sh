@@ -43,12 +43,14 @@ import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8003/api/v1
 
 aquecer_llm() {  # carrega os modelos direto no Ollama (sem passar pelo circuit breaker) e confirma uma resposta RAG
   local chat="${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}" emb="${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}" modo=""
-  "${COMPOSE[@]}" exec -T ollama ollama run "$chat" "ok" >/dev/null 2>&1 || true
   "${COMPOSE[@]}" exec -T ms-rag python -c "
 import json, urllib.request
-r = urllib.request.Request('http://ollama:11434/api/embed', json.dumps({'model': '$emb', 'input': 'aquecer'}).encode(),
-                           {'Content-Type': 'application/json'})
-urllib.request.urlopen(r, timeout=120).read()" >/dev/null 2>&1 || true
+for path, payload in [
+    ('/api/generate', {'model': '$chat', 'prompt': 'ok', 'stream': False}),
+    ('/api/embed', {'model': '$emb', 'input': 'aquecer'}),
+]:
+    r = urllib.request.Request('http://ollama:11434' + path, json.dumps(payload).encode())
+    urllib.request.urlopen(r, timeout=120).read()" >/dev/null 2>&1 || true
   echo "   modelos carregados no Ollama; aguardando o circuito do ms-rag fechar (até 30 s)"
   for i in $(seq 1 "${1:-10}"); do
     modo=$(curl -s -X POST "$GATEWAY/api/mobile/assistente" -H "Authorization: Bearer $(token_doador)" \
