@@ -2,13 +2,16 @@ package br.ufla.startech.doadores;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -54,5 +57,26 @@ class MsDoadoresApplicationTests {
                 .andExpect(jsonPath("$.id").value(DOADOR_ID))
                 .andExpect(jsonPath("$.nome").value("Doador StarTech"))
                 .andExpect(jsonPath("$.tipoSanguineo").value("O-"));
+    }
+
+    @Test
+    void cadastroDeNovoDoadorViaPutPersisteERetornaPerfil() throws Exception {
+        UUID novoId = UUID.randomUUID();
+        String payload = """
+                {"nome":"Maria Silva","tipoSanguineo":"A+","sexo":"F"}
+                """;
+
+        mockMvc.perform(put("/api/v1/doadores/{id}", novoId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(novoId.toString()))
+                .andExpect(jsonPath("$.nome").value("Maria Silva"))
+                .andExpect(jsonPath("$.tipoSanguineo").value("A+"));
+
+        mockMvc.perform(get("/api/v1/doadores/{id}", novoId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Maria Silva"))
+                .andExpect(jsonPath("$.tipoSanguineo").value("A+"));
     }
 }

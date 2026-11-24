@@ -193,3 +193,65 @@ def test_home_pede_apenas_campanhas_vigentes():
     assert servicos.client().get("/bff-mobile/home", headers={"X-User-Id": "123"}).status_code == 200
     params = [p for path, p, _ in servicos.chamadas if path == "/api/v1/campanhas"]
     assert params == [{"vigentes": "true", "tipo_sanguineo": "O-"}]
+
+
+def test_salvar_perfil_ok_envia_put_para_ms_doadores():
+    recebido = {}
+
+    def _doadores(req: httpx.Request):
+        recebido["method"] = req.method
+        recebido["body"] = req.content.decode()
+        return httpx.Response(
+            200,
+            json={"id": "123", "nome": "Carlos Silva", "tipoSanguineo": "O+", "sexo": "M", "dataUltimaDoacao": None},
+        )
+
+    s = Servicos(_doadores, _campanhas_por_tipo)
+    r = s.client().put(
+        "/bff-mobile/perfil",
+        headers={"X-User-Id": "123"},
+        json={"nome": "Carlos Silva", "tipoSanguineo": "O+", "sexo": "M"},
+    )
+    assert r.status_code == 200
+    assert r.json()["nome"] == "Carlos Silva"
+    assert recebido["method"] == "PUT"
+    assert s.chamadas == [("/api/v1/doadores/123", {}, "123")]
+
+
+def test_salvar_perfil_sem_x_user_id_retorna_401():
+    s = Servicos(lambda r: httpx.Response(200, json=DOADOR), _campanhas_por_tipo)
+    r = s.client().put("/bff-mobile/perfil", json={"nome": "Carlos Silva", "tipoSanguineo": "O+", "sexo": "M"})
+    assert r.status_code == 401 and r.headers["content-type"].startswith("application/problem+json")
+    assert s.chamadas == []
+
+
+def test_salvar_perfil_payload_invalido_retorna_400():
+    s = Servicos(lambda r: httpx.Response(200, json=DOADOR), _campanhas_por_tipo)
+    r = s.client().put(
+        "/bff-mobile/perfil",
+        headers={"X-User-Id": "123"},
+        json={"nome": "C", "tipoSanguineo": "Z+", "sexo": "X"},
+    )
+    assert r.status_code == 400 and r.headers["content-type"].startswith("application/problem+json")
+    assert s.chamadas == []
+
+
+def test_salvar_perfil_ms_doadores_indisponivel_retorna_503():
+    s = Servicos(_erro(httpx.ConnectError("recusada")), _campanhas_por_tipo)
+    r = s.client().put(
+        "/bff-mobile/perfil",
+        headers={"X-User-Id": "123"},
+        json={"nome": "Carlos Silva", "tipoSanguineo": "O+", "sexo": "M"},
+    )
+    assert r.status_code == 503 and r.headers["content-type"].startswith("application/problem+json")
+
+
+def test_salvar_perfil_repassa_erro_de_negocio_do_ms_doadores():
+    problema = {"type": "urn:startech:error:dados-invalidos", "title": "Dados inválidos", "status": 400}
+    s = Servicos(lambda r: httpx.Response(400, json=problema), _campanhas_por_tipo)
+    r = s.client().put(
+        "/bff-mobile/perfil",
+        headers={"X-User-Id": "123"},
+        json={"nome": "Carlos Silva", "tipoSanguineo": "O+", "sexo": "M"},
+    )
+    assert r.status_code == 400 and r.json()["type"] == "urn:startech:error:dados-invalidos"

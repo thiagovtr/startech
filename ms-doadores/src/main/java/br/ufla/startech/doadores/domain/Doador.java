@@ -41,6 +41,27 @@ public class Doador {
     protected Doador() {
     }
 
+    public Doador(UUID id, String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao) {
+        Instant agora = Instant.now();
+        this.id = id;
+        this.nome = nome.trim();
+        this.tipoSanguineo = tipoSanguineo;
+        this.sexo = sexo;
+        this.dataUltimaDoacao = dataUltimaDoacao;
+        this.criadoEm = agora;
+        this.atualizadoEm = agora;
+    }
+
+    public void atualizarPerfil(String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao) {
+        this.nome = nome.trim();
+        this.tipoSanguineo = tipoSanguineo;
+        this.sexo = sexo;
+        if (dataUltimaDoacao != null) {
+            this.dataUltimaDoacao = dataUltimaDoacao;
+        }
+        this.atualizadoEm = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }
