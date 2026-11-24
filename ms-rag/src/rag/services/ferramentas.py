@@ -33,7 +33,8 @@ _DOMINIO = (
     "gripe", "gripad", "resfri", "febre", "alcool", "bebi", "cervej", "vinho", "gravid", "gestant", "parto", "cesar",
     "amament", "dente", "dentar", "odont", "canal", "endoscop", "colonoscop", "vacin", "hemoglobin", "anemi", "peso",
     "quilo", "kg", "idade", "anos", "menor", "idos", "interval", "frequen", "vezes", "doenc", "remedi", "medicament",
-    "cirurg", "diabet", "hepatit", "hiv", "pressao", "jejum", "aliment", "documento",
+    "antibiot", "cirurg", "diabet", "insul", "hipertens", "hepatit", "hiv", "aids", "chagas", "htlv", "malar",
+    "pressao", "jejum", "aliment", "documento", "drog", "injetav", "sering", "agulh", "maconh", "cocain", "crack",
 )
 
 
