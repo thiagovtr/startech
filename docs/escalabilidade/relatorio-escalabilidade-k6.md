@@ -1,71 +1,44 @@
-# Relatório de Estresse e Escalabilidade no Kubernetes (Grafana k6) — StarTech
+# Relatório de Estresse e Escalabilidade no Docker Compose (Grafana k6) — StarTech
 
-> **Material histórico:** este teste foi executado quando o projeto ainda tinha manifestos Kubernetes, removidos na issue #17; hoje a execução oficial é só pelo Docker Compose. Os scripts citados abaixo não existem mais no repositório.
+> **Resumo Executivo (GCC129 — Sistemas Distribuídos):**  
+> Com os **20 containers** da arquitetura **StarTech** em execução na VM em nuvem (**Azure `Standard_D4as_v4`**, 4 vCPUs, 16 GiB RAM, Ubuntu Linux, Docker Compose), executamos um benchmark comparativo de escalonamento horizontal com o **Grafana k6 v0.54.0** ([`scripts/k6-escalabilidade.js`](../../scripts/k6-escalabilidade.js) via [`scripts/rodar-escalabilidade-docker.sh`](../../scripts/rodar-escalabilidade-docker.sh)) simulando **até 74 usuários virtuais (VUs)** em **3 cenários simultâneos** (leitura CQRS, escrita concorrente Outbox e borda autenticada via API Gateway + BFF Mobile/Web).
 
-> **Resumo Executivo para Apresentação (GCC129 — Sistemas Distribuídos):**  
-> Com os **18 pods** da arquitetura **StarTech** em execução no Kubernetes (namespace `startech`), `metrics-server` ativo e o **HorizontalPodAutoscaler (`autoscaling/v2`)** configurado ([`k8s/services/ms-hemocentros-hpa.yaml`](../../k8s/services/ms-hemocentros-hpa.yaml)), executamos uma bateria de estresse e escalabilidade com o **Grafana k6 v0.54.0** ([`scripts/k6-escalabilidade.js`](../../scripts/k6-escalabilidade.js)) simulando **até 117 usuários virtuais (VUs)** em **3 cenários distribuídos simultâneos**.
-
-![Painel Geral de Resultados — Teste de Estresse e Escalabilidade StarTech](./painel-apresentacao-escalabilidade.png)
+![Painel de Escalabilidade — Docker Compose + Grafana k6 (1 Réplica vs. 3 Réplicas)](./painel-escalabilidade-docker.png)
 
 ---
 
-## 1. Síntese dos Resultados Obtidos
+## 1. Comparativo: 1 Réplica vs. 3 Réplicas (`--scale ms-hemocentros=3`)
 
-- **Volume e Vazão (Throughput):** **32.615 requisições HTTP** processadas em ~97s (**335,33 req/s** de média sustentada e **pico de 572 req/s**, com **444 MB** trafegados).
-- **Taxa de Sucesso e SLAs:** **99,46% de sucesso global** (**63.494 de 63.845 checks aprovados** — **100% dos 7 Thresholds/SLAs aprovados `✓`** com código de saída `0`).
-- **Latência Fim-a-Fim:** Mediana global de **57,94 ms** (`p90 = 161,65 ms` e `p95 = 255,92 ms`, bem abaixo do limite de `500 ms`).
-- **Escalonamento Horizontal Automático (HPA `1 → 2 → 3 → 1` réplicas):**
-  1. **Baseline (`T = 05s`):** 1 réplica ativa do `ms-hemocentros` (`cpu: 3% / 70%`, `7m` CPU).
-  2. **Scale-Out para 2 réplicas (`T = 20s`):** Com a subida da rampa de leitura CQRS (`O-`), o uso de CPU atingiu **`130% / 70%`** (`304m` > meta de `140m` sobre `requests.cpu: 200m`), disparando a criação automática do **2º pod**.
-  3. **Scale-Out para 3 réplicas (`T = 35s – 45s`):** No pico de estresse (**95 VUs** de leitura + escrita Outbox + borda BFF), a utilização atingiu **`166% / 70%`** e o HPA provisionou o **3º pod (`maxReplicas = 3`)**.
-  4. **Estabilização sob Carga Distribuída (`T = 60s – 75s`):** O `Service` do Kubernetes distribuiu as conexões entre as **3 réplicas ativas** (`258m`, `247m` e `224m` CPU), reduzindo a pressão média para **`106% / 70%`**.
-  5. **Scale-In Automático (`Pós-Teste`):** Após o término da carga e a janela de *cooldown*, o HPA reduziu o Deployment automaticamente de volta para **1 réplica** (`cpu: 3% / 70%`).
-
----
-
-## 2. Desempenho por Microsserviço e Quantidade de Réplicas
-
-| Microsserviço / Componente | Réplicas no Teste | Pico CPU / RAM | Resultado Obtido no Teste | Padrão de Sistemas Distribuídos Validado |
-| :--- | :---: | :---: | :--- | :--- |
-| **`ms-hemocentros`** (Python / FastAPI) | **1 → 2 → 3 → 1** *(Auto-scaling HPA)* | `367m` / `85Mi` *(por réplica)* | **31.244 leituras CQRS** (`med = 58,21 ms`, `p95 = 256,21 ms`) + **340 escritas Outbox** (`med = 6,25 ms`, `p95 = 12,53 ms`, **100% HTTP 201**) | **CQRS Poliglota** (PostgreSQL + MongoDB), **Transactional Outbox (`FOR UPDATE SKIP LOCKED`)** e **Projeção Idempotente Versionada** |
-| **`gateway`** (Java 21 / Spring Cloud Gateway) | **1** *(Stateless)* | `90m` / `215Mi` | **1.010 requisições autenticadas** roteadas para os BFFs com **99,9% de sucesso** (`med = 39,65 ms`, `p95 = 251,69 ms`) | Validação **JWT RS256** (Keycloak), *Header Stripping* (`X-User-Id`) e **Token Bucket Rate Limiting** |
-| **`bff-mobile`** (Python / FastAPI) | **1** *(Stateless)* | `39m` / `44Mi` | **505 chamadas** em `GET /api/mobile/home` com **100,0% HTTP 200** (`0` falhas) | Agregação em *Single Roundtrip* (`ms-doadores` + `ms-hemocentros`) e **Degradação Graciosa** |
-| **`bff-web`** (Python / FastAPI) | **1** *(Stateless)* | `22m` / `42Mi` | **505 chamadas** em `GET /api/web/campanhas` com **99,8% HTTP 200** | Contrato dedicado ao painel institucional com paginação (`X-Total-Count`) e garantia *Read-Your-Own-Writes* |
-| **`ms-doadores`**, **`ms-agendamentos`**, **`ms-orquestrador`**, **`ms-comunicacao`** | **1 cada** *(Suportam réplicas)* | `33m` / `257Mi` *(máx)* | `1/1 Running` durante todo o estresse + validados no fluxo distribuído da **SAGA** (`scripts/k8s-fumaca.sh`) | **SAGA Orquestrada** + **Transactional Outbox** + **Inbox Idempotente** + **Lock Otimista** |
-| **`mongo-0`**, **`db-hemocentros-0`**, **`rabbitmq-0`** | **1 cada** *(StatefulSets)* | `166m` / `149Mi` *(máx)* | **346 campanhas** no PostgreSQL = **346 eventos** publicados no RabbitMQ (`0` pendentes) = **346 documentos** no MongoDB | **Database per Service** + **Consistência Eventual 100% convergente (zero perda e zero duplicidade entre as 3 réplicas)** |
+| Métrica (45 s por rodada, até 74 VUs) | 1 Réplica (`ms-hemocentros=1`) | 3 Réplicas (`ms-hemocentros=3`) | Ganho / Resultado |
+| :--- | :---: | :---: | :---: |
+| **Requisições HTTP processadas** | 16.882 | **18.589** | **+10,1%** |
+| **Vazão sustentada (Throughput)** | 357,62 req/s | **394,14 req/s** | **+10,2%** |
+| **Taxa de sucesso HTTP / Checks** | **100,0%** | **100,0%** | **0 falhas** |
+| **Latência Global — Mediana (p50)** | 49,01 ms | **33,79 ms** | **−31,1%** |
+| **Latência Global — p90 / p95** | 116,59 / 145,89 ms | **104,86 / 141,73 ms** | **Abaixo de 150 ms** |
+| **Leitura CQRS (MongoDB) — Mediana** | 48,06 ms | **33,05 ms** | **−31,2%** |
+| **Escrita Outbox (PostgreSQL) — Mediana** | 75,57 ms | **34,74 ms** | **−54,0%** |
+| **Escrita Outbox (PostgreSQL) — p95** | 179,57 ms | **138,41 ms** | **−22,9%** |
+| **Borda Gateway + BFFs (JWT) — Mediana** | 76,17 ms | **68,77 ms** | **−9,7%** |
+| **Consistência CQRS (PG = Outbox = Mongo)** | `153 = 153` (`0` pendentes) | **`299 = 299` (`0` pendentes)** | **100% convergente** |
 
 ---
 
-## 3. Prints da Execução (Grafana k6 e Kubernetes HPA)
+## 2. O que o Teste Comprova na Arquitetura
 
-### 3.1. Execução no Terminal do Grafana k6 — 100% dos Thresholds Aprovados (`✓`)
-
-![Grafana k6 CLI Output e Thresholds](./print-04-k6-cli-thresholds.png)
-
-### 3.2. Escalonamento Horizontal no Kubernetes (`kubectl get hpa`, `kubectl top pods` e Consistência CQRS/Outbox)
-
-![Kubernetes HPA Auto-Scaling e Consistência CQRS](./print-05-k8s-hpa-autoscaling.png)
-
-### 3.3. Grafana k6 Web Dashboard — Visão Geral (Request Rate até 572 req/s, VUs e Transfer Rate)
-
-![Grafana k6 Web Report - Overview](./print-01-k6-grafana-overview.png)
-
-### 3.4. Grafana k6 Web Dashboard — Curvas de Latência HTTP (`avg`, `p90`, `p95`) e Vazão
-
-![Grafana k6 Web Report - Timings](./print-02-k6-grafana-summary-metrics.png)
-
-### 3.5. Grafana k6 Web Dashboard — Tabelas Consolidadas de Métricas (`Trends`, `Counters`, `Rates`, `Gauges`)
-
-![Grafana k6 Web Report - Summary Tables](./print-03-k6-grafana-tables.png)
+1. **Escalonamento horizontal nativo com Docker Compose:** o comando `docker compose up -d --scale ms-hemocentros=3` sobe réplicas adicionais sem conflito de portas, com balanceamento *round-robin* pelo DNS interno da rede isolada `startech-net-api`.
+2. **Ganho real de latência e vazão sob carga:** com 3 réplicas, a mediana de escrita no Outbox caiu **54%** (`75,57 ms → 34,74 ms`), a mediana de leitura CQRS caiu **31%** (`48,06 ms → 33,05 ms`) e a vazão subiu para **394,14 req/s** mantendo **100% de sucesso** (35.471 requisições totais sem nenhum erro).
+3. **Zero duplicidade e zero perda no Transactional Outbox:** mesmo com 3 réplicas concorrentes publicando eventos simultaneamente (`FOR UPDATE SKIP LOCKED`), o estado final convergiu com exatidão: **299 campanhas no PostgreSQL = 0 eventos pendentes no Outbox = 299 documentos no MongoDB**.
+4. **Eficiência de recursos na nuvem:** com todos os **20 containers** em execução (incluindo 7 bancos, RabbitMQ, Keycloak, Gateway, 2 BFFs, 6 microsserviços, Painel Web e Ollama), o consumo total da VM permaneceu em **3,4 GiB de 15 GiB de RAM** (12 GiB livres) e **57% de disco** (27 GB livres).
 
 ---
 
-## 4. Como Reproduzir o Teste
+## 3. Como Reproduzir
 
-Com o cluster Kubernetes ativo (`scripts/k8s-aplicar.sh`) e o `metrics-server` habilitado:
+Com a stack do Docker Compose no ar (`docker compose up -d`):
 
 ```bash
-K6_WEB_DASHBOARD=true \
-K6_WEB_DASHBOARD_EXPORT=relatorio-k6.html \
-k6 run scripts/k6-escalabilidade.js
+scripts/rodar-escalabilidade-docker.sh
 ```
+
+O script executa automaticamente as duas rodadas (`1 réplica` e `3 réplicas`) usando a imagem oficial `grafana/k6:0.54.0` na rede `startech-net-api`, valida a consistência entre PostgreSQL e MongoDB e restaura `ms-hemocentros` para 1 réplica ao final.
