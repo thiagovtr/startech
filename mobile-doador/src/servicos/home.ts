@@ -1,3 +1,7 @@
+import type { criarClienteHttp } from './clienteHttp';
+
+type ClienteHttp = ReturnType<typeof criarClienteHttp>;
+
 export type UrgenciaCampanha = 'NORMAL' | 'CRITICO';
 
 export type CampanhaHome = {
@@ -28,3 +32,16 @@ export type RespostaHome = {
   campanhasPersonalizadas: boolean;
   campanhas: CampanhaHome[];
 };
+
+export async function consultarHome(
+  clienteHttp: ClienteHttp,
+  signal?: AbortSignal,
+): Promise<RespostaHome> {
+  const resposta = await clienteHttp.requisitar<RespostaHome>('/api/mobile/home', { signal });
+
+  if (!resposta.corpo) {
+    throw new Error('A resposta da Home não contém informações para exibir.');
+  }
+
+  return resposta.corpo;
+}
