@@ -17,6 +17,8 @@ export type RespostaPerfil = {
   id: string;
   nome: string;
   tipoSanguineo: TipoSanguineo;
+  sexo: SexoDoador;
+  dataUltimaDoacao: string | null;
 };
 
 export async function salvarPerfil(

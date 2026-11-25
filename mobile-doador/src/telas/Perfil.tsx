@@ -16,14 +16,14 @@ type DestinoPerfil = 'InformacoesBasicas' | 'Seguranca' | 'CadastroPerfil';
 type NomeIcone = keyof typeof Ionicons.glyphMap;
 
 const categorias: { destino: DestinoPerfil; descricao: string; icone: NomeIcone; titulo: string }[] = [
-  { destino: 'InformacoesBasicas', descricao: 'Nome, nome de usuário e e-mail.', icone: 'person-outline', titulo: 'Informações básicas' },
+  { destino: 'InformacoesBasicas', descricao: 'Nome e e-mail da sua conta.', icone: 'person-outline', titulo: 'Informações básicas' },
   { destino: 'Seguranca', descricao: 'Opções relacionadas à senha.', icone: 'shield-checkmark-outline', titulo: 'Segurança' },
   { destino: 'CadastroPerfil', descricao: 'Dados informados para seu cadastro.', icone: 'heart-outline', titulo: 'Cadastro' },
 ];
 
 export function Perfil() {
   const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
-  const { clienteHttp, encerrarSessao } = useContextoAutenticacao();
+  const { clienteHttp, encerrarSessao, sessao } = useContextoAutenticacao();
   const [estadoPerfil, definirEstadoPerfil] = useState<EstadoPerfil>('CARREGANDO');
   const [home, definirHome] = useState<RespostaHome>();
   const [mensagemErro, definirMensagemErro] = useState('');
@@ -68,12 +68,16 @@ export function Perfil() {
 
   function abrirCategoria(destino: DestinoPerfil) {
     if (destino === 'InformacoesBasicas') {
-      navegacao.navigate(destino, { nome });
+      navegacao.navigate(destino, { email: sessao?.email, nome });
       return;
     }
 
     if (destino === 'CadastroPerfil') {
-      navegacao.navigate(destino, { tipoSanguineo });
+      navegacao.navigate(destino, {
+        dataUltimaDoacao: doador?.dataUltimaDoacao,
+        sexo: doador?.sexo,
+        tipoSanguineo,
+      });
       return;
     }
 

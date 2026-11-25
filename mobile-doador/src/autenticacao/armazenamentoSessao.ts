@@ -4,6 +4,7 @@ const CHAVE_SESSAO = 'startech.sessao';
 
 export type SessaoAutenticada = {
   accessToken: string;
+  email?: string;
   expiresIn?: number;
   issuedAt: number;
   refreshToken?: string;
