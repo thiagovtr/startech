@@ -1,8 +1,12 @@
 export { Agendar } from './Agendar';
 export { AcompanhamentoSaga } from './AcompanhamentoSaga';
 export { Assistente } from './Assistente';
+export { CadastroPerfil } from './CadastroPerfil';
 export { CompletarPerfil } from './CompletarPerfil';
 export { DetalhesAgendamento } from './DetalhesAgendamento';
+export { InformacoesBasicas } from './InformacoesBasicas';
 export { Inicio } from './Inicio';
 export { Login } from './Login';
 export { MeusPedidos } from './MeusPedidos';
+export { Perfil } from './Perfil';
+export { Seguranca } from './Seguranca';
