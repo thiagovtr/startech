@@ -30,6 +30,16 @@ test("consulta sem filtros distingue total desconhecido de zero", async t => {
   assert.deepEqual(await cliente.listar(semFiltros, 0), { itens: [], total: null });
 });
 
+test("consulta de hemocentros usa Gateway e Bearer do operador", async t => {
+  const hemocentros = [{ id: "hemominas-lavras", nome: "Hemominas Lavras", cidade: "Lavras - MG" }];
+  t.mock.method(globalThis, "fetch", async (url, opcoes) => {
+    assert.equal(url.origin + url.pathname, "http://localhost:8080/api/web/hemocentros");
+    assert.equal(opcoes.headers.get("Authorization"), "Bearer token-de-teste");
+    return Response.json(hemocentros);
+  });
+  assert.deepEqual(await cliente.listarHemocentros(), hemocentros);
+});
+
 test("criação usa somente os campos do comando e retorna o ID da escrita", async t => {
   const requisicao = t.mock.method(globalThis, "fetch", async (url, opcoes) => {
     assert.equal(url.pathname, "/api/web/campanhas");
@@ -43,11 +53,34 @@ test("criação usa somente os campos do comando e retorna o ID da escrita", asy
   assert.equal(requisicao.mock.callCount(), 1);
 });
 
+test("edição usa PUT com identificador, Bearer e payload permitido", async t => {
+  const atualizada = { ...confirmada, titulo: "Coleta atualizada", status: "ENCERRADA" };
+  const payload = {
+    titulo: atualizada.titulo, hemocentro: atualizada.hemocentro, tipo_sanguineo: atualizada.tipo_sanguineo,
+    urgencia: atualizada.urgencia, data_inicio: atualizada.data_inicio, data_fim: atualizada.data_fim, status: atualizada.status
+  };
+  t.mock.method(globalThis, "fetch", async (url, opcoes) => {
+    assert.equal(url.pathname, "/api/web/campanhas/campanha-1");
+    assert.equal(opcoes.method, "PUT");
+    assert.equal(opcoes.headers.get("Authorization"), "Bearer token-de-teste");
+    assert.deepEqual(JSON.parse(opcoes.body), payload);
+    return Response.json(atualizada);
+  });
+  assert.deepEqual(await cliente.atualizar("campanha-1", payload), atualizada);
+});
+
 test("validação do serviço preserva o motivo e o campo inválido", async t => {
   t.mock.method(globalThis, "fetch", async () => Response.json({
     title: "Dados inválidos", detail: "Confira o período.", invalidParams: [{ name: "data_fim", reason: "Anterior ao início" }]
   }, { status: 400, headers: { "Content-Type": "application/problem+json" } }));
   await assert.rejects(cliente.criar(dados), /Confira o período.*data_fim: Anterior ao início/);
+});
+
+test("edição preserva erro RFC 7807 quando a campanha não existe", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ detail: "Campanha removida" }, {
+    status: 404, headers: { "Content-Type": "application/problem+json" }
+  }));
+  await assert.rejects(cliente.atualizar("campanha-ausente", { ...dados, status: "ATIVA" }), /Campanha não encontrada.*Campanha removida/);
 });
 
 for (const status of [401, 403, 502, 503, 504]) {
