@@ -9,7 +9,7 @@ function dataBr(data: string) {
 
 function Tabela({ itens }: { itens: Campanha[] }) {
   return <div className="rolagem" role="region" aria-label="Lista de campanhas" tabIndex={0}>
-    <table><thead><tr>
+    <table className="tabela-campanhas"><thead><tr>
       <th>Campanha e hemocentro</th><th>Tipo sanguíneo</th><th>Urgência</th><th>Período</th><th>Status</th>
     </tr></thead><tbody>{itens.map(c => <tr key={c.id}>
       <th scope="row"><strong>{c.titulo}</strong><small>{c.hemocentro}</small></th>
@@ -50,12 +50,12 @@ function Lista({ nova, criada }: { nova: () => void; criada: Campanha | null }) 
   const temProxima = dados && (dados.total === null ? dados.itens.length === tamanhoPagina : (pagina + 1) * tamanhoPagina < dados.total);
 
   return <>
-    <div className="cabecalho"><h1>Campanhas</h1>
+    <div className="cabecalho"><div><h1>Campanhas</h1><p className="subtitulo">Gerencie as campanhas de doação.</p></div>
       <button className="primario" onClick={nova}><span aria-hidden="true">＋ </span>Nova campanha</button></div>
     {criada && <div className="aviso sucesso" role="status"><strong>Campanha criada: {criada.titulo}</strong>
       <small>Identificador: {criada.id}</small>
       A lista e o aplicativo podem levar alguns segundos para exibi-la.</div>}
-    <section className="cartao" aria-label="Consulta de campanhas">
+    <section className="cartao lista-campanhas" aria-label="Consulta de campanhas">
       <div className="filtros">
         <label>Tipo sanguíneo<select value={filtros.tipo} onChange={e => filtrar({ tipo: e.target.value })}>
           <option value="">Todos</option>{tiposSanguineos.map(tipo => <option key={tipo}>{tipo}</option>)}
