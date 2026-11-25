@@ -5,11 +5,12 @@ import type { I18n } from "../i18n";
 
 export function Login(props: PageProps<Extract<KcContext, { pageId: "login.ftl" }>, I18n>) {
     const { kcContext, i18n, Template } = props;
-    const { realm, url, usernameHidden, login, messagesPerField } = kcContext;
+    const { realm, url, usernameHidden, login, messagesPerField, client } = kcContext;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
+    const isWebClient = client.clientId === "startech-web" || client.clientId === "web";
     const hasCredentialError = messagesPerField.existsError("username", "password");
 
     return (
@@ -18,9 +19,9 @@ export function Login(props: PageProps<Extract<KcContext, { pageId: "login.ftl" 
             i18n={i18n}
             doUseDefaultCss={false}
             displayMessage={!hasCredentialError}
-            headerNode="Entrar na sua conta"
+            headerNode={isWebClient ? "Acesso do hemocentro" : "Boas-vindas"}
             infoNode={
-                realm.password && realm.registrationAllowed ? (
+                !isWebClient && realm.password && realm.registrationAllowed ? (
                     <span>
                         Ainda não tem cadastro?{" "}
                         <a className="st-link" href={url.registrationUrl}>
@@ -30,6 +31,12 @@ export function Login(props: PageProps<Extract<KcContext, { pageId: "login.ftl" 
                 ) : null
             }
         >
+            <p className="st-description">
+                {isWebClient
+                    ? "Entre com sua conta de operador para gerenciar campanhas de doação."
+                    : "Entre com seu e-mail para acompanhar campanhas, agendar doações e consultar seus pedidos."}
+            </p>
+
             {realm.password && (
                 <form
                     className="st-form"
@@ -43,7 +50,11 @@ export function Login(props: PageProps<Extract<KcContext, { pageId: "login.ftl" 
                     {!usernameHidden && (
                         <div className="st-field">
                             <label className="st-label" htmlFor="username">
-                                {realm.loginWithEmailAllowed ? "Usuário ou e-mail" : "Usuário"}
+                                {realm.registrationEmailAsUsername
+                                    ? "E-mail"
+                                    : realm.loginWithEmailAllowed
+                                      ? "E-mail ou usuário"
+                                      : "Usuário"}
                             </label>
                             <input
                                 id="username"
@@ -52,7 +63,7 @@ export function Login(props: PageProps<Extract<KcContext, { pageId: "login.ftl" 
                                 defaultValue={login.username ?? ""}
                                 autoFocus
                                 autoComplete="username"
-                                placeholder="Ex.: doador1 ou operador1"
+                                placeholder={isWebClient ? "operador1@startech.local" : "seuemail@exemplo.com"}
                                 className={hasCredentialError ? "st-input st-input-error" : "st-input"}
                                 aria-invalid={hasCredentialError}
                             />

@@ -4,19 +4,33 @@ import type { KcContext } from "../KcContext";
 import type { I18n } from "../i18n";
 
 const FIELD_LABELS_PT: Record<string, string> = {
-    firstName: "Nome",
-    lastName: "Sobrenome",
     email: "E-mail",
-    username: "Usuário"
+    username: "Usuário",
+    firstName: "Nome",
+    lastName: "Sobrenome"
+};
+
+const FIELD_PLACEHOLDERS_PT: Record<string, string> = {
+    email: "seuemail@exemplo.com",
+    username: "seu.usuario"
 };
 
 export function Register(props: PageProps<Extract<KcContext, { pageId: "register.ftl" }>, I18n>) {
     const { kcContext, i18n, Template } = props;
-    const { url, messagesPerField, passwordRequired, profile } = kcContext;
+    const { url, messagesPerField, passwordRequired, profile, realm } = kcContext;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const attributes = Object.values(profile.attributesByName);
+    const attributes = Object.values(profile.attributesByName).filter(attribute => {
+        if (attribute.name === "firstName" || attribute.name === "lastName") {
+            return false;
+        }
+        if (realm.registrationEmailAsUsername && attribute.name === "username") {
+            return false;
+        }
+        return true;
+    });
 
     return (
         <Template
@@ -34,6 +48,10 @@ export function Register(props: PageProps<Extract<KcContext, { pageId: "register
                 </span>
             }
         >
+            <p className="st-description">
+                Informe seu e-mail e crie uma senha. Você completará seu perfil de doador logo em seguida no aplicativo.
+            </p>
+
             <form
                 className="st-form"
                 action={url.registrationAction}
@@ -47,6 +65,7 @@ export function Register(props: PageProps<Extract<KcContext, { pageId: "register
                     const hasError = messagesPerField.existsError(attribute.name);
                     const label = FIELD_LABELS_PT[attribute.name] ?? attribute.displayName ?? attribute.name;
                     const inputType = attribute.name === "email" ? "email" : "text";
+                    const placeholder = FIELD_PLACEHOLDERS_PT[attribute.name] ?? "";
 
                     return (
                         <div className="st-field" key={attribute.name}>
@@ -58,8 +77,10 @@ export function Register(props: PageProps<Extract<KcContext, { pageId: "register
                                 name={attribute.name}
                                 type={inputType}
                                 defaultValue={attribute.value ?? ""}
+                                placeholder={placeholder}
                                 required={attribute.required}
                                 readOnly={attribute.readOnly}
+                                autoFocus={attribute.name === "email"}
                                 autoComplete={attribute.autocomplete}
                                 className={hasError ? "st-input st-input-error" : "st-input"}
                                 aria-invalid={hasError}
@@ -83,19 +104,29 @@ export function Register(props: PageProps<Extract<KcContext, { pageId: "register
                             <label className="st-label" htmlFor="password">
                                 Senha
                             </label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                autoComplete="new-password"
-                                placeholder="Crie uma senha"
-                                className={
-                                    messagesPerField.existsError("password")
-                                        ? "st-input st-input-error"
-                                        : "st-input"
-                                }
-                            />
+                            <div className="st-input-wrap">
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
+                                    required
+                                    autoComplete="new-password"
+                                    placeholder="Crie uma senha"
+                                    className={
+                                        messagesPerField.existsError("password")
+                                            ? "st-input st-input-password st-input-error"
+                                            : "st-input st-input-password"
+                                    }
+                                />
+                                <button
+                                    type="button"
+                                    className="st-toggle-password"
+                                    onClick={() => setShowPassword(prev => !prev)}
+                                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                                >
+                                    {showPassword ? "Ocultar" : "Mostrar"}
+                                </button>
+                            </div>
                             {messagesPerField.existsError("password") && (
                                 <span
                                     className="st-field-error"
@@ -114,7 +145,7 @@ export function Register(props: PageProps<Extract<KcContext, { pageId: "register
                             <input
                                 id="password-confirm"
                                 name="password-confirm"
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 required
                                 autoComplete="new-password"
                                 placeholder="Repita a senha"

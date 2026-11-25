@@ -4,7 +4,7 @@ import type { I18n } from "./i18n";
 import "./styles/startech.css";
 
 /**
- * Moldura visual padrao do tema StarTech, alinhada aos tokens de design do app mobile.
+ * Moldura visual padrao do tema StarTech, alinhada aos tokens e layout do app mobile-doador.
  */
 export function Template(props: TemplateProps<KcContext, I18n>) {
     const {
@@ -15,7 +15,8 @@ export function Template(props: TemplateProps<KcContext, I18n>) {
         children
     } = props;
 
-    const { message, isAppInitiatedAction } = kcContext;
+    const { message, isAppInitiatedAction, client } = kcContext;
+    const isWebClient = client.clientId === "startech-web" || client.clientId === "web";
 
     const alertClass =
         message?.type === "error"
@@ -28,17 +29,17 @@ export function Template(props: TemplateProps<KcContext, I18n>) {
 
     return (
         <main className="st-page">
-            <section className="st-card" aria-label="Autenticação StarTech">
-                <header className="st-brand">
-                    <div className="st-brand-badge" aria-hidden="true">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2.25C12 2.25 5.25 10.08 5.25 14.625C5.25 18.352 8.273 21.375 12 21.375C15.727 21.375 18.75 18.352 18.75 14.625C18.75 10.08 12 2.25 12 2.25Z" />
-                        </svg>
-                    </div>
-                    <h1 className="st-brand-name">StarTech</h1>
-                    <p className="st-brand-subtitle">Plataforma de Doação de Sangue</p>
-                </header>
+            <header className="st-brand">
+                <div className="st-brand-badge" aria-label="Identidade StarTech">
+                    <span className="st-brand-badge-text">ST</span>
+                </div>
+                <h1 className="st-brand-name">StarTech</h1>
+                <p className="st-brand-subtitle">
+                    {isWebClient ? "Painel dos hemocentros" : "Doar sangue é cuidar de vidas."}
+                </p>
+            </header>
 
+            <section className="st-card" aria-label="Autenticação StarTech">
                 {headerNode && <h2 className="st-title">{headerNode}</h2>}
 
                 {displayMessage && message !== undefined && (message.type !== "warning" || !isAppInitiatedAction) && (
@@ -52,7 +53,11 @@ export function Template(props: TemplateProps<KcContext, I18n>) {
                 {infoNode && <div className="st-footer-link">{infoNode}</div>}
             </section>
 
-            <footer className="st-meta">Acesso seguro via Keycloak (OIDC + PKCE)</footer>
+            <footer className="st-meta">
+                {isWebClient
+                    ? "Acesso restrito a operadores autorizados · OIDC + PKCE"
+                    : "Sua próxima doação pode fazer a diferença."}
+            </footer>
         </main>
     );
 }
