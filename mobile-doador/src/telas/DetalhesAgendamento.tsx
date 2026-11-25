@@ -209,8 +209,8 @@ function formatarSituacao(situacao: SituacaoAgendamento): string {
   const descricoes: Record<SituacaoAgendamento, string> = {
     CRIADO_PROVISORIO: 'Em processamento',
     CONFIRMADO: 'Confirmado',
-    CANCELADO_DOADOR: 'Cancelado pelo doador',
-    CANCELADO_COMPENSACAO_SAGA: 'Cancelado durante o processamento',
+    CANCELADO_DOADOR: 'Cancelado por você',
+    CANCELADO_COMPENSACAO_SAGA: 'Cancelado durante a análise da solicitação',
   };
   return descricoes[situacao];
 }

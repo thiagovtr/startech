@@ -28,11 +28,11 @@ type EstadoConsulta = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
 const INTERVALO_CONSULTA_MS = 5000;
 
 const conteudoReal: Record<SituacaoAcompanhamentoSaga, ConteudoSituacao> = {
-  EM_ANDAMENTO: { titulo: 'Solicitação em andamento', descricao: 'Sua solicitação está sendo processada.', selo: 'PENDENTE' },
-  CONFIRMADO: { titulo: 'Agendamento confirmado', descricao: 'O BFF informou que a solicitação foi confirmada.', selo: 'CONFIRMADO' },
-  RECUSADO: { titulo: 'Solicitação recusada', descricao: 'O BFF informou que a solicitação foi recusada.', selo: 'RECUSADO' },
-  CANCELADO: { titulo: 'Solicitação compensada', descricao: 'O BFF informou que o processamento foi compensado.', selo: 'CANCELADO' },
-  ERRO: { titulo: 'Erro de compensação', descricao: 'O BFF informou um erro durante a compensação.', selo: 'ERRO' },
+  EM_ANDAMENTO: { titulo: 'Estamos analisando sua solicitação', descricao: 'Seu agendamento está sendo processado. Você poderá acompanhar o resultado por aqui.', selo: 'PENDENTE' },
+  CONFIRMADO: { titulo: 'Agendamento confirmado!', descricao: 'Tudo certo! Seu horário foi reservado com sucesso.', selo: 'CONFIRMADO' },
+  RECUSADO: { titulo: 'Não foi possível confirmar seu agendamento', descricao: 'Sua solicitação não pode ser aprovada. Confira o motivo abaixo.', selo: 'RECUSADO' },
+  CANCELADO: { titulo: 'Agendamento cancelado', descricao: 'Seu agendamento foi cancelado. Confira os detalhes abaixo.', selo: 'CANCELADO' },
+  ERRO: { titulo: 'Não foi possível concluir sua solicitação', descricao: 'Ocorreu um problema durante o processamento. Tente atualizar para consultar a situação.', selo: 'ERRO' },
 };
 
 export function AcompanhamentoSaga() {
@@ -114,7 +114,13 @@ export function AcompanhamentoSaga() {
             titulo="Link de acompanhamento indisponível"
           />
         )}
-        {linkAcompanhar && estadoConsulta === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Consultando solicitação" />}
+        {linkAcompanhar && estadoConsulta === 'CARREGANDO' && (
+          <EstadoFeedback
+            descricao="Estamos verificando a disponibilidade e as condições para confirmar seu agendamento."
+            tipo="carregando"
+            titulo="Solicitação recebida!"
+          />
+        )}
         {linkAcompanhar && estadoConsulta === 'ERRO' && (
           <EstadoFeedback
             aoTentarNovamente={() => definirTentativaConsulta((tentativa) => tentativa + 1)}
