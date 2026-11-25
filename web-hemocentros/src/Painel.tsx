@@ -96,7 +96,7 @@ export function Painel({ usuario, sair }: { usuario: string; sair: () => void })
     setFormulario(false);
   }
   return <>
-    <header><div className="barra"><div className="identidade"><span className="marca">StarTech</span><span>Hemocentros</span></div>
+    <header><div className="barra"><div className="identidade"><span className="marca">StarTech</span><span className="nome-painel">Hemocentros</span><span className="versao">v2.00</span></div>
       <div className="conta"><span>{usuario}</span><button onClick={sair}>Sair</button></div></div></header>
     <main className="conteudo">{formulario ?
       <Formulario campanha={campanhaEmEdicao || undefined} voltar={() => setFormulario(false)} aoConcluir={concluir} /> :
