@@ -12,6 +12,7 @@ import {
   type CampanhaHome,
   type LinkAcompanharAgendamento,
   type LinkConsultarAgendamento,
+  type SlotDisponivel,
 } from '../servicos';
 import { NavegacaoAbas } from './NavegacaoAbas';
 import {
@@ -24,6 +25,8 @@ import {
   Perfil,
   Seguranca,
   TodasCampanhas,
+  TodosHorarios,
+  ResumoAgendamento,
 } from '../telas';
 import { cores } from '../tema';
 
@@ -36,6 +39,8 @@ export type ParametrosRaiz = {
   Seguranca: undefined;
   CadastroPerfil: { tipoSanguineo?: string } | undefined;
   TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
+  TodosHorarios: { slots: SlotDisponivel[] };
+  ResumoAgendamento: { slot: SlotDisponivel };
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
@@ -114,6 +119,8 @@ export function NavegacaoPrincipal() {
             <PilhaRaiz.Screen component={Seguranca} name="Seguranca" />
             <PilhaRaiz.Screen component={CadastroPerfil} name="CadastroPerfil" />
             <PilhaRaiz.Screen component={TodasCampanhas} name="TodasCampanhas" />
+            <PilhaRaiz.Screen component={TodosHorarios} name="TodosHorarios" />
+            <PilhaRaiz.Screen component={ResumoAgendamento} name="ResumoAgendamento" />
           </PilhaRaiz.Navigator>
         ) : (
           <Login

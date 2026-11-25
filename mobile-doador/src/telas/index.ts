@@ -11,3 +11,5 @@ export { MeusPedidos } from './MeusPedidos';
 export { Perfil } from './Perfil';
 export { Seguranca } from './Seguranca';
 export { TodasCampanhas } from './TodasCampanhas';
+export { TodosHorarios } from './TodosHorarios';
+export { ResumoAgendamento } from './ResumoAgendamento';
