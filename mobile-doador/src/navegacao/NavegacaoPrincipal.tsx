@@ -6,7 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProvedorAutenticacao, useAutenticacao } from '../autenticacao';
 import { EstadoFeedback } from '../componentes';
-import { consultarHome, ErroHttp, type LinkAcompanharAgendamento, type LinkConsultarAgendamento } from '../servicos';
+import {
+  consultarHome,
+  ErroHttp,
+  type CampanhaHome,
+  type LinkAcompanharAgendamento,
+  type LinkConsultarAgendamento,
+} from '../servicos';
 import { NavegacaoAbas } from './NavegacaoAbas';
 import {
   AcompanhamentoSaga,
@@ -17,6 +23,7 @@ import {
   Login,
   Perfil,
   Seguranca,
+  TodasCampanhas,
 } from '../telas';
 import { cores } from '../tema';
 
@@ -28,6 +35,7 @@ export type ParametrosRaiz = {
   InformacoesBasicas: { nome?: string } | undefined;
   Seguranca: undefined;
   CadastroPerfil: { tipoSanguineo?: string } | undefined;
+  TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
@@ -105,6 +113,7 @@ export function NavegacaoPrincipal() {
             <PilhaRaiz.Screen component={InformacoesBasicas} name="InformacoesBasicas" />
             <PilhaRaiz.Screen component={Seguranca} name="Seguranca" />
             <PilhaRaiz.Screen component={CadastroPerfil} name="CadastroPerfil" />
+            <PilhaRaiz.Screen component={TodasCampanhas} name="TodasCampanhas" />
           </PilhaRaiz.Navigator>
         ) : (
           <Login

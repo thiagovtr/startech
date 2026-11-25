@@ -10,3 +10,4 @@ export { Login } from './Login';
 export { MeusPedidos } from './MeusPedidos';
 export { Perfil } from './Perfil';
 export { Seguranca } from './Seguranca';
+export { TodasCampanhas } from './TodasCampanhas';
