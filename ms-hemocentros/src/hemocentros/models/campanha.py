@@ -32,3 +32,17 @@ class CampanhaCriar(BaseModel):
         if self.data_fim < self.data_inicio:
             raise ValueError("data_fim não pode ser anterior a data_inicio")
         return self
+
+
+class CampanhaAtualizar(CampanhaCriar):
+    """Payload do PUT /api/v1/campanhas/{id}."""
+
+    status: Literal["ATIVA", "ENCERRADA"] | None = None
+
+
+class HemocentroOpcao(BaseModel):
+    """Hemocentro disponível para seleção no painel web."""
+
+    id: str
+    nome: str
+    cidade: str | None = None

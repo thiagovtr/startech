@@ -35,6 +35,12 @@ class HemocentrosClient:
     async def criar_campanha(self, dados: dict, user_id: str | None) -> dict:
         return (await self._request("POST", "/api/v1/campanhas", user_id, json=dados)).json()
 
+    async def atualizar_campanha(self, campanha_id: str, dados: dict, user_id: str | None) -> dict:
+        return (await self._request("PUT", f"/api/v1/campanhas/{campanha_id}", user_id, json=dados)).json()
+
+    async def listar_hemocentros(self, user_id: str | None) -> list[dict]:
+        return (await self._request("GET", "/api/v1/hemocentros", user_id)).json()
+
     async def listar_campanhas(
         self, tipo_sanguineo: str | None, user_id: str | None, **filtros: str | int | bool | None
     ) -> tuple[list[dict], str | None]:

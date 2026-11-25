@@ -26,8 +26,8 @@ token() {  # token <client> <usuario> <senha>
   curl -s -X POST "$GATEWAY/realms/startech/protocol/openid-connect/token" \
     -d "client_id=$1&grant_type=password&username=$2&password=$3" | json access_token
 }
-token_doador() { token mobile doador1 doador123; }
-token_operador() { token web operador1 operador123; }
+token_doador() { token mobile doador1@startech.local doador123; }
+token_operador() { token startech-web operador1@startech.local operador123; }
 
 sql() {  # sql <servico-banco> <usuario> <banco> '<consulta>'
   "${COMPOSE[@]}" exec -T "$1" psql -U "$2" -d "$3" -P pager=off -c "$4"
@@ -42,7 +42,7 @@ import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8003/api/v1
 }
 
 aquecer_llm() {  # carrega os modelos direto no Ollama (sem passar pelo circuit breaker) e confirma uma resposta RAG
-  local chat="${OLLAMA_MODELO_CHAT:-qwen2.5:1.5b}" emb="${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}" modo=""
+  local chat="${OLLAMA_MODELO_CHAT:-qwen2.5:3b}" emb="${OLLAMA_MODELO_EMBEDDINGS:-nomic-embed-text}" modo=""
   "${COMPOSE[@]}" exec -T ms-rag python -c "
 import json, urllib.request
 for path, payload in [

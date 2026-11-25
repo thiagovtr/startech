@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
     errors.register(app)
     app.include_router(health.router)
     app.include_router(campanhas.router)
+    app.include_router(campanhas.hemocentros_router)
     app.add_middleware(RequestIdMiddleware)
     return app
 

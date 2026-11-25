@@ -34,6 +34,18 @@ class CampanhaCriar(BaseModel):
     data_fim: date = Field(description="Formato AAAA-MM-DD; não pode ser anterior a data_inicio.")
 
 
+class CampanhaAtualizar(CampanhaCriar):
+    status: str | None = Field(default=None, description="ATIVA ou ENCERRADA (opcional).")
+
+
+class HemocentroOpcao(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    nome: str
+    cidade: str | None = None
+
+
 class Campanha(BaseModel):
     model_config = ConfigDict(extra="allow")
 

@@ -530,6 +530,76 @@ paths:
         "504":
           $ref: "#/components/responses/GatewayTimeout504"
 
+  /api/web/campanhas/{campanhaId}:
+    put:
+      tags: [BFF Web (Gateway /api/web)]
+      summary: Atualiza uma campanha de doação existente (Command CQRS + Outbox)
+      description: Controlador `bff_web/api/campanhas.py`. Repassa o comando `PUT /api/v1/campanhas/{id}` ao `ms-hemocentros`, que atualiza no PostgreSQL, incrementa `versao` e publica `hemocentros.campanha.atualizada` no Outbox.
+      security:
+        - BearerWeb: []
+      parameters:
+        - name: campanhaId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/CampanhaCriar"
+                - type: object
+                  properties:
+                    status:
+                      type: string
+                      enum: [ATIVA, ENCERRADA]
+      responses:
+        "200":
+          description: Campanha atualizada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campanha"
+        "400":
+          $ref: "#/components/responses/BadRequest400"
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "404":
+          $ref: "#/components/responses/NotFound404"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
+  /api/web/hemocentros:
+    get:
+      tags: [BFF Web (Gateway /api/web)]
+      summary: Lista hemocentros disponíveis para o dropdown de criação/edição de campanhas
+      description: Controlador `bff_web/api/campanhas.py`. Consulta `GET /api/v1/hemocentros` no `ms-hemocentros`.
+      security:
+        - BearerWeb: []
+      responses:
+        "200":
+          description: Lista de hemocentros.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, nome]
+                  properties:
+                    id: { type: string, example: hemominas-lavras }
+                    nome: { type: string, example: Hemominas Lavras }
+                    cidade: { type: string, nullable: true, example: Lavras - MG }
+        "401":
+          $ref: "#/components/responses/Unauthorized401"
+        "403":
+          $ref: "#/components/responses/Forbidden403"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable503"
+
   # ===========================================================================
   # 4. MS-HEMOCENTROS (INTERNO: /api/v1/campanhas)
   # ===========================================================================
