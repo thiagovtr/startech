@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -33,15 +34,43 @@ const mensagemInicial: MensagemAssistente = {
   texto: 'Olá! Sou o Assistente StarTech. Envie uma pergunta para receber uma resposta do serviço de apoio ao doador.',
 };
 
+const bancoSugestoes = [
+  'Quais são os requisitos básicos para doar sangue?',
+  'De quanto em quanto tempo homens e mulheres podem doar sangue?',
+  'Preciso estar em jejum para doar sangue?',
+  'Fiz uma tatuagem há 3 meses. Já posso doar sangue?',
+  'Tive dengue recentemente. Quanto tempo preciso esperar para doar?',
+  'Estou tomando antibiótico. Posso doar sangue?',
+  'Tenho 17 anos. Posso doar sangue sem autorização dos meus pais?',
+  'Peso 48 kg, mas sou saudável. Posso doar sangue?',
+  'Quais documentos preciso levar no dia da doação?',
+  'Como funciona o processo da doação no hemocentro?',
+  'Quanto sangue é retirado e quanto tempo o corpo leva para recuperar?',
+  'Posso ir à academia depois de doar sangue?',
+  'Tomei vacina contra a gripe ontem. Posso doar sangue hoje?',
+  'Onde posso doar sangue hoje?',
+  'Tomo um remédio todos os dias. Posso doar sangue?',
+];
+
+function sortearSugestoes(quantidade: number): string[] {
+  const copia = [...bancoSugestoes];
+  for (let i = copia.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia.slice(0, quantidade);
+}
+
 export function Assistente() {
   const { clienteHttp } = useContextoAutenticacao();
   const [pergunta, definirPergunta] = useState('');
   const [mensagens, definirMensagens] = useState<MensagemAssistente[]>([mensagemInicial]);
   const [carregando, definirCarregando] = useState(false);
   const [erroCampo, definirErroCampo] = useState('');
+  const sugestoes = useMemo(() => sortearSugestoes(3), []);
 
-  async function enviarPergunta() {
-    const perguntaNormalizada = pergunta.trim();
+  async function enviarPergunta(textoOpcional?: string) {
+    const perguntaNormalizada = (textoOpcional ?? pergunta).trim();
 
     if (!perguntaNormalizada) {
       definirErroCampo('Digite uma pergunta para continuar.');
@@ -103,6 +132,22 @@ export function Assistente() {
 
         <ScrollView contentContainerStyle={estilos.listaMensagens} keyboardShouldPersistTaps="handled">
           {mensagens.map((mensagem) => <Mensagem key={mensagem.id} mensagem={mensagem} />)}
+          {mensagens.length === 1 && !carregando && (
+            <View style={estilos.sugestoesContainer}>
+              <Text style={estilos.tituloSugestoes}>Sugestões de perguntas</Text>
+              <View style={estilos.sugestoesLista}>
+                {sugestoes.map((sugestao) => (
+                  <Pressable
+                    key={sugestao}
+                    onPress={() => void enviarPergunta(sugestao)}
+                    style={({ pressed }) => [estilos.chipSugestao, pressed && estilos.chipSugestaoPressionado]}
+                  >
+                    <Text style={estilos.textoChipSugestao}>{sugestao}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
           {carregando && (
             <Cartao estilo={estilos.mensagemAssistente}>
               <View style={estilos.carregamento}>
@@ -206,6 +251,19 @@ const estilos = StyleSheet.create({
   secaoFonte: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   trechoFonte: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   carregamento: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
+  sugestoesContainer: { gap: espacamentos.pequeno, marginTop: espacamentos.pequeno },
+  tituloSugestoes: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
+  sugestoesLista: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.pequeno },
+  chipSugestao: {
+    backgroundColor: cores.cartao,
+    borderColor: cores.principalClaro,
+    borderRadius: raiosBorda.grande,
+    borderWidth: 1,
+    paddingHorizontal: espacamentos.medio,
+    paddingVertical: espacamentos.pequeno,
+  },
+  chipSugestaoPressionado: { backgroundColor: cores.principalClaro },
+  textoChipSugestao: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   textoSecundario: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   compositor: { backgroundColor: cores.cartao, borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginBottom: espacamentos.gigante * 3, padding: espacamentos.padrao },
   campoPergunta: { backgroundColor: cores.fundo, borderColor: cores.principalClaro, borderRadius: raiosBorda.media, borderWidth: 1, color: cores.texto, fontSize: tamanhosFonte.corpo, maxHeight: 120, minHeight: 52, paddingHorizontal: espacamentos.medio, paddingVertical: espacamentos.pequeno, textAlignVertical: 'top' },

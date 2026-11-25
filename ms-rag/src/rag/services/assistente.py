@@ -50,12 +50,15 @@ FALLBACK_CAMPANHAS = "Não foi possível consultar as campanhas agora. Tente nov
 # prompt fazia o modelo recusar perguntas cobertas; a recusa de perguntas fora do domínio é feita antes, sem LLM.
 PROMPT_RAG = ChatPromptTemplate.from_messages([
     ("system",
-     "Você é o assistente de doação de sangue da StarTech. Use SOMENTE as regras do CONTEXTO abaixo, extraído da "
-     "{fonte}; não use conhecimento próprio e não invente prazos ou números. Responda informando a regra exata "
-     "(prazo, idade, peso ou critério) do trecho que trata do assunto da pergunta. Se nenhum trecho tratar do "
-     "assunto, diga que essa informação não consta nos trechos da Portaria e oriente procurar a triagem do "
-     "hemocentro. Responda em português do Brasil, em no máximo 2 frases, e termine com o título do trecho usado "
-     "entre colchetes.\n\nCONTEXTO:\n{contexto}"),
+     "Você é o assistente de doação de sangue da StarTech.\n"
+     "1. Use SOMENTE as regras do CONTEXTO ({fonte}); não invente valores, taxas, prazos ou exceções.\n"
+     "2. Nunca contradiga o CONTEXTO; compare números e prazos com atenção antes de responder Sim ou Não.\n"
+     "3. Se houver várias condições na pergunta, avalie cada uma separadamente.\n"
+     "4. Se a resposta não estiver no CONTEXTO, diga que não consta nos trechos da Portaria e oriente procurar a triagem.\n"
+     "5. Responda em português do Brasil, em no máximo 2 frases diretas, terminando com [Título do trecho].\n\n"
+     "Exemplo: Contexto: [Peso mínimo] Peso mínimo é 50 kg. | Pergunta: Peso 48 kg, posso doar? "
+     "| Resposta: Não, o peso mínimo para doar sangue é de 50 kg. [Peso mínimo]\n\n"
+     "CONTEXTO:\n{contexto}"),
     ("human", "{pergunta}"),
 ])
 PROMPT_SEM_RAG = ChatPromptTemplate.from_messages([
@@ -142,12 +145,26 @@ class Assistente:
         try:
             if not self.base.pronta:
                 raise RuntimeError("índice pendente")
-            docs = await self.circuito_busca.chamar(lambda: self.base.buscar(pergunta, self.top_k))
+            if pergunta.count(",") >= 2:
+                k_busca = min(self.top_k + 2, 4)
+            elif len(pergunta.split()) >= 16:
+                k_busca = min(self.top_k + 1, 3)
+            else:
+                k_busca = self.top_k
+            docs = await self.circuito_busca.chamar(
+                lambda: self.base.buscar(pergunta, k_busca),
+                tentativas=2,
+                backoff_inicial=0.4,
+            )
         except Exception as exc:  # índice não montado ou Ollama (embeddings) fora
             return Resposta(FALLBACK_LLM, "FALLBACK", motivo_fallback=f"busca: {_motivo(exc)}")
         entrada = {"fonte": FONTE, "contexto": _contexto(docs), "pergunta": pergunta}
         try:
-            msg = await self.circuito_llm.chamar(lambda: self.cadeia_rag.ainvoke(entrada))
+            msg = await self.circuito_llm.chamar(
+                lambda: self.cadeia_rag.ainvoke(entrada),
+                tentativas=2,
+                backoff_inicial=0.4,
+            )
         except Exception as exc:
             trecho = f" Enquanto isso, veja o trecho da Portaria [{docs[0].metadata['secao']}]: " \
                      f"{docs[0].page_content.split(': ', 1)[-1][:300]}" if docs else ""

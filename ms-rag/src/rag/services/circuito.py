@@ -38,16 +38,38 @@ class Circuito:
             return MEIO_ABERTO
         return ABERTO
 
-    async def chamar(self, fn: Callable[[], Awaitable[T]], timeout: float | None = None) -> T:
+    async def chamar(
+        self,
+        fn: Callable[[], Awaitable[T]],
+        timeout: float | None = None,
+        tentativas: int = 1,
+        backoff_inicial: float = 0.0,
+    ) -> T:
         estado = self.estado
         if estado == ABERTO or (estado == MEIO_ABERTO and self._teste_em_andamento):
             raise CircuitoAberto(f"circuito {self.nome} aberto")
         self._teste_em_andamento = estado == MEIO_ABERTO
+        max_tentativas = max(1, tentativas) if estado == FECHADO else 1
         try:
-            resultado = await asyncio.wait_for(fn(), timeout or self.timeout)
-        except Exception as exc:
-            self._registrar_falha(exc)
-            raise
+            for tentativa in range(1, max_tentativas + 1):
+                try:
+                    resultado = await asyncio.wait_for(fn(), timeout or self.timeout)
+                    break
+                except TimeoutError as exc:
+                    if tentativa < max_tentativas:
+                        espera = backoff_inicial * tentativa
+                        logger.warning(
+                            "Timeout no circuito %s (tentativa %d/%d); nova tentativa em %.1fs",
+                            self.nome, tentativa, max_tentativas, espera,
+                        )
+                        if espera > 0:
+                            await asyncio.sleep(espera)
+                        continue
+                    self._registrar_falha(exc)
+                    raise
+                except Exception as exc:
+                    self._registrar_falha(exc)
+                    raise
         finally:
             self._teste_em_andamento = False
         if self._aberto_em is not None:

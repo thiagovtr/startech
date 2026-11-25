@@ -11,10 +11,10 @@ class Settings(BaseSettings):
 
     # Ollama (LLM local) e modelos
     ollama_url: str = "http://ollama:11434"
-    modelo_chat: str = "qwen2.5:1.5b"
+    modelo_chat: str = "qwen2.5:3b"
     modelo_embeddings: str = "nomic-embed-text"
     temperatura: float = 0.0  # determinístico
-    num_predict: int = 200  # limita o tamanho da resposta (e a latência)
+    num_predict: int = 180  # limita o tamanho da resposta (e a latência)
     num_ctx: int = 2048
     # Threads de CPU do Ollama por requisição. O padrão do Ollama (todos os núcleos) é ~6x mais lento em CPUs
     # híbridas (núcleos P + E): medido num Core Ultra 9 285K, 8 threads = ~58 tokens/s contra ~10 com 24.
@@ -22,10 +22,10 @@ class Settings(BaseSettings):
     num_thread: int = 8
 
     # Resiliência (plano Dev 4, Bloco 18): sem resposta do LLM em `timeout_llm` s -> fallback amigável.
-    # Calibrado para rodar com folga em VMs de 4 vCPUs sem GPU, mantendo fallback rápido se o Ollama travar.
-    timeout_llm: float = 25.0
-    # Busca (embedding da pergunta): orçamento próprio. Total no pior caso = timeout_busca + timeout_llm (30 s),
-    # abaixo dos 32 s do BFF Mobile e dos 35 s do Gateway (response-timeout).
+    # Calibrado para rodar com folga em VMs de 4 vCPUs sem GPU com qwen2.5:3b, mantendo fallback rápido se travar.
+    timeout_llm: float = 35.0
+    # Busca (embedding da pergunta): orçamento próprio. Total no pior caso = timeout_busca + timeout_llm (40 s),
+    # abaixo dos 45 s do BFF Mobile e dos 50 s do Gateway (response-timeout).
     timeout_busca: float = 5.0
     # Circuit breaker: `cb_falhas` falhas seguidas abrem o circuito por `cb_aberto_segundos`; depois, uma
     # chamada de teste (meio-aberto) decide se fecha de novo.
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     aquecer_modelo: bool = True
 
     # Recuperação (RAG)
-    top_k: int = 2  # 3 trechos distraíam o modelo de 1,5B (escolhia a regra de outra seção)
+    top_k: int = 2  # busca híbrida acerta na 1ª fonte; sobe para 3-4 em perguntas longas/multi-critério
     indice_retentativa: float = 10.0  # s entre tentativas de montar o índice com o Ollama fora
 
     # Ferramenta "Onde posso doar hoje?" (ms-hemocentros, leitura CQRS no MongoDB)

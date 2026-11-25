@@ -15,7 +15,7 @@ spring:
       httpclient:
         connect-timeout: 2000
         # Timeout de 35s (> 32s do BFF Mobile para nao cortar respostas do assistente RAG em CPU)
-        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:35s}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:50s}
       routes:
         - id: bff-mobile
           uri: ${GATEWAY_BFF_MOBILE_URI:http://bff-mobile:8001}
