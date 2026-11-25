@@ -71,14 +71,16 @@ tbody small { color: var(--texto-secundario); }
 .aviso { border: 1px solid transparent; border-radius: 12px; line-height: 1.5; padding: 16px 20px; margin: 0 0 20px; overflow-wrap: anywhere; }
 .sucesso { background: #e7f5eb; border-color: #c8e8d2; color: #205637; }
 .erro.aviso { border-color: #f5cfcc; }
-.voltar { background: transparent; border: 0; color: var(--azul-escuro); font-weight: 650; padding-inline: 0; margin-bottom: 8px; }
+.cabecalho-formulario { display: grid; gap: 8px; justify-items: start; margin-bottom: 18px; width: min(740px, 100%); }
+.voltar { background: transparent; border: 0; color: var(--azul-escuro); font-size: .9rem; font-weight: 650; justify-self: start; min-height: auto; padding: 2px 0; }
 .voltar:hover:enabled { background: transparent; border-color: transparent; color: #1e40af; }
-.formulario { max-width: 740px; margin-top: 24px; padding: clamp(18px, 4vw, 32px); }
+.formulario { margin-top: 0; max-width: 740px; padding: clamp(20px, 3.5vw, 32px); width: 100%; }
 .formulario fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-.formulario legend { color: #1e293b; font-size: 1.12rem; font-weight: 700; padding: 0 0 20px; }
-.formulario label { margin-bottom: 18px; }
-.dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.acoes { justify-content: flex-end; border-top: 1px solid var(--linha); padding-top: 20px; }
+.formulario legend { color: #1e293b; font-size: 1.08rem; font-weight: 700; padding: 0 0 22px; }
+.formulario label { margin-bottom: 20px; }
+.formulario .dupla { gap: 20px; }
+.formulario .dupla label { margin-bottom: 20px; }
+.acoes { background: #fbfcfe; justify-content: flex-end; border-top: 1px solid var(--linha); margin-top: 4px; padding-top: 20px; }
 .entrada { max-width: 470px; margin: 12vh auto 0; padding: 32px; }
 .entrada h1 { font-size: 2rem; margin-top: 24px; }
 .entrada p { line-height: 1.6; }
@@ -93,6 +95,8 @@ tbody small { color: var(--texto-secundario); }
   .atualizar { margin-left: 0; }
   .paginacao { padding: 16px; }
   .dupla { grid-template-columns: 1fr; gap: 0; }
+  .cabecalho-formulario { margin-bottom: 16px; }
+  .formulario { padding: 20px; }
   .acoes { gap: 12px; }
   .entrada { margin-inline: 16px; }
 }

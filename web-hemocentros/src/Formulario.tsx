@@ -41,8 +41,10 @@ export function Formulario({ aoCriar, voltar }: Props) {
   }
 
   return <>
-    <button type="button" className="voltar" onClick={voltar} disabled={enviando}>← Campanhas</button>
-    <h1>Nova campanha</h1>
+    <div className="cabecalho-formulario">
+      <button type="button" className="voltar" onClick={voltar} disabled={enviando}>← Campanhas</button>
+      <div><h1>Nova campanha</h1><p className="subtitulo">Preencha as informações da campanha.</p></div>
+    </div>
     <form className="cartao formulario" onSubmit={enviar} aria-busy={enviando}>
       <fieldset disabled={enviando}>
         <legend>Dados da campanha</legend>
