@@ -21,6 +21,7 @@ export type DoadorHome = {
   tipoSanguineo?: string;
   tipo_sanguineo?: string;
   sexo?: 'M' | 'F';
+  dataNascimento?: string | null;
   dataUltimaDoacao?: string | null;
   cadastrado?: boolean;
   statusDegradado?: boolean;

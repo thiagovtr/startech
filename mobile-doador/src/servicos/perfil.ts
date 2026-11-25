@@ -10,6 +10,7 @@ export type FormularioPerfil = {
   nome: string;
   tipoSanguineo: TipoSanguineo;
   sexo: SexoDoador;
+  dataNascimento?: string;
   dataUltimaDoacao?: string;
 };
 
@@ -18,6 +19,7 @@ export type RespostaPerfil = {
   nome: string;
   tipoSanguineo: TipoSanguineo;
   sexo: SexoDoador;
+  dataNascimento: string | null;
   dataUltimaDoacao: string | null;
 };
 

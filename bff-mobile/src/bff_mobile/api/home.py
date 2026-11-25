@@ -17,6 +17,7 @@ class PerfilDoadorSalvar(BaseModel):
     tipoSanguineo: str = Field(pattern=r"^(A|B|AB|O)[+-]$")
     sexo: str = Field(pattern=r"^[MF]$")
     dataUltimaDoacao: date | None = None
+    dataNascimento: date | None = None
 
 
 def get_doadores(request: Request) -> DoadoresClient:

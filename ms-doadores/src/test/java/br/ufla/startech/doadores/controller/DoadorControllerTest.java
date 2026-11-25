@@ -28,7 +28,7 @@ class DoadorControllerTest {
     @Test
     void buscaPerfilRetornaApenasCamposPublicos() throws Exception {
         doadorService.resposta = new DoadorPerfilResponse(
-                DOADOR_ID, "Doador StarTech", "O-", "M", LocalDate.of(2026, 11, 14)
+                DOADOR_ID, "Doador StarTech", "O-", "M", LocalDate.of(2026, 11, 14), LocalDate.of(1998, 5, 20)
         );
 
         mockMvc.perform(get("/api/v1/doadores/{id}", DOADOR_ID))
@@ -38,6 +38,7 @@ class DoadorControllerTest {
                 .andExpect(jsonPath("$.tipoSanguineo").value("O-"))
                 .andExpect(jsonPath("$.sexo").value("M"))
                 .andExpect(jsonPath("$.dataUltimaDoacao").value("2026-11-14"))
+                .andExpect(jsonPath("$.dataNascimento").value("1998-05-20"))
                 .andExpect(jsonPath("$.cpf").doesNotExist());
     }
 

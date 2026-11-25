@@ -38,7 +38,7 @@ export type ParametrosRaiz = {
   Perfil: undefined;
   InformacoesBasicas: { email?: string; nome?: string } | undefined;
   Seguranca: undefined;
-  CadastroPerfil: { dataUltimaDoacao?: string | null; sexo?: 'M' | 'F'; tipoSanguineo?: string } | undefined;
+  CadastroPerfil: { dataNascimento?: string | null; dataUltimaDoacao?: string | null; sexo?: 'M' | 'F'; tipoSanguineo?: string } | undefined;
   TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
   TodosHorarios: { slots: SlotDisponivel[] };
   ResumoAgendamento: { slot: SlotDisponivel };

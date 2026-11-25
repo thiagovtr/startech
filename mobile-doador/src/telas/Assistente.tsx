@@ -36,20 +36,20 @@ const mensagemInicial: MensagemAssistente = {
 
 const bancoSugestoes = [
   'Quais são os requisitos básicos para doar sangue?',
+  'Qual é o peso mínimo para doar sangue?',
+  'Qual é a idade mínima e máxima para doar sangue?',
   'De quanto em quanto tempo homens e mulheres podem doar sangue?',
   'Preciso estar em jejum para doar sangue?',
-  'Fiz uma tatuagem há 3 meses. Já posso doar sangue?',
+  'Quem fez tatuagem ou piercing pode doar sangue?',
   'Tive dengue recentemente. Quanto tempo preciso esperar para doar?',
   'Estou tomando antibiótico. Posso doar sangue?',
-  'Tenho 17 anos. Posso doar sangue sem autorização dos meus pais?',
-  'Peso 48 kg, mas sou saudável. Posso doar sangue?',
   'Quais documentos preciso levar no dia da doação?',
   'Como funciona o processo da doação no hemocentro?',
   'Quanto sangue é retirado e quanto tempo o corpo leva para recuperar?',
-  'Posso ir à academia depois de doar sangue?',
-  'Tomei vacina contra a gripe ontem. Posso doar sangue hoje?',
+  'Posso praticar atividades físicas depois de doar sangue?',
+  'Quem tomou vacina recentemente pode doar sangue?',
   'Onde posso doar sangue hoje?',
-  'Tomo um remédio todos os dias. Posso doar sangue?',
+  'Quem toma remédio de uso contínuo pode doar sangue?',
 ];
 
 function sortearSugestoes(quantidade: number): string[] {

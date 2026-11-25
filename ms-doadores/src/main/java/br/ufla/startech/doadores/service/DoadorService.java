@@ -30,12 +30,21 @@ public class DoadorService {
         Doador doador = doadorRepository.findById(id)
                 .map(existente -> {
                     existente.atualizarPerfil(
-                            request.nome(), request.tipoSanguineo(), request.sexo(), request.dataUltimaDoacao()
+                            request.nome(),
+                            request.tipoSanguineo(),
+                            request.sexo(),
+                            request.dataUltimaDoacao(),
+                            request.dataNascimento()
                     );
                     return existente;
                 })
                 .orElseGet(() -> new Doador(
-                        id, request.nome(), request.tipoSanguineo(), request.sexo(), request.dataUltimaDoacao()
+                        id,
+                        request.nome(),
+                        request.tipoSanguineo(),
+                        request.sexo(),
+                        request.dataUltimaDoacao(),
+                        request.dataNascimento()
                 ));
         return paraResponse(doadorRepository.save(doador));
     }
@@ -46,7 +55,8 @@ public class DoadorService {
                 doador.getNome(),
                 doador.getTipoSanguineo(),
                 doador.getSexo().name(),
-                doador.getDataUltimaDoacao()
+                doador.getDataUltimaDoacao(),
+                doador.getDataNascimento()
         );
     }
 }

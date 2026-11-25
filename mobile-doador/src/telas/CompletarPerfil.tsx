@@ -30,6 +30,7 @@ const opcoesSexo: { valor: SexoDoador; titulo: string }[] = [
 export function CompletarPerfil({ aoConcluir }: PropriedadesCompletarPerfil) {
   const { clienteHttp, encerrarSessao } = useContextoAutenticacao();
   const [nome, definirNome] = useState('');
+  const [dataNascimento, definirDataNascimento] = useState('');
   const [tipoSanguineo, definirTipoSanguineo] = useState<TipoSanguineo>();
   const [sexo, definirSexo] = useState<SexoDoador>();
   const [dataUltimaDoacao, definirDataUltimaDoacao] = useState('');
@@ -38,7 +39,7 @@ export function CompletarPerfil({ aoConcluir }: PropriedadesCompletarPerfil) {
   const [encerrandoSessao, definirEncerrandoSessao] = useState(false);
 
   async function enviarPerfil() {
-    const dados = prepararDadosPerfil(nome, tipoSanguineo, sexo, dataUltimaDoacao);
+    const dados = prepararDadosPerfil(nome, dataNascimento, tipoSanguineo, sexo, dataUltimaDoacao);
 
     if (Array.isArray(dados)) {
       definirErros(dados);
@@ -69,9 +70,10 @@ export function CompletarPerfil({ aoConcluir }: PropriedadesCompletarPerfil) {
   }
 
   const erroNome = obterErroCampo(erros, ['nome']);
+  const erroDataNascimento = obterErroCampo(erros, ['nascimento']);
   const erroTipoSanguineo = obterErroCampo(erros, ['tipo sanguíneo', 'tiposanguineo']);
   const erroSexo = obterErroCampo(erros, ['sexo']);
-  const erroData = obterErroCampo(erros, ['data', 'doação']);
+  const erroData = obterErroCampo(erros, ['última doação', 'doação']);
 
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
@@ -90,6 +92,16 @@ export function CompletarPerfil({ aoConcluir }: PropriedadesCompletarPerfil) {
               maxLength={120}
               texto={nome}
               titulo="Nome completo"
+            />
+
+            <Campo
+              aoAlterarTexto={(texto) => definirDataNascimento(mascararData(texto))}
+              erro={erroDataNascimento}
+              keyboardType="number-pad"
+              maxLength={10}
+              placeholder="dd/mm/aaaa"
+              texto={dataNascimento}
+              titulo="Data de nascimento"
             />
 
             <View style={estilos.grupoCampo}>
@@ -236,16 +248,22 @@ function MensagemCampo({ texto }: { texto: string }) {
 
 function prepararDadosPerfil(
   nome: string,
+  dataNascimento: string,
   tipoSanguineo: TipoSanguineo | undefined,
   sexo: SexoDoador | undefined,
   dataUltimaDoacao: string,
 ): FormularioPerfil | string[] {
   const nomeNormalizado = nome.trim();
+  const nascimentoNormalizado = converterDataParaApi(dataNascimento.trim());
   const dataNormalizada = converterDataParaApi(dataUltimaDoacao.trim());
   const erros: string[] = [];
 
   if (nomeNormalizado.length < 2 || nomeNormalizado.length > 120) {
     erros.push('Informe seu nome completo com 2 a 120 caracteres.');
+  }
+
+  if (!dataNascimento.trim() || !nascimentoNormalizado || !dataEhValida(nascimentoNormalizado)) {
+    erros.push('Informe uma data de nascimento válida.');
   }
 
   if (!tipoSanguineo) {
@@ -260,12 +278,13 @@ function prepararDadosPerfil(
     erros.push('Informe uma data de última doação válida e que não seja futura.');
   }
 
-  if (erros.length > 0 || !tipoSanguineo || !sexo) {
+  if (erros.length > 0 || !tipoSanguineo || !sexo || !nascimentoNormalizado) {
     return erros;
   }
 
   return {
     nome: nomeNormalizado,
+    dataNascimento: nascimentoNormalizado,
     tipoSanguineo,
     sexo,
     ...(dataNormalizada ? { dataUltimaDoacao: dataNormalizada } : {}),
