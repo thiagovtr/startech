@@ -1,4 +1,4 @@
-/* Tokens visuais alinhados ao app mobile-doador (src/tema/cores.ts e bordas.ts) */
+/* Tokens visuais alinhados ao redesenho do mobile-doador (src/tema/*.ts, Cartao.tsx, BotaoPrimario.tsx, Login.tsx) */
 :root {
   --st-principal: #2563EB;
   --st-principal-escuro: #1D4ED8;
@@ -7,7 +7,6 @@
   --st-cartao: #FFFFFF;
   --st-texto: #1F2937;
   --st-texto-secundario: #6B7280;
-  --st-borda: #D1D5DB;
   --st-erro: #DC2626;
   --st-erro-fundo: #FEF2F2;
   --st-sucesso: #15803D;
@@ -17,6 +16,7 @@
   --st-raio-pequeno: 8px;
   --st-raio-medio: 12px;
   --st-raio-grande: 16px;
+  --st-raio-arredondada: 9999px;
 }
 
 *,
@@ -42,17 +42,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
-}
-
-.st-card {
-  width: 100%;
-  max-width: 430px;
-  background-color: var(--st-cartao);
-  border-radius: var(--st-raio-grande);
-  box-shadow: 0 10px 30px rgba(31, 41, 55, 0.08);
-  padding: 32px 28px;
-  border: 1px solid rgba(37, 99, 235, 0.08);
+  gap: 24px;
+  padding: 32px 24px;
 }
 
 .st-brand {
@@ -60,49 +51,73 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-bottom: 24px;
+  gap: 8px;
 }
 
 .st-brand-badge {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--st-raio-medio);
-  background-color: var(--st-principal-claro);
-  color: var(--st-principal);
+  width: 72px;
+  height: 72px;
+  border-radius: var(--st-raio-arredondada);
+  background-color: var(--st-principal);
+  color: var(--st-cartao);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+}
+
+.st-brand-badge-text {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .st-brand-name {
   margin: 0;
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--st-texto);
+  color: var(--st-principal-escuro);
   letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .st-brand-subtitle {
-  margin: 4px 0 0;
-  font-size: 14px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--st-texto-secundario);
 }
 
+.st-card {
+  width: 100%;
+  max-width: 420px;
+  background-color: var(--st-cartao);
+  border-radius: var(--st-raio-grande);
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(31, 41, 55, 0.05);
+}
+
 .st-title {
-  margin: 0 0 20px;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 700;
   color: var(--st-texto);
-  text-align: center;
+  line-height: 1.25;
+}
+
+.st-description {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--st-texto-secundario);
+  line-height: 1.5;
 }
 
 .st-alert {
   border-radius: var(--st-raio-medio);
   padding: 12px 14px;
   font-size: 14px;
-  line-height: 1.4;
-  margin-bottom: 18px;
+  line-height: 1.45;
+  margin-bottom: 16px;
   border: 1px solid transparent;
 }
 
@@ -139,11 +154,11 @@ body {
 .st-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .st-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--st-texto);
 }
@@ -156,28 +171,39 @@ body {
 
 .st-input {
   width: 100%;
-  height: 44px;
-  padding: 0 12px;
-  font-size: 15px;
+  min-height: 48px;
+  padding: 10px 14px;
+  font-size: 16px;
   color: var(--st-texto);
-  background-color: var(--st-cartao);
-  border: 1px solid var(--st-borda);
-  border-radius: var(--st-raio-pequeno);
+  background-color: var(--st-fundo);
+  border: 1px solid var(--st-principal-claro);
+  border-radius: var(--st-raio-medio);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.st-input::placeholder {
+  color: var(--st-texto-secundario);
+  opacity: 0.75;
+}
+
+.st-input:hover {
+  border-color: #93C5FD;
 }
 
 .st-input:focus {
+  background-color: var(--st-cartao);
   border-color: var(--st-principal);
   box-shadow: 0 0 0 3px var(--st-principal-claro);
 }
 
 .st-input-error {
   border-color: var(--st-erro);
+  background-color: var(--st-erro-fundo);
 }
 
 .st-input-password {
-  padding-right: 76px;
+  padding-right: 84px;
 }
 
 .st-toggle-password {
@@ -185,12 +211,13 @@ body {
   right: 8px;
   background: transparent;
   border: none;
-  color: var(--st-principal);
+  color: var(--st-principal-escuro);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: var(--st-raio-pequeno);
+  transition: background-color 0.15s ease;
 }
 
 .st-toggle-password:hover {
@@ -199,55 +226,62 @@ body {
 
 .st-field-error {
   font-size: 12px;
+  font-weight: 500;
   color: var(--st-erro);
 }
 
 .st-button {
   width: 100%;
-  height: 46px;
+  min-height: 48px;
   margin-top: 4px;
+  padding: 12px 20px;
   border: none;
   border-radius: var(--st-raio-medio);
   background-color: var(--st-principal);
-  color: #FFFFFF;
+  color: var(--st-cartao);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .st-button:hover:not(:disabled) {
   background-color: var(--st-principal-escuro);
 }
 
+.st-button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
 .st-button:disabled {
-  opacity: 0.65;
+  background-color: var(--st-principal-claro);
+  color: var(--st-principal-escuro);
   cursor: not-allowed;
 }
 
 .st-footer-link {
-  margin-top: 22px;
-  padding-top: 18px;
-  border-top: 1px solid #E5E7EB;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--st-principal-claro);
   text-align: center;
   font-size: 14px;
   color: var(--st-texto-secundario);
 }
 
 .st-link {
-  color: var(--st-principal);
+  color: var(--st-principal-escuro);
   font-weight: 600;
   text-decoration: none;
 }
 
 .st-link:hover {
-  color: var(--st-principal-escuro);
+  color: var(--st-principal);
   text-decoration: underline;
 }
 
 .st-meta {
-  margin-top: 18px;
   font-size: 12px;
+  font-weight: 500;
   color: var(--st-texto-secundario);
   text-align: center;
 }
