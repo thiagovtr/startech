@@ -50,20 +50,14 @@ FALLBACK_CAMPANHAS = "Não foi possível consultar as campanhas agora. Tente nov
 # prompt fazia o modelo recusar perguntas cobertas; a recusa de perguntas fora do domínio é feita antes, sem LLM.
 PROMPT_RAG = ChatPromptTemplate.from_messages([
     ("system",
-     "Você é o assistente de doação de sangue da StarTech. Siga rigorosamente estas regras:\n"
-     "1. Use SOMENTE as regras do CONTEXTO abaixo, extraído da {fonte}; não invente valores, taxas, prazos ou exceções.\n"
-     "2. Nunca contradiga o CONTEXTO. Compare números e prazos com atenção antes de responder Sim ou Não.\n"
-     "3. Se houver várias condições na pergunta (ex.: idade, peso, tatuagem, vacina), verifique TODAS separadamente e indique se alguma impede a doação.\n"
-     "4. Se a informação não estiver no CONTEXTO, diga que essa informação não consta nos trechos da Portaria e oriente procurar a triagem do hemocentro.\n"
-     "5. Responda em português do Brasil, em no máximo 3 frases objetivas, e termine citando o título do trecho usado entre colchetes.\n\n"
-     "EXEMPLO 1:\n"
-     "Contexto: [Peso mínimo] O peso mínimo para doar sangue é de 50 kg. Candidatos com menos de 50 kg são inaptos.\n"
-     "Pergunta: Peso 48 kg, posso doar sangue?\n"
-     "Resposta: Não, pois o peso mínimo para doar sangue é de 50 kg e candidatos abaixo desse peso são considerados inaptos. [Peso mínimo]\n\n"
-     "EXEMPLO 2:\n"
-     "Contexto: [Idade para doar sangue] Jovens de 16 e 17 anos precisam de consentimento formal do responsável legal.\n"
-     "Pergunta: Tenho 17 anos, posso doar sem autorização dos meus pais?\n"
-     "Resposta: Não, candidatos de 16 ou 17 anos precisam obrigatoriamente do consentimento formal do responsável legal para doar sangue. [Idade para doar sangue]\n\n"
+     "Você é o assistente de doação de sangue da StarTech.\n"
+     "1. Use SOMENTE as regras do CONTEXTO ({fonte}); não invente valores, taxas, prazos ou exceções.\n"
+     "2. Nunca contradiga o CONTEXTO; compare números e prazos com atenção antes de responder Sim ou Não.\n"
+     "3. Se houver várias condições na pergunta, avalie cada uma separadamente.\n"
+     "4. Se a resposta não estiver no CONTEXTO, diga que não consta nos trechos da Portaria e oriente procurar a triagem.\n"
+     "5. Responda em português do Brasil, em no máximo 2 frases diretas, terminando com [Título do trecho].\n\n"
+     "Exemplo: Contexto: [Peso mínimo] Peso mínimo é 50 kg. | Pergunta: Peso 48 kg, posso doar? "
+     "| Resposta: Não, o peso mínimo para doar sangue é de 50 kg. [Peso mínimo]\n\n"
      "CONTEXTO:\n{contexto}"),
     ("human", "{pergunta}"),
 ])
@@ -151,7 +145,12 @@ class Assistente:
         try:
             if not self.base.pronta:
                 raise RuntimeError("índice pendente")
-            k_busca = min(self.top_k + 1, 4) if (len(pergunta.split()) >= 14 or pergunta.count(",") >= 2) else self.top_k
+            if pergunta.count(",") >= 2:
+                k_busca = min(self.top_k + 2, 4)
+            elif len(pergunta.split()) >= 16:
+                k_busca = min(self.top_k + 1, 3)
+            else:
+                k_busca = self.top_k
             docs = await self.circuito_busca.chamar(
                 lambda: self.base.buscar(pergunta, k_busca),
                 tentativas=2,

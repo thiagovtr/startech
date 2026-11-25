@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     modelo_chat: str = "qwen2.5:3b"
     modelo_embeddings: str = "nomic-embed-text"
     temperatura: float = 0.0  # determinístico
-    num_predict: int = 240  # limita o tamanho da resposta (e a latência)
+    num_predict: int = 180  # limita o tamanho da resposta (e a latência)
     num_ctx: int = 2048
     # Threads de CPU do Ollama por requisição. O padrão do Ollama (todos os núcleos) é ~6x mais lento em CPUs
     # híbridas (núcleos P + E): medido num Core Ultra 9 285K, 8 threads = ~58 tokens/s contra ~10 com 24.
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     aquecer_modelo: bool = True
 
     # Recuperação (RAG)
-    top_k: int = 3  # busca híbrida (vetorial + lexical); sobe para 4 em perguntas longas com múltiplos critérios
+    top_k: int = 2  # busca híbrida acerta na 1ª fonte; sobe para 3-4 em perguntas longas/multi-critério
     indice_retentativa: float = 10.0  # s entre tentativas de montar o índice com o Ollama fora
 
     # Ferramenta "Onde posso doar hoje?" (ms-hemocentros, leitura CQRS no MongoDB)
