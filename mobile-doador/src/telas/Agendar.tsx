@@ -1,17 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
-import { BotaoPrimario, Cartao, EstadoFeedback } from '../componentes';
+import { EstadoFeedback } from '../componentes';
 import type { ParametrosAbas } from '../navegacao/NavegacaoAbas';
 import type { ParametrosRaiz } from '../navegacao/NavegacaoPrincipal';
-import { ErroHttp, listarSlotsDisponiveis, solicitarAgendamento, type SlotDisponivel } from '../servicos';
+import { ErroHttp, listarSlotsDisponiveis, type SlotDisponivel } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
 type EstadoDisponibilidade = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
@@ -25,22 +25,18 @@ export function Agendar() {
   const navegacao = useNavigation<NavegacaoAgendar>();
   const [estadoDisponibilidade, definirEstadoDisponibilidade] = useState<EstadoDisponibilidade>('CARREGANDO');
   const [slots, definirSlots] = useState<SlotDisponivel[]>([]);
-  const [slotSelecionado, definirSlotSelecionado] = useState<SlotDisponivel>();
   const [mensagemErro, definirMensagemErro] = useState('');
-  const [enviandoSolicitacao, definirEnviandoSolicitacao] = useState(false);
 
-  const carregarSlots = useCallback(async (preservarMensagemErro = false) => {
+  const carregarSlots = useCallback(async () => {
     definirEstadoDisponibilidade('CARREGANDO');
-    if (!preservarMensagemErro) definirMensagemErro('');
+    definirMensagemErro('');
 
     try {
       const resposta = await listarSlotsDisponiveis(clienteHttp);
       definirSlots(resposta.itens);
-      definirSlotSelecionado((selecionado) => resposta.itens.find((slot) => slot.slotId === selecionado?.slotId));
       definirEstadoDisponibilidade('SUCESSO');
     } catch (erro) {
       definirSlots([]);
-      definirSlotSelecionado(undefined);
       definirMensagemErro(obterMensagemErroDisponibilidade(erro));
       definirEstadoDisponibilidade('ERRO');
     }
@@ -50,35 +46,15 @@ export function Agendar() {
     void carregarSlots();
   }, [carregarSlots]));
 
-  async function confirmarSolicitacao() {
-    if (!slotSelecionado || enviandoSolicitacao) return;
-
-    definirEnviandoSolicitacao(true);
-    definirMensagemErro('');
-
-    try {
-      const resposta = await solicitarAgendamento(
-        clienteHttp,
-        { slotId: slotSelecionado.slotId },
-        slotSelecionado._links.agendar,
-      );
-      navegacao.navigate('AcompanhamentoSaga', { linkAcompanhar: resposta._links.acompanhar });
-    } catch (erro) {
-      definirMensagemErro(obterMensagemErroSolicitacao(erro));
-      if (erro instanceof ErroHttp && erro.categoria === 'CONFLITO') {
-        void carregarSlots(true);
-      }
-    } finally {
-      definirEnviandoSolicitacao(false);
-    }
-  }
+  const horariosDaPrevia = slots.slice(0, 3);
+  const haMaisHorarios = slots.length > horariosDaPrevia.length;
 
   return (
     <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <View style={estilos.cabecalho}>
-          <Text style={estilos.titulo}>Agendar doação</Text>
-          <Text style={estilos.descricao}>Consulte os horários disponíveis e escolha o mais adequado para você.</Text>
+          <Text style={estilos.titulo}>Agendamentos</Text>
+          <Text style={estilos.descricao}>Consulte horários e acompanhe suas solicitações de doação.</Text>
         </View>
 
         <Pressable
@@ -94,19 +70,27 @@ export function Agendar() {
             <Text style={estilos.tituloBannerPedidos}>Acompanhe seus agendamentos</Text>
             <Text style={estilos.descricaoBannerPedidos}>Veja a situação dos seus pedidos e os detalhes de cada um.</Text>
           </View>
-          <Text accessibilityElementsHidden style={estilos.setaBannerPedidos}>›</Text>
+          <Ionicons accessibilityElementsHidden color={cores.principalEscuro} name="chevron-forward" size={20} />
         </Pressable>
 
-        <View style={estilos.linhaTituloSecao}>
-          <Text style={estilos.tituloSecao}>Horários disponíveis</Text>
+        <View style={estilos.cabecalhoSecao}>
+          <View style={estilos.detalhesSecao}>
+            <Text style={estilos.tituloSecao}>Agendar doação</Text>
+            <Text style={estilos.descricaoSecao}>Escolha um dos horários disponíveis para realizar sua doação de sangue.</Text>
+          </View>
           <Pressable
             accessibilityLabel="Atualizar horários disponíveis"
             accessibilityRole="button"
-            disabled={estadoDisponibilidade === 'CARREGANDO' || enviandoSolicitacao}
+            accessibilityState={{ busy: estadoDisponibilidade === 'CARREGANDO', disabled: estadoDisponibilidade === 'CARREGANDO' }}
+            disabled={estadoDisponibilidade === 'CARREGANDO'}
             onPress={() => void carregarSlots()}
-            style={({ pressed }) => [estilos.acaoAtualizar, pressed && estilos.acaoAtualizarPressionada]}
+            style={({ pressed }) => [estilos.acaoAtualizar, pressed && estadoDisponibilidade !== 'CARREGANDO' && estilos.acaoAtualizarPressionada]}
           >
-            <Text style={estilos.textoAtualizar}>Atualizar</Text>
+            {estadoDisponibilidade === 'CARREGANDO' ? (
+              <ActivityIndicator color={cores.principalEscuro} size="small" />
+            ) : (
+              <Ionicons color={cores.principalEscuro} name="refresh" size={22} />
+            )}
           </Pressable>
         </View>
 
@@ -126,38 +110,28 @@ export function Agendar() {
             titulo="Nenhum horário disponível"
           />
         )}
-        {estadoDisponibilidade === 'SUCESSO' && slots.length > 0 && (
+        {estadoDisponibilidade === 'SUCESSO' && horariosDaPrevia.length > 0 && (
           <View style={estilos.listaSlots}>
-            {slots.map((slot) => (
+            {horariosDaPrevia.map((slot) => (
               <CartaoHorario
-                aoSelecionar={() => definirSlotSelecionado(slot)}
-                estaSelecionado={slotSelecionado?.slotId === slot.slotId}
+                aoSelecionar={() => navegacao.navigate('ResumoAgendamento', { slot })}
                 key={slot.slotId}
                 slot={slot}
               />
             ))}
+            {haMaisHorarios && (
+              <Pressable
+                accessibilityLabel="Ver todos os horários disponíveis"
+                accessibilityRole="button"
+                onPress={() => navegacao.navigate('TodosHorarios', { slots })}
+                style={({ pressed }) => [estilos.verTodos, pressed && estilos.verTodosPressionado]}
+              >
+                <Text style={estilos.textoVerTodos}>Ver todos</Text>
+                <Ionicons color={cores.principalEscuro} name="arrow-forward" size={18} />
+              </Pressable>
+            )}
           </View>
         )}
-
-        <Cartao estilo={estilos.resumo}>
-          <Text style={estilos.tituloSecao}>Resumo da solicitação</Text>
-          {slotSelecionado ? (
-            <>
-              <Text style={estilos.nomePosto}>Posto: {slotSelecionado.postoId}</Text>
-              <Text style={estilos.textoSecundario}>{formatarPeriodo(slotSelecionado)}</Text>
-              <Text style={estilos.textoSecundario}>{formatarVagas(slotSelecionado.vagasDisponiveis)}</Text>
-            </>
-          ) : (
-            <Text style={estilos.textoSecundario}>Selecione um horário disponível para continuar.</Text>
-          )}
-          {mensagemErro && estadoDisponibilidade !== 'ERRO' && <Text style={estilos.erroSolicitacao}>{mensagemErro}</Text>}
-          <BotaoPrimario
-            aoPressionar={() => void confirmarSolicitacao()}
-            carregando={enviandoSolicitacao}
-            desabilitado={!slotSelecionado || estadoDisponibilidade !== 'SUCESSO'}
-            titulo="Confirmar solicitação"
-          />
-        </Cartao>
       </ScrollView>
     </SafeAreaView>
   );
@@ -165,30 +139,25 @@ export function Agendar() {
 
 type PropriedadesCartaoHorario = {
   slot: SlotDisponivel;
-  estaSelecionado: boolean;
   aoSelecionar: () => void;
 };
 
-function CartaoHorario({ slot, estaSelecionado, aoSelecionar }: PropriedadesCartaoHorario) {
+export function CartaoHorario({ slot, aoSelecionar }: PropriedadesCartaoHorario) {
   return (
     <Pressable
+      accessibilityLabel={`Selecionar horário no posto ${slot.postoId}`}
       accessibilityRole="button"
-      accessibilityState={{ selected: estaSelecionado }}
       onPress={aoSelecionar}
-      style={({ pressed }) => [
-        estilos.cartaoHorario,
-        estaSelecionado && estilos.cartaoHorarioSelecionado,
-        pressed && !estaSelecionado && estilos.cartaoHorarioPressionado,
-      ]}
+      style={({ pressed }) => [estilos.cartaoHorario, pressed && estilos.cartaoHorarioPressionado]}
     >
-      <Text style={[estilos.nomePosto, estaSelecionado && estilos.textoSelecionado]}>Posto: {slot.postoId}</Text>
-      <Text style={[estilos.periodo, estaSelecionado && estilos.textoSelecionado]}>{formatarPeriodo(slot)}</Text>
-      <Text style={[estilos.vagas, estaSelecionado && estilos.textoSelecionado]}>{formatarVagas(slot.vagasDisponiveis)}</Text>
+      <Text style={estilos.nomePosto}>Posto: {slot.postoId}</Text>
+      <Text style={estilos.periodo}>{formatarPeriodo(slot)}</Text>
+      <Text style={estilos.vagas}>{formatarVagas(slot.vagasDisponiveis)}</Text>
     </Pressable>
   );
 }
 
-function formatarPeriodo(slot: Pick<SlotDisponivel, 'dataHoraInicio' | 'dataHoraFim'>): string {
+export function formatarPeriodo(slot: Pick<SlotDisponivel, 'dataHoraInicio' | 'dataHoraFim'>): string {
   const inicio = new Date(slot.dataHoraInicio);
   const fim = new Date(slot.dataHoraFim);
 
@@ -202,7 +171,7 @@ function formatarPeriodo(slot: Pick<SlotDisponivel, 'dataHoraInicio' | 'dataHora
   return `${data} · ${horarioInicio} às ${horarioFim}`;
 }
 
-function formatarVagas(vagasDisponiveis: number): string {
+export function formatarVagas(vagasDisponiveis: number): string {
   return vagasDisponiveis === 1 ? '1 vaga disponível' : `${vagasDisponiveis} vagas disponíveis`;
 }
 
@@ -218,21 +187,6 @@ function obterMensagemErroDisponibilidade(erro: unknown): string {
   return erro instanceof Error ? erro.message : 'Não foi possível consultar os horários. Tente novamente.';
 }
 
-function obterMensagemErroSolicitacao(erro: unknown): string {
-  if (erro instanceof ErroHttp) {
-    if (erro.categoria === 'CONFLITO') {
-      return erro.problema.detail ?? 'Este horário não está mais disponível ou você já possui uma solicitação em andamento.';
-    }
-    if (erro.categoria === 'AUTENTICACAO_NECESSARIA') return 'Sua sessão expirou. Faça login novamente para continuar.';
-    if (erro.categoria === 'SERVICO_INDISPONIVEL' || erro.categoria === 'REDE') {
-      return erro.problema.detail ?? 'O agendamento está temporariamente indisponível. Tente novamente.';
-    }
-    return erro.problema.detail ?? erro.problema.title;
-  }
-
-  return erro instanceof Error ? erro.message : 'Não foi possível enviar a solicitação. Tente novamente.';
-}
-
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.gigante * 3 },
@@ -245,21 +199,19 @@ const estilos = StyleSheet.create({
   detalhesBannerPedidos: { flex: 1, gap: espacamentos.minimo },
   tituloBannerPedidos: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   descricaoBannerPedidos: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  setaBannerPedidos: { color: cores.principalEscuro, fontSize: tamanhosFonte.cabecalho, fontWeight: pesosFonte.normal },
-  linhaTituloSecao: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  cabecalhoSecao: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.medio, justifyContent: 'space-between' },
+  detalhesSecao: { flex: 1, gap: espacamentos.minimo },
   tituloSecao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
-  acaoAtualizar: { justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
-  acaoAtualizarPressionada: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
-  textoAtualizar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  descricaoSecao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 22 },
+  acaoAtualizar: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 44, justifyContent: 'center', width: 44 },
+  acaoAtualizarPressionada: { opacity: 0.72 },
   listaSlots: { gap: espacamentos.medio },
   cartaoHorario: { backgroundColor: cores.cartao, borderRadius: raiosBorda.media, gap: espacamentos.pequeno, minHeight: 112, padding: espacamentos.padrao },
-  cartaoHorarioSelecionado: { backgroundColor: cores.principal },
   cartaoHorarioPressionado: { backgroundColor: cores.principalClaro },
   nomePosto: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   periodo: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal },
   vagas: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
-  textoSelecionado: { color: cores.cartao },
-  resumo: { gap: espacamentos.medio },
-  textoSecundario: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  erroSolicitacao: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  verTodos: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, minHeight: 44, paddingHorizontal: espacamentos.pequeno },
+  verTodosPressionado: { opacity: 0.72 },
+  textoVerTodos: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
 });
