@@ -11,6 +11,8 @@ import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../t
 export function CadastroPerfil() {
   const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
   const rota = useRoute<RouteProp<ParametrosRaiz, 'CadastroPerfil'>>();
+  const dataUltimaDoacao = formatarDataUltimaDoacao(rota.params?.dataUltimaDoacao);
+  const sexo = formatarSexo(rota.params?.sexo);
   const tipoSanguineo = rota.params?.tipoSanguineo;
 
   return (
@@ -26,12 +28,31 @@ export function CadastroPerfil() {
         </View>
         <Cartao estilo={estilos.cartao}>
           <Informacao icone="heart-outline" rotulo="Tipo sanguíneo" valor={tipoSanguineo} />
-          <Informacao icone="person-outline" rotulo="Sexo" />
-          <Informacao icone="calendar-outline" rotulo="Data da última doação" />
+          <Informacao icone="person-outline" rotulo="Sexo" valor={sexo} />
+          <Informacao icone="calendar-outline" rotulo="Data da última doação" valor={dataUltimaDoacao} />
         </Cartao>
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatarSexo(sexo?: 'M' | 'F'): string | undefined {
+  if (sexo === 'M') return 'Masculino';
+  if (sexo === 'F') return 'Feminino';
+  return undefined;
+}
+
+function formatarDataUltimaDoacao(data?: string | null): string | undefined {
+  if (data === null) return 'Não informado';
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return undefined;
+
+  const [ano, mes, dia] = data.split('-').map(Number);
+  const dataFormatada = new Date(ano, mes - 1, dia);
+  const dataValida = dataFormatada.getFullYear() === ano
+    && dataFormatada.getMonth() === mes - 1
+    && dataFormatada.getDate() === dia;
+
+  return dataValida ? `${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${ano}` : undefined;
 }
 
 function Informacao({ icone, rotulo, valor }: { icone: keyof typeof Ionicons.glyphMap; rotulo: string; valor?: string }) {

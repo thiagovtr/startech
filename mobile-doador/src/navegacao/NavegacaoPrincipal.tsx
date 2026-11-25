@@ -36,9 +36,9 @@ export type ParametrosRaiz = {
   AcompanhamentoSaga: { linkAcompanhar: LinkAcompanharAgendamento };
   DetalhesAgendamento: { linkConsultar: LinkConsultarAgendamento };
   Perfil: undefined;
-  InformacoesBasicas: { nome?: string } | undefined;
+  InformacoesBasicas: { email?: string; nome?: string } | undefined;
   Seguranca: undefined;
-  CadastroPerfil: { tipoSanguineo?: string } | undefined;
+  CadastroPerfil: { dataUltimaDoacao?: string | null; sexo?: 'M' | 'F'; tipoSanguineo?: string } | undefined;
   TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
   TodosHorarios: { slots: SlotDisponivel[] };
   ResumoAgendamento: { slot: SlotDisponivel };

@@ -11,6 +11,7 @@ import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../t
 export function InformacoesBasicas() {
   const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
   const rota = useRoute<RouteProp<ParametrosRaiz, 'InformacoesBasicas'>>();
+  const email = rota.params?.email;
   const nome = rota.params?.nome;
 
   return (
@@ -26,8 +27,7 @@ export function InformacoesBasicas() {
         </View>
         <Cartao estilo={estilos.cartao}>
           <Informacao icone="person-outline" rotulo="Nome completo" valor={nome} />
-          <Informacao icone="at-outline" rotulo="Nome de usuário" />
-          <Informacao icone="mail-outline" rotulo="E-mail" />
+          <Informacao icone="mail-outline" rotulo="E-mail" valor={email} />
         </Cartao>
       </ScrollView>
     </SafeAreaView>

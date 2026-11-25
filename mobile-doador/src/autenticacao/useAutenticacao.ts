@@ -82,15 +82,20 @@ export function useAutenticacao() {
   }, [configuracao]);
 
   const atualizarSessao = useCallback(async (sessaoAtual: SessaoAutenticada): Promise<SessaoAutenticada> => {
-    if (!configuracao || !descoberta || !sessaoAtual.refreshToken || !tokenPrecisaRenovar(sessaoAtual)) {
-      return sessaoAtual;
+    const sessaoComEmail = atualizarEmailDaSessao(sessaoAtual);
+
+    if (!configuracao || !descoberta || !sessaoComEmail.refreshToken || !tokenPrecisaRenovar(sessaoComEmail)) {
+      if (sessaoComEmail !== sessaoAtual) {
+        await salvarSessaoArmazenada(sessaoComEmail);
+      }
+      return sessaoComEmail;
     }
 
     const respostaToken = await AuthSession.refreshAsync(
-      { clientId: configuracao.clientId, refreshToken: sessaoAtual.refreshToken },
+      { clientId: configuracao.clientId, refreshToken: sessaoComEmail.refreshToken },
       descoberta,
     );
-    const sessaoRenovada = criarSessao(respostaToken, sessaoAtual.refreshToken);
+    const sessaoRenovada = criarSessao(respostaToken, sessaoComEmail.refreshToken, sessaoComEmail.email);
     await salvarSessaoArmazenada(sessaoRenovada);
     return sessaoRenovada;
   }, [configuracao, descoberta]);
@@ -222,13 +227,41 @@ export function useAutenticacao() {
   };
 }
 
-function criarSessao(respostaToken: AuthSession.TokenResponse, refreshTokenAnterior?: string): SessaoAutenticada {
+function criarSessao(
+  respostaToken: AuthSession.TokenResponse,
+  refreshTokenAnterior?: string,
+  emailAnterior?: string,
+): SessaoAutenticada {
   return {
     accessToken: respostaToken.accessToken,
+    email: obterEmailDoToken(respostaToken.idToken) ?? obterEmailDoToken(respostaToken.accessToken) ?? emailAnterior,
     expiresIn: respostaToken.expiresIn,
     issuedAt: respostaToken.issuedAt ?? Math.floor(Date.now() / 1000),
     refreshToken: respostaToken.refreshToken ?? refreshTokenAnterior,
   };
+}
+
+function obterEmailDoToken(token?: string): string | undefined {
+  if (!token) return undefined;
+
+  try {
+    const segmento = token.split('.')[1];
+    if (!segmento) return undefined;
+
+    const base64 = segmento.replace(/-/g, '+').replace(/_/g, '/');
+    const preenchimento = '='.repeat((4 - (base64.length % 4)) % 4);
+    const conteudo = JSON.parse(globalThis.atob(`${base64}${preenchimento}`)) as { email?: unknown };
+
+    return typeof conteudo.email === 'string' && conteudo.email.trim() ? conteudo.email.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function atualizarEmailDaSessao(sessao: SessaoAutenticada): SessaoAutenticada {
+  const email = obterEmailDoToken(sessao.accessToken);
+
+  return email && email !== sessao.email ? { ...sessao, email } : sessao;
 }
 
 function tokenPrecisaRenovar(sessao: SessaoAutenticada): boolean {

@@ -27,7 +27,7 @@ export function Seguranca() {
             <View style={estilos.icone}><Ionicons color={cores.principalEscuro} name="lock-closed-outline" size={21} /></View>
             <View style={estilos.detalhesOpcao}>
               <Text style={estilos.tituloOpcao}>Alterar senha</Text>
-              <Text style={estilos.descricaoOpcao}>Esta funcionalidade ainda não está disponível no aplicativo.</Text>
+              <Text style={estilos.descricaoOpcao}>No momento, não é possível trocar a senha neste aplicativo.</Text>
             </View>
           </View>
           <Pressable
