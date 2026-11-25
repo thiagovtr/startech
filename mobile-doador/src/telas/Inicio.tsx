@@ -1,17 +1,24 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
-import { BotaoPrimario, Cartao, EstadoFeedback, SeloStatus } from '../componentes';
+import { Cartao, EstadoFeedback, SeloStatus } from '../componentes';
 import type { ParametrosAbas } from '../navegacao/NavegacaoAbas';
+import type { ParametrosRaiz } from '../navegacao/NavegacaoPrincipal';
 import { ErroHttp, type RespostaHome } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
 type DestinoAtalho = Exclude<keyof ParametrosAbas, 'Inicio'>;
 type EstadoCarregamento = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
+type NavegacaoInicio = CompositeNavigationProp<
+  BottomTabNavigationProp<ParametrosAbas>,
+  NativeStackNavigationProp<ParametrosRaiz>
+>;
 
 const atalhos: { titulo: string; icone: string; destino: DestinoAtalho }[] = [
   { titulo: 'Agendar doação', icone: '+', destino: 'Agendar' },
@@ -20,12 +27,11 @@ const atalhos: { titulo: string; icone: string; destino: DestinoAtalho }[] = [
 ];
 
 export function Inicio() {
-  const navegacao = useNavigation<BottomTabNavigationProp<ParametrosAbas>>();
-  const { clienteHttp, encerrarSessao } = useContextoAutenticacao();
+  const navegacao = useNavigation<NavegacaoInicio>();
+  const { clienteHttp } = useContextoAutenticacao();
   const [estadoCarregamento, definirEstadoCarregamento] = useState<EstadoCarregamento>('CARREGANDO');
   const [respostaHome, definirRespostaHome] = useState<RespostaHome | null>(null);
   const [mensagemErro, definirMensagemErro] = useState('');
-  const [encerrandoSessao, definirEncerrandoSessao] = useState(false);
 
   const carregarHome = useCallback(async (signal?: AbortSignal) => {
     definirEstadoCarregamento('CARREGANDO');
@@ -60,16 +66,6 @@ export function Inicio() {
   const tipoSanguineo = doador?.tipoSanguineo ?? doador?.tipo_sanguineo;
   const perfilNaoCadastrado = doador?.cadastrado === false;
 
-  async function sairDaConta() {
-    definirEncerrandoSessao(true);
-
-    try {
-      await encerrarSessao();
-    } finally {
-      definirEncerrandoSessao(false);
-    }
-  }
-
   return (
     <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
@@ -78,20 +74,17 @@ export function Inicio() {
             <Text style={estilos.saudacao}>{nomeDoador ? `Olá, ${nomeDoador}` : 'Olá'}</Text>
             <Text style={estilos.subtitulo}>Que bom ter você por aqui.</Text>
           </View>
-          <View accessibilityLabel="Perfil do doador" style={estilos.avatarPerfil}>
+          <Pressable
+            accessibilityLabel="Abrir meu perfil"
+            accessibilityRole="button"
+            onPress={() => navegacao.navigate('Perfil')}
+            style={({ pressed }) => [estilos.avatarPerfil, pressed && estilos.avatarPerfilPressionado]}
+          >
             <Text style={estilos.iniciaisPerfil}>{obterIniciais(nomeDoador)}</Text>
-          </View>
+          </Pressable>
         </View>
 
         <SecaoAtalhos navegacao={navegacao} />
-
-        <View style={estilos.secaoSaida}>
-          <BotaoPrimario
-            aoPressionar={() => void sairDaConta()}
-            carregando={encerrandoSessao}
-            titulo="Sair da conta"
-          />
-        </View>
 
         {estadoCarregamento === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Carregando sua Home" />}
 
@@ -178,7 +171,7 @@ export function Inicio() {
   );
 }
 
-function SecaoAtalhos({ navegacao }: { navegacao: BottomTabNavigationProp<ParametrosAbas> }) {
+function SecaoAtalhos({ navegacao }: { navegacao: NavegacaoInicio }) {
   return (
     <View style={estilos.secao}>
       <Text style={estilos.tituloSecao}>Ações rápidas</Text>
@@ -230,6 +223,7 @@ const estilos = StyleSheet.create({
   saudacao: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   subtitulo: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, marginTop: espacamentos.minimo },
   avatarPerfil: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 48, justifyContent: 'center', width: 48 },
+  avatarPerfilPressionado: { opacity: 0.78 },
   iniciaisPerfil: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.negrito },
   cartaoPerfil: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.padrao, justifyContent: 'space-between' },
   detalhesPerfil: { flex: 1, gap: espacamentos.minimo },
@@ -248,7 +242,6 @@ const estilos = StyleSheet.create({
   avisoNaoPersonalizado: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   descricaoNaoPersonalizada: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   gradeAtalhos: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.medio },
-  secaoSaida: { gap: espacamentos.pequeno },
   atalho: { backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flexBasis: '47%', flexGrow: 1, gap: espacamentos.pequeno, minHeight: 108, padding: espacamentos.padrao },
   atalhoPressionado: { backgroundColor: cores.principalClaro },
   iconeAtalho: { color: cores.principal, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
