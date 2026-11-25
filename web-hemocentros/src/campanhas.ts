@@ -14,6 +14,10 @@ export interface Campanha extends NovaCampanha {
   status: string;
 }
 
+export interface CampanhaAtualizar extends NovaCampanha {
+  status?: string;
+}
+
 export interface Hemocentro {
   id: string;
   nome: string;
@@ -33,6 +37,7 @@ const errosHttp: Record<number, string> = {
   400: "Confira os campos informados.",
   401: "Sua sessão expirou. Entre novamente.",
   403: "Seu usuário não tem permissão para acessar as campanhas.",
+  404: "Campanha não encontrada.",
   502: "Falha na resposta do serviço de campanhas.",
   503: "Serviço de campanhas indisponível.",
   504: "O serviço demorou para responder."
@@ -97,6 +102,14 @@ export function clienteCampanhas(gateway: string, obterToken: () => Promise<stri
     async criar(campanha: NovaCampanha): Promise<Campanha> {
       const resposta = await enviar(rota, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(campanha)
+      });
+      return resposta.json();
+    },
+    async atualizar(id: string, campanha: CampanhaAtualizar): Promise<Campanha> {
+      const resposta = await enviar(new URL("/api/web/campanhas/" + encodeURIComponent(id), gateway), {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(campanha)
       });

@@ -50,12 +50,14 @@ input[type="date"] { font-variant-numeric: tabular-nums; }
 .atualizar { margin-left: auto; }
 .rolagem { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .92rem; }
-.tabela-campanhas { min-width: 760px; }
+.tabela-campanhas { min-width: 860px; }
 td, th { border-top: 1px solid var(--linha); padding: 16px; vertical-align: middle; }
 td:first-child, th:first-child { padding-left: 24px; }
 thead th { background: #f8fafc; color: #526176; font-size: .78rem; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap; }
 tbody tr:hover { background: #fbfdff; }
 tbody th { min-width: 180px; max-width: 340px; overflow-wrap: anywhere; }
+.tabela-campanhas th:last-child, .tabela-campanhas td:last-child { padding-right: 24px; text-align: right; }
+.acao-tabela { font-size: .84rem; min-height: 36px; padding: 7px 12px; }
 small { display: block; font-size: .84rem; line-height: 1.4; margin-block: 4px; font-weight: 400; }
 tbody small { color: var(--texto-secundario); }
 .tipo, .ativa, .critica, .neutra { border-radius: 999px; display: inline-block; font-size: .78rem; font-weight: 700; line-height: 1.2; padding: 5px 9px; white-space: nowrap; }
