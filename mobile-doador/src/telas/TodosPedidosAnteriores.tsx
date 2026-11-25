@@ -100,11 +100,11 @@ function obterMensagemErro(erro: unknown): string {
 
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
-  conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
+  conteudo: { gap: espacamentos.grande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
   voltar: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, minHeight: 44, paddingHorizontal: espacamentos.pequeno },
   textoVoltar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   cabecalho: { gap: espacamentos.pequeno },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  lista: { gap: espacamentos.medio },
+  lista: { gap: espacamentos.medio, paddingTop: espacamentos.pequeno },
 });
