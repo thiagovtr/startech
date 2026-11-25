@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useCallback, useRef, useState } from 'react';
@@ -93,8 +94,9 @@ export function DetalhesAgendamento() {
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
-        <Pressable accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
-          <Text style={estilos.textoVoltar}>← Voltar para meus pedidos</Text>
+        <Pressable accessibilityLabel="Voltar para Meus pedidos" accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
+          <Ionicons color={cores.principalEscuro} name="arrow-back" size={20} />
+          <Text style={estilos.textoVoltar}>Voltar</Text>
         </Pressable>
 
         <View style={estilos.cabecalho}>
@@ -139,6 +141,9 @@ function ConteudoAgendamento({ agendamento, cancelando, mensagemCancelamento, ao
           <View style={estilos.detalhesPrincipais}>
             <Text style={estilos.rotulo}>Posto</Text>
             <Text style={estilos.valorPrincipal}>{agendamento.slot.postoId}</Text>
+          </View>
+          <View style={estilos.iconeStatus}>
+            <Ionicons color={cores.principalEscuro} name="calendar-outline" size={20} />
           </View>
           <SeloStatus situacao={obterSelo(agendamento.status)} />
         </View>
@@ -256,15 +261,16 @@ function obterMensagemErroCancelamento(erro: unknown): string {
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
-  voltar: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 48, paddingHorizontal: espacamentos.pequeno },
+  voltar: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
   textoVoltar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   cabecalho: { gap: espacamentos.pequeno },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  cartao: { gap: espacamentos.medio },
-  cartaoInformativo: { backgroundColor: cores.principalClaro, gap: espacamentos.medio },
+  cartao: { gap: espacamentos.medio, padding: espacamentos.medio },
+  cartaoInformativo: { backgroundColor: cores.principalClaro, gap: espacamentos.pequeno, padding: espacamentos.medio },
   linhaCartao: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   detalhesPrincipais: { flex: 1, gap: espacamentos.minimo },
+  iconeStatus: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, height: 36, justifyContent: 'center', width: 36 },
   rotulo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   valorPrincipal: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   informacao: { gap: espacamentos.minimo },

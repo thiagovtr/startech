@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
@@ -113,12 +114,13 @@ export function AcompanhamentoSaga() {
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
-        <Pressable accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
-          <Text style={estilos.textoVoltar}>← Voltar para agendar</Text>
+        <Pressable accessibilityLabel="Voltar para agendamentos" accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
+          <Ionicons color={cores.principalEscuro} name="arrow-back" size={20} />
+          <Text style={estilos.textoVoltar}>Voltar</Text>
         </Pressable>
 
         <View style={estilos.cabecalho}>
-          <Text style={estilos.titulo}>Acompanhar agendamento</Text>
+          <Text style={estilos.titulo}>Acompanhamento da solicitação</Text>
           <Text style={estilos.descricao}>Consulte a situação da sua solicitação de agendamento.</Text>
         </View>
 
@@ -210,12 +212,12 @@ function obterMensagemErro(erro: unknown): string {
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
-  voltar: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 48, paddingHorizontal: espacamentos.pequeno },
+  voltar: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
   textoVoltar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   cabecalho: { gap: espacamentos.pequeno },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  cartaoSolicitacao: { gap: espacamentos.medio },
+  cartaoSolicitacao: { gap: espacamentos.medio, padding: espacamentos.medio },
   linhaSolicitacao: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   detalhesSolicitacao: { flex: 1, gap: espacamentos.minimo },
   rotulo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
@@ -224,7 +226,7 @@ const estilos = StyleSheet.create({
   divisor: { backgroundColor: cores.principalClaro, height: 1 },
   tituloSituacao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   descricaoSituacao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  motivo: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, gap: espacamentos.minimo, padding: espacamentos.medio },
+  motivo: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, gap: espacamentos.minimo, padding: espacamentos.pequeno },
   rotuloMotivo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   textoMotivo: { color: cores.texto, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, lineHeight: 20 },
   acaoDetalhes: { alignItems: 'center', minHeight: 48, justifyContent: 'center' },
