@@ -32,7 +32,8 @@ header { background: var(--superficie); border-bottom: 1px solid var(--linha); }
 .barra, .identidade, .conta, .cabecalho, .paginacao, .paginacao nav, .acoes { display: flex; align-items: center; gap: 16px; }
 .barra { min-height: 74px; justify-content: space-between; }
 .marca { color: var(--azul-escuro); font-size: 1.45rem; font-weight: 750; letter-spacing: -.06em; }
-.identidade > span + span { padding-left: 16px; border-left: 1px solid var(--linha); color: #475569; font-weight: 600; }
+.nome-painel { padding-left: 16px; border-left: 1px solid var(--linha); color: #475569; font-weight: 600; }
+.versao { color: var(--texto-secundario); font-size: .72rem; font-weight: 600; margin-left: -8px; }
 .conta { color: var(--texto-secundario); font-size: .92rem; overflow-wrap: anywhere; }
 .conteudo { padding-block: clamp(28px, 4vw, 52px); }
 .cabecalho { justify-content: space-between; margin-bottom: 20px; }
@@ -91,7 +92,8 @@ tbody small { color: var(--texto-secundario); }
 .entrada p { line-height: 1.6; }
 @media (max-width: 650px) {
   .barra, .identidade, .conta { gap: 8px; }
-  .identidade > span + span { padding-left: 8px; font-size: .8rem; }
+  .nome-painel { padding-left: 8px; font-size: .8rem; }
+  .versao { margin-left: -4px; }
   .cabecalho { align-items: flex-start; gap: 14px; }
   .cabecalho .primario { flex: 0 0 auto; }
   .filtros { gap: 12px; padding: 16px; }
