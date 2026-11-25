@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,13 +27,17 @@ class DoadorControllerTest {
 
     @Test
     void buscaPerfilRetornaApenasCamposPublicos() throws Exception {
-        doadorService.resposta = new DoadorPerfilResponse(DOADOR_ID, "Doador StarTech", "O-");
+        doadorService.resposta = new DoadorPerfilResponse(
+                DOADOR_ID, "Doador StarTech", "O-", "M", LocalDate.of(2026, 11, 14)
+        );
 
         mockMvc.perform(get("/api/v1/doadores/{id}", DOADOR_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(DOADOR_ID.toString()))
                 .andExpect(jsonPath("$.nome").value("Doador StarTech"))
                 .andExpect(jsonPath("$.tipoSanguineo").value("O-"))
+                .andExpect(jsonPath("$.sexo").value("M"))
+                .andExpect(jsonPath("$.dataUltimaDoacao").value("2026-11-14"))
                 .andExpect(jsonPath("$.cpf").doesNotExist());
     }
 

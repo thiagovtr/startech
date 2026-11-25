@@ -41,6 +41,12 @@ public class DoadorService {
     }
 
     private DoadorPerfilResponse paraResponse(Doador doador) {
-        return new DoadorPerfilResponse(doador.getId(), doador.getNome(), doador.getTipoSanguineo());
+        return new DoadorPerfilResponse(
+                doador.getId(),
+                doador.getNome(),
+                doador.getTipoSanguineo(),
+                doador.getSexo().name(),
+                doador.getDataUltimaDoacao()
+        );
     }
 }
