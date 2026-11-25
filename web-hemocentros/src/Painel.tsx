@@ -54,7 +54,7 @@ function Lista({ nova, editar, confirmacao, filtros, pagina, filtrar, mudarPagin
   const temProxima = dados && (dados.total === null ? dados.itens.length === tamanhoPagina : (pagina + 1) * tamanhoPagina < dados.total);
 
   return <>
-    <div className="cabecalho"><div><h1>Campanhas</h1><p className="subtitulo">Gerencie as campanhas de doação.</p></div>
+    <div className="cabecalho"><div><h1>Painel de campanhas</h1><p className="subtitulo">Gerencie as campanhas de doação.</p></div>
       <button className="primario" onClick={nova}><span aria-hidden="true">＋ </span>Nova campanha</button></div>
     {confirmacao && <div className="aviso sucesso" role="status"><strong>Campanha {confirmacao.tipo}: {confirmacao.campanha.titulo}</strong>
       <small>Identificador: {confirmacao.campanha.id}</small>
@@ -68,7 +68,9 @@ function Lista({ nova, editar, confirmacao, filtros, pagina, filtrar, mudarPagin
           <option value="">Todos</option><option value="ATIVA">Ativa</option><option value="ENCERRADA">Encerrada</option>
         </select></label>
         <label className="check"><input type="checkbox" checked={filtros.vigentes} onChange={e => filtrar({ vigentes: e.target.checked })} />Somente vigentes</label>
-        <button className="atualizar" onClick={atualizar}>Atualizar lista</button>
+        <button className="atualizar" onClick={atualizar} aria-label="Atualizar lista" title="Atualizar lista"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 4v6h-6" /><path d="M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </svg></button>
       </div>
       {erro ? <p className="estado erro" role="alert">{erro}</p> : !dados ? <p className="estado" role="status">Carregando campanhas…</p>
         : dados.itens.length ? <Tabela itens={dados.itens} editar={editar} /> : <p className="estado" role="status">Nenhuma campanha encontrada com esta seleção.</p>}

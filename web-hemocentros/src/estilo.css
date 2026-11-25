@@ -47,7 +47,8 @@ input[type="date"] { font-variant-numeric: tabular-nums; }
 .filtros select { min-width: 136px; }
 .check { align-items: center; color: #475569; display: flex; min-height: 42px; gap: 8px; }
 .check input { accent-color: var(--azul); width: 18px; height: 18px; }
-.atualizar { margin-left: auto; }
+.atualizar { align-items: center; display: inline-flex; justify-content: center; margin-left: auto; padding: 9px; width: 42px; }
+.atualizar svg { display: block; fill: none; flex: 0 0 auto; height: 21px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 21px; }
 .rolagem { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .92rem; }
 .tabela-campanhas { min-width: 860px; }
