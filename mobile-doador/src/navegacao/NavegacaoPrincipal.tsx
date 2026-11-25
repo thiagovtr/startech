@@ -27,6 +27,7 @@ import {
   TodasCampanhas,
   TodosHorarios,
   ResumoAgendamento,
+  TodosPedidosAnteriores,
 } from '../telas';
 import { cores } from '../tema';
 
@@ -41,6 +42,7 @@ export type ParametrosRaiz = {
   TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
   TodosHorarios: { slots: SlotDisponivel[] };
   ResumoAgendamento: { slot: SlotDisponivel };
+  TodosPedidosAnteriores: undefined;
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
@@ -121,6 +123,7 @@ export function NavegacaoPrincipal() {
             <PilhaRaiz.Screen component={TodasCampanhas} name="TodasCampanhas" />
             <PilhaRaiz.Screen component={TodosHorarios} name="TodosHorarios" />
             <PilhaRaiz.Screen component={ResumoAgendamento} name="ResumoAgendamento" />
+            <PilhaRaiz.Screen component={TodosPedidosAnteriores} name="TodosPedidosAnteriores" />
           </PilhaRaiz.Navigator>
         ) : (
           <Login

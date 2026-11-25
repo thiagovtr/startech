@@ -1,7 +1,7 @@
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -38,6 +38,10 @@ export function MeusPedidos() {
   useFocusEffect(useCallback(() => {
     void carregarAgendamentos();
   }, [carregarAgendamentos]));
+
+  const confirmados = ordenarConfirmados(agendamentos);
+  const anteriores = agendamentos.filter((agendamento) => agendamento.status !== 'CONFIRMADO');
+  const previaAnteriores = anteriores.slice(0, 3);
 
   return (
     <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
@@ -80,14 +84,51 @@ export function MeusPedidos() {
           />
         )}
         {estadoLista === 'SUCESSO' && agendamentos.length > 0 && (
-          <View style={estilos.lista}>
-            {agendamentos.map((agendamento) => (
-              <CartaoAgendamento
-                agendamento={agendamento}
-                aoAbrir={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: agendamento._links.self })}
-                key={agendamento.id}
-              />
-            ))}
+          <View style={estilos.listaSecoes}>
+            {confirmados.length > 0 && (
+              <View style={estilos.secao}>
+                <CabecalhoSecao quantidade={confirmados.length} titulo="Confirmados" />
+                <View style={estilos.lista}>
+                  {confirmados.map((agendamento) => (
+                    <CartaoAgendamento
+                      agendamento={agendamento}
+                      aoAbrir={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: agendamento._links.self })}
+                      destaque
+                      key={agendamento.id}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {anteriores.length > 0 && (
+              <View style={estilos.secao}>
+                <View style={estilos.linhaSecao}>
+                  <CabecalhoSecao quantidade={anteriores.length} titulo="Anteriores" />
+                  {anteriores.length > previaAnteriores.length && (
+                    <Pressable
+                      accessibilityLabel="Ver todos os pedidos anteriores"
+                      accessibilityRole="button"
+                      onPress={() => navegacao.navigate('TodosPedidosAnteriores')}
+                      style={({ pressed }) => [estilos.botaoVerTodos, pressed && estilos.botaoVerTodosPressionado]}
+                    >
+                      <Text style={estilos.textoVerTodos}>Ver todos</Text>
+                      <Ionicons color={cores.principalEscuro} name="arrow-forward" size={17} />
+                    </Pressable>
+                  )}
+                </View>
+                <View style={estilos.lista}>
+                  {previaAnteriores.map((agendamento) => (
+                    <CartaoAgendamento
+                      agendamento={agendamento}
+                      aoAbrir={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: agendamento._links.self })}
+                      destaque={false}
+                      key={agendamento.id}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -95,15 +136,32 @@ export function MeusPedidos() {
   );
 }
 
-function CartaoAgendamento({ agendamento, aoAbrir }: { agendamento: Agendamento; aoAbrir: () => void }) {
+function CabecalhoSecao({ quantidade, titulo }: { quantidade: number; titulo: string }) {
+  return (
+    <View style={estilos.cabecalhoSecao}>
+      <Text style={estilos.tituloSecao}>{titulo}</Text>
+      <Text style={estilos.quantidadeSecao}>{quantidade}</Text>
+    </View>
+  );
+}
+
+export function CartaoAgendamento({
+  agendamento,
+  aoAbrir,
+  destaque,
+}: {
+  agendamento: Agendamento;
+  aoAbrir: () => void;
+  destaque: boolean;
+}) {
   return (
     <Pressable
-      accessibilityRole="button"
       accessibilityLabel={`Abrir agendamento no posto ${agendamento.slot.postoId}`}
+      accessibilityRole="button"
       onPress={aoAbrir}
       style={({ pressed }) => [estilos.cartaoPressionavel, pressed && estilos.cartaoPressionado]}
     >
-      <Cartao estilo={estilos.cartaoAgendamento}>
+      <Cartao estilo={[estilos.cartaoAgendamento, destaque && estilos.cartaoAgendamentoDestacado]}>
         <View style={estilos.linhaCartao}>
           <Text style={estilos.nomePosto}>Posto: {agendamento.slot.postoId}</Text>
           <SeloStatus situacao={obterSelo(agendamento.status)} />
@@ -113,6 +171,42 @@ function CartaoAgendamento({ agendamento, aoAbrir }: { agendamento: Agendamento;
       </Cartao>
     </Pressable>
   );
+}
+
+export function ordenarConfirmados(agendamentos: Agendamento[]): Agendamento[] {
+  const agora = Date.now();
+
+  return agendamentos
+    .map((agendamento, indice) => ({ agendamento, indice }))
+    .filter(({ agendamento }) => agendamento.status === 'CONFIRMADO')
+    .sort((primeiro, segundo) => compararConfirmados(primeiro, segundo, agora))
+    .map(({ agendamento }) => agendamento);
+}
+
+function compararConfirmados(
+  primeiro: { agendamento: Agendamento; indice: number },
+  segundo: { agendamento: Agendamento; indice: number },
+  agora: number,
+): number {
+  const dataPrimeiro = obterInicioValido(primeiro.agendamento);
+  const dataSegundo = obterInicioValido(segundo.agendamento);
+
+  if (dataPrimeiro === null && dataSegundo === null) return primeiro.indice - segundo.indice;
+  if (dataPrimeiro === null) return 1;
+  if (dataSegundo === null) return -1;
+
+  const primeiroEhFuturo = dataPrimeiro > agora;
+  const segundoEhFuturo = dataSegundo > agora;
+
+  if (primeiroEhFuturo && segundoEhFuturo) return dataPrimeiro - dataSegundo;
+  if (primeiroEhFuturo) return -1;
+  if (segundoEhFuturo) return 1;
+  return dataSegundo - dataPrimeiro;
+}
+
+function obterInicioValido(agendamento: Agendamento): number | null {
+  const inicio = new Date(agendamento.slot.dataHoraInicio).getTime();
+  return Number.isNaN(inicio) ? null : inicio;
 }
 
 function obterSelo(situacao: SituacaoAgendamento): SituacaoSelo {
@@ -153,10 +247,20 @@ const estilos = StyleSheet.create({
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
   acaoAtualizar: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 44, justifyContent: 'center', width: 44 },
   acaoAtualizarPressionada: { opacity: 0.72 },
+  listaSecoes: { gap: espacamentos.grande },
+  secao: { gap: espacamentos.pequeno },
+  linhaSecao: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  cabecalhoSecao: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
+  tituloSecao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.seminegrito },
+  quantidadeSecao: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  botaoVerTodos: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.minimo, minHeight: 40, paddingHorizontal: espacamentos.pequeno },
+  botaoVerTodosPressionado: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
+  textoVerTodos: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   lista: { gap: espacamentos.medio },
   cartaoPressionavel: { borderRadius: raiosBorda.media },
   cartaoPressionado: { opacity: 0.82 },
   cartaoAgendamento: { gap: espacamentos.pequeno },
+  cartaoAgendamentoDestacado: { borderColor: cores.principalClaro, borderWidth: 1 },
   linhaCartao: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   nomePosto: { color: cores.texto, flex: 1, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   periodo: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal },

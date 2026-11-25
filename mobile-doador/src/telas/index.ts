@@ -13,3 +13,4 @@ export { Seguranca } from './Seguranca';
 export { TodasCampanhas } from './TodasCampanhas';
 export { TodosHorarios } from './TodosHorarios';
 export { ResumoAgendamento } from './ResumoAgendamento';
+export { TodosPedidosAnteriores } from './TodosPedidosAnteriores';
