@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
@@ -12,11 +13,12 @@ import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../t
 
 type EstadoPerfil = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
 type DestinoPerfil = 'InformacoesBasicas' | 'Seguranca' | 'CadastroPerfil';
+type NomeIcone = keyof typeof Ionicons.glyphMap;
 
-const categorias: { destino: DestinoPerfil; descricao: string; icone: string; titulo: string }[] = [
-  { destino: 'InformacoesBasicas', descricao: 'Nome, nome de usuário e e-mail.', icone: '◉', titulo: 'Informações básicas' },
-  { destino: 'Seguranca', descricao: 'Opções relacionadas à senha.', icone: '⌁', titulo: 'Segurança' },
-  { destino: 'CadastroPerfil', descricao: 'Dados informados para seu cadastro.', icone: '✚', titulo: 'Cadastro' },
+const categorias: { destino: DestinoPerfil; descricao: string; icone: NomeIcone; titulo: string }[] = [
+  { destino: 'InformacoesBasicas', descricao: 'Nome, nome de usuário e e-mail.', icone: 'person-outline', titulo: 'Informações básicas' },
+  { destino: 'Seguranca', descricao: 'Opções relacionadas à senha.', icone: 'shield-checkmark-outline', titulo: 'Segurança' },
+  { destino: 'CadastroPerfil', descricao: 'Dados informados para seu cadastro.', icone: 'heart-outline', titulo: 'Cadastro' },
 ];
 
 export function Perfil() {
@@ -81,8 +83,9 @@ export function Perfil() {
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
-        <Pressable accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
-          <Text style={estilos.textoVoltar}>← Voltar</Text>
+        <Pressable accessibilityLabel="Voltar para Início" accessibilityRole="button" onPress={() => navegacao.goBack()} style={estilos.voltar}>
+          <Ionicons color={cores.principalEscuro} name="arrow-back" size={20} />
+          <Text style={estilos.textoVoltar}>Voltar</Text>
         </Pressable>
 
         <View style={estilos.cabecalho}>
@@ -116,13 +119,13 @@ export function Perfil() {
               >
                 <Cartao estilo={estilos.categoria}>
                   <View style={estilos.iconeCategoria}>
-                    <Text style={estilos.textoIcone}>{categoria.icone}</Text>
+                    <Ionicons color={cores.principalEscuro} name={categoria.icone} size={22} />
                   </View>
                   <View style={estilos.detalhesCategoria}>
                     <Text style={estilos.tituloCategoria}>{categoria.titulo}</Text>
                     <Text style={estilos.descricaoCategoria}>{categoria.descricao}</Text>
                   </View>
-                  <Text accessibilityElementsHidden style={estilos.seta}>›</Text>
+                  <Ionicons accessibilityElementsHidden color={cores.principalEscuro} name="chevron-forward" size={20} />
                 </Cartao>
               </Pressable>
             ))}
@@ -155,10 +158,10 @@ function obterMensagemErro(erro: unknown): string {
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
-  voltar: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
+  voltar: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
   textoVoltar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
-  cabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.padrao },
-  avatar: { alignItems: 'center', backgroundColor: cores.principal, borderRadius: raiosBorda.arredondada, height: 64, justifyContent: 'center', width: 64 },
+  cabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio },
+  avatar: { alignItems: 'center', backgroundColor: cores.principal, borderRadius: raiosBorda.arredondada, height: 56, justifyContent: 'center', width: 56 },
   iniciais: { color: cores.cartao, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   detalhesCabecalho: { flex: 1, gap: espacamentos.minimo },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
@@ -166,13 +169,11 @@ const estilos = StyleSheet.create({
   listaCategorias: { gap: espacamentos.medio },
   categoriaPressionavel: { borderRadius: raiosBorda.grande },
   categoriaPressionada: { opacity: 0.78 },
-  categoria: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio },
+  categoria: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio, padding: espacamentos.medio },
   iconeCategoria: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, height: 44, justifyContent: 'center', width: 44 },
-  textoIcone: { color: cores.principalEscuro, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   detalhesCategoria: { flex: 1, gap: espacamentos.minimo },
   tituloCategoria: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   descricaoCategoria: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  seta: { color: cores.principalEscuro, fontSize: tamanhosFonte.cabecalho, fontWeight: pesosFonte.normal },
-  areaSaida: { gap: espacamentos.pequeno, marginTop: espacamentos.medio },
+  areaSaida: { borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginTop: espacamentos.medio, paddingTop: espacamentos.grande },
   descricaoSaida: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, textAlign: 'center' },
 });
