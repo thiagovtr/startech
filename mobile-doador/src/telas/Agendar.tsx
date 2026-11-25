@@ -1,4 +1,7 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -6,15 +9,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
 import { BotaoPrimario, Cartao, EstadoFeedback } from '../componentes';
+import type { ParametrosAbas } from '../navegacao/NavegacaoAbas';
 import type { ParametrosRaiz } from '../navegacao/NavegacaoPrincipal';
 import { ErroHttp, listarSlotsDisponiveis, solicitarAgendamento, type SlotDisponivel } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
 type EstadoDisponibilidade = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
+type NavegacaoAgendar = CompositeNavigationProp<
+  BottomTabNavigationProp<ParametrosAbas>,
+  NativeStackNavigationProp<ParametrosRaiz>
+>;
 
 export function Agendar() {
   const { clienteHttp } = useContextoAutenticacao();
-  const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
+  const navegacao = useNavigation<NavegacaoAgendar>();
   const [estadoDisponibilidade, definirEstadoDisponibilidade] = useState<EstadoDisponibilidade>('CARREGANDO');
   const [slots, definirSlots] = useState<SlotDisponivel[]>([]);
   const [slotSelecionado, definirSlotSelecionado] = useState<SlotDisponivel>();
@@ -66,12 +74,28 @@ export function Agendar() {
   }
 
   return (
-    <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
+    <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <View style={estilos.cabecalho}>
           <Text style={estilos.titulo}>Agendar doação</Text>
           <Text style={estilos.descricao}>Consulte os horários disponíveis e escolha o mais adequado para você.</Text>
         </View>
+
+        <Pressable
+          accessibilityLabel="Ir para Meus pedidos"
+          accessibilityRole="button"
+          onPress={() => navegacao.navigate('MeusPedidos')}
+          style={({ pressed }) => [estilos.bannerPedidos, pressed && estilos.bannerPedidosPressionado]}
+        >
+          <View style={estilos.iconeBannerPedidos}>
+            <Ionicons color={cores.principalEscuro} name="clipboard-outline" size={22} />
+          </View>
+          <View style={estilos.detalhesBannerPedidos}>
+            <Text style={estilos.tituloBannerPedidos}>Acompanhe seus agendamentos</Text>
+            <Text style={estilos.descricaoBannerPedidos}>Veja a situação dos seus pedidos e os detalhes de cada um.</Text>
+          </View>
+          <Text accessibilityElementsHidden style={estilos.setaBannerPedidos}>›</Text>
+        </Pressable>
 
         <View style={estilos.linhaTituloSecao}>
           <Text style={estilos.tituloSecao}>Horários disponíveis</Text>
@@ -215,6 +239,13 @@ const estilos = StyleSheet.create({
   cabecalho: { gap: espacamentos.pequeno },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
+  bannerPedidos: { alignItems: 'center', backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flexDirection: 'row', gap: espacamentos.medio, padding: espacamentos.padrao },
+  bannerPedidosPressionado: { opacity: 0.78 },
+  iconeBannerPedidos: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, height: 44, justifyContent: 'center', width: 44 },
+  detalhesBannerPedidos: { flex: 1, gap: espacamentos.minimo },
+  tituloBannerPedidos: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  descricaoBannerPedidos: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
+  setaBannerPedidos: { color: cores.principalEscuro, fontSize: tamanhosFonte.cabecalho, fontWeight: pesosFonte.normal },
   linhaTituloSecao: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   tituloSecao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   acaoAtualizar: { justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },

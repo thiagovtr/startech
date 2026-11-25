@@ -94,11 +94,11 @@ export function Assistente() {
   }
 
   return (
-    <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
+    <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.areaTeclado}>
         <View style={estilos.cabecalho}>
-          <Text style={estilos.titulo}>Assistente StarTech</Text>
-          <Text style={estilos.descricao}>Tire dúvidas e acompanhe informações pelo aplicativo.</Text>
+          <Text style={estilos.titulo}>Assistente</Text>
+          <Text style={estilos.descricao}>Tire dúvidas sobre doação de sangue e o StarTech.</Text>
         </View>
 
         <ScrollView contentContainerStyle={estilos.listaMensagens} keyboardShouldPersistTaps="handled">

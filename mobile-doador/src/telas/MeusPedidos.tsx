@@ -1,7 +1,8 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
@@ -39,22 +40,28 @@ export function MeusPedidos() {
   }, [carregarAgendamentos]));
 
   return (
-    <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
+    <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <View style={estilos.cabecalho}>
-          <Text style={estilos.titulo}>Meus pedidos</Text>
+          <View style={estilos.linhaCabecalho}>
+            <Text style={estilos.titulo}>Meus pedidos</Text>
+            <Pressable
+              accessibilityLabel="Atualizar meus agendamentos"
+              accessibilityRole="button"
+              accessibilityState={{ busy: estadoLista === 'CARREGANDO', disabled: estadoLista === 'CARREGANDO' }}
+              disabled={estadoLista === 'CARREGANDO'}
+              onPress={() => void carregarAgendamentos()}
+              style={({ pressed }) => [estilos.acaoAtualizar, pressed && estadoLista !== 'CARREGANDO' && estilos.acaoAtualizarPressionada]}
+            >
+              {estadoLista === 'CARREGANDO' ? (
+                <ActivityIndicator color={cores.principalEscuro} size="small" />
+              ) : (
+                <Ionicons color={cores.principalEscuro} name="refresh" size={22} />
+              )}
+            </Pressable>
+          </View>
           <Text style={estilos.descricao}>Consulte seus agendamentos e acompanhe a situação de cada um.</Text>
         </View>
-
-        <Pressable
-          accessibilityLabel="Atualizar meus agendamentos"
-          accessibilityRole="button"
-          disabled={estadoLista === 'CARREGANDO'}
-          onPress={() => void carregarAgendamentos()}
-          style={({ pressed }) => [estilos.acaoAtualizar, pressed && estilos.acaoAtualizarPressionada]}
-        >
-          <Text style={estilos.textoAtualizar}>Atualizar agendamentos</Text>
-        </Pressable>
 
         {estadoLista === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Consultando agendamentos" />}
         {estadoLista === 'ERRO' && (
@@ -141,11 +148,11 @@ const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.gigante * 3 },
   cabecalho: { gap: espacamentos.pequeno },
+  linhaCabecalho: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  acaoAtualizar: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
-  acaoAtualizarPressionada: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
-  textoAtualizar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  acaoAtualizar: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 44, justifyContent: 'center', width: 44 },
+  acaoAtualizarPressionada: { opacity: 0.72 },
   lista: { gap: espacamentos.medio },
   cartaoPressionavel: { borderRadius: raiosBorda.media },
   cartaoPressionado: { opacity: 0.82 },
