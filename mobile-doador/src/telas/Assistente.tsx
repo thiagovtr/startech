@@ -207,7 +207,7 @@ const estilos = StyleSheet.create({
   trechoFonte: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   carregamento: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
   textoSecundario: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  compositor: { backgroundColor: cores.cartao, borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, padding: espacamentos.padrao },
+  compositor: { backgroundColor: cores.cartao, borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginBottom: espacamentos.gigante * 3, padding: espacamentos.padrao },
   campoPergunta: { backgroundColor: cores.fundo, borderColor: cores.principalClaro, borderRadius: raiosBorda.media, borderWidth: 1, color: cores.texto, fontSize: tamanhosFonte.corpo, maxHeight: 120, minHeight: 52, paddingHorizontal: espacamentos.medio, paddingVertical: espacamentos.pequeno, textAlignVertical: 'top' },
   erroCampo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
 });
