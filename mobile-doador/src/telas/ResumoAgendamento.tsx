@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useState } from 'react';
@@ -42,7 +43,8 @@ export function ResumoAgendamento() {
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <Pressable accessibilityLabel="Voltar para escolher outro horário" accessibilityRole="button" disabled={enviandoSolicitacao} onPress={() => navegacao.goBack()} style={estilos.voltar}>
-          <Text style={estilos.textoVoltar}>← Escolher outro horário</Text>
+          <Ionicons color={cores.principalEscuro} name="arrow-back" size={20} />
+          <Text style={estilos.textoVoltar}>Voltar</Text>
         </Pressable>
 
         <View style={estilos.cabecalho}>
@@ -117,12 +119,12 @@ function obterMensagemErroSolicitacao(erro: unknown): string {
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
-  voltar: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
+  voltar: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.pequeno },
   textoVoltar: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   cabecalho: { gap: espacamentos.pequeno },
   titulo: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   descricao: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 24 },
-  resumo: { gap: espacamentos.padrao },
+  resumo: { gap: espacamentos.medio, padding: espacamentos.medio },
   linhaInformacao: { gap: espacamentos.minimo },
   rotulo: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   valor: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
