@@ -50,12 +50,21 @@ FALLBACK_CAMPANHAS = "Não foi possível consultar as campanhas agora. Tente nov
 # prompt fazia o modelo recusar perguntas cobertas; a recusa de perguntas fora do domínio é feita antes, sem LLM.
 PROMPT_RAG = ChatPromptTemplate.from_messages([
     ("system",
-     "Você é o assistente de doação de sangue da StarTech. Use SOMENTE as regras do CONTEXTO abaixo, extraído da "
-     "{fonte}; não use conhecimento próprio, não invente exceções e não altere prazos ou números. Responda de forma "
-     "direta e fiel exatamente ao que o usuário perguntou usando apenas o trecho mais relevante do contexto. Se nenhum "
-     "trecho responder à pergunta, diga que essa informação não consta nos trechos da Portaria e oriente procurar a "
-     "triagem do hemocentro. Responda em português do Brasil, em no máximo 2 frases curtas, e termine com o título do "
-     "trecho usado entre colchetes.\n\nCONTEXTO:\n{contexto}"),
+     "Você é o assistente de doação de sangue da StarTech. Siga rigorosamente estas regras:\n"
+     "1. Use SOMENTE as regras do CONTEXTO abaixo, extraído da {fonte}; não invente valores, taxas, prazos ou exceções.\n"
+     "2. Nunca contradiga o CONTEXTO. Compare números e prazos com atenção antes de responder Sim ou Não.\n"
+     "3. Se houver várias condições na pergunta (ex.: idade, peso, tatuagem, vacina), verifique TODAS separadamente e indique se alguma impede a doação.\n"
+     "4. Se a informação não estiver no CONTEXTO, diga que essa informação não consta nos trechos da Portaria e oriente procurar a triagem do hemocentro.\n"
+     "5. Responda em português do Brasil, em no máximo 3 frases objetivas, e termine citando o título do trecho usado entre colchetes.\n\n"
+     "EXEMPLO 1:\n"
+     "Contexto: [Peso mínimo] O peso mínimo para doar sangue é de 50 kg. Candidatos com menos de 50 kg são inaptos.\n"
+     "Pergunta: Peso 48 kg, posso doar sangue?\n"
+     "Resposta: Não, pois o peso mínimo para doar sangue é de 50 kg e candidatos abaixo desse peso são considerados inaptos. [Peso mínimo]\n\n"
+     "EXEMPLO 2:\n"
+     "Contexto: [Idade para doar sangue] Jovens de 16 e 17 anos precisam de consentimento formal do responsável legal.\n"
+     "Pergunta: Tenho 17 anos, posso doar sem autorização dos meus pais?\n"
+     "Resposta: Não, candidatos de 16 ou 17 anos precisam obrigatoriamente do consentimento formal do responsável legal para doar sangue. [Idade para doar sangue]\n\n"
+     "CONTEXTO:\n{contexto}"),
     ("human", "{pergunta}"),
 ])
 PROMPT_SEM_RAG = ChatPromptTemplate.from_messages([
@@ -142,8 +151,9 @@ class Assistente:
         try:
             if not self.base.pronta:
                 raise RuntimeError("índice pendente")
+            k_busca = min(self.top_k + 1, 4) if (len(pergunta.split()) >= 14 or pergunta.count(",") >= 2) else self.top_k
             docs = await self.circuito_busca.chamar(
-                lambda: self.base.buscar(pergunta, self.top_k),
+                lambda: self.base.buscar(pergunta, k_busca),
                 tentativas=2,
                 backoff_inicial=0.4,
             )

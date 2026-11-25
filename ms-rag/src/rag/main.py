@@ -35,9 +35,9 @@ async def lifespan(app: FastAPI):
     s = get_settings()
     threads = s.num_thread or None
     llm = ChatOllama(base_url=s.ollama_url, model=s.modelo_chat, temperature=s.temperatura,
-                     num_predict=s.num_predict, num_ctx=s.num_ctx, num_thread=threads, keep_alive="30m")
+                     num_predict=s.num_predict, num_ctx=s.num_ctx, num_thread=threads, keep_alive="2h")
     embeddings = OllamaEmbeddings(base_url=s.ollama_url, model=s.modelo_embeddings, num_thread=threads,
-                                  keep_alive=1800)
+                                  keep_alive=7200)
     app.state.base = BaseConhecimento(embeddings)
     hemocentros = httpx.AsyncClient(base_url=s.hemocentros_url, timeout=s.hemocentros_timeout,
                                     event_hooks={"request": [propagar_request_id]})

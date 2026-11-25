@@ -30,11 +30,13 @@ _AJUDA_APP = re.compile(
 # do escopo do assistente e é recusada sem chamar o LLM.
 _DOMINIO = (
     "doa", "doad", "sangu", "hemo", "transfus", "triag", "apt", "inapt", "impedi", "tatu", "piercing", "maquiag",
-    "gripe", "gripad", "resfri", "febre", "alcool", "bebi", "cervej", "vinho", "gravid", "gestant", "parto", "cesar",
-    "amament", "dente", "dentar", "odont", "canal", "endoscop", "colonoscop", "vacin", "hemoglobin", "anemi", "peso",
-    "quilo", "kg", "idade", "anos", "menor", "idos", "interval", "frequen", "vezes", "doenc", "remedi", "medicament",
-    "antibiot", "cirurg", "diabet", "insul", "hipertens", "hepatit", "hiv", "aids", "chagas", "htlv", "malar",
-    "pressao", "jejum", "aliment", "documento", "drog", "injetav", "sering", "agulh", "maconh", "cocain", "crack",
+    "gripe", "gripad", "resfri", "febre", "dengu", "zika", "chikunguny", "alcool", "bebi", "cervej", "vinho",
+    "gravid", "gestant", "parto", "cesar", "amament", "dente", "dentar", "odont", "canal", "endoscop", "colonoscop",
+    "vacin", "hemoglobin", "anemi", "peso", "quilo", "kg", "idade", "anos", "menor", "idos", "interval", "frequen",
+    "vezes", "doenc", "remedi", "medicament", "antibiot", "cirurg", "diabet", "insul", "hipertens", "hepatit", "hiv",
+    "aids", "chagas", "htlv", "malar", "pressao", "jejum", "aliment", "documento", "drog", "injetav", "sering",
+    "agulh", "maconh", "cocain", "crack", "academi", "exercic", "esforc", "fisic", "taxa", "pagar", "gratuit",
+    "volum", "recuper", "etap", "process", "agend", "horari", "cancel", "reagend",
 )
 
 
