@@ -2,9 +2,13 @@
 
 Fonte: Brasil. Ministério da Saúde. Portaria de Consolidação nº 5, de 28 de setembro de 2017, Anexo IV (regulamento técnico de procedimentos hemoterápicos, originado da Portaria MS nº 158/2016). Os trechos abaixo são um resumo curado para a base de conhecimento do assistente StarTech; em caso de divergência, vale o texto oficial publicado no Diário Oficial da União. A decisão final sobre a aptidão é sempre da triagem clínica do serviço de hemoterapia.
 
+## O que é a doação de sangue e requisitos básicos
+
+A doação de sangue é um ato voluntário, seguro e solidário em que se coleta cerca de 450 ml de sangue para ajudar pacientes que precisam de transfusão. Os requisitos básicos para doar são: ter entre 16 e 69 anos, pesar no mínimo 50 kg, estar em boas condições de saúde, descansado, alimentado e apresentar documento oficial com foto.
+
 ## Idade para doar sangue
 
-Pode doar sangue quem tem entre 16 e 69 anos, 11 meses e 29 dias. Candidatos com 16 ou 17 anos precisam do consentimento formal do responsável legal. A primeira doação deve ser feita até os 60 anos, 11 meses e 29 dias; quem já doou antes pode continuar doando até os 69 anos.
+A idade permitida para doar sangue é de 16 a 69 anos. Jovens de 16 e 17 anos precisam de consentimento formal do responsável legal. A primeira doação deve ser feita até os 60 anos; quem já doou sangue antes pode continuar doando até completar 69 anos.
 
 ## Peso mínimo
 

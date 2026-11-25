@@ -51,11 +51,11 @@ FALLBACK_CAMPANHAS = "Não foi possível consultar as campanhas agora. Tente nov
 PROMPT_RAG = ChatPromptTemplate.from_messages([
     ("system",
      "Você é o assistente de doação de sangue da StarTech. Use SOMENTE as regras do CONTEXTO abaixo, extraído da "
-     "{fonte}; não use conhecimento próprio e não invente prazos ou números. Responda informando a regra exata "
-     "(prazo, idade, peso ou critério) do trecho que trata do assunto da pergunta. Se nenhum trecho tratar do "
-     "assunto, diga que essa informação não consta nos trechos da Portaria e oriente procurar a triagem do "
-     "hemocentro. Responda em português do Brasil, em no máximo 2 frases, e termine com o título do trecho usado "
-     "entre colchetes.\n\nCONTEXTO:\n{contexto}"),
+     "{fonte}; não use conhecimento próprio, não invente exceções e não altere prazos ou números. Responda de forma "
+     "direta e fiel exatamente ao que o usuário perguntou usando apenas o trecho mais relevante do contexto. Se nenhum "
+     "trecho responder à pergunta, diga que essa informação não consta nos trechos da Portaria e oriente procurar a "
+     "triagem do hemocentro. Responda em português do Brasil, em no máximo 2 frases curtas, e termine com o título do "
+     "trecho usado entre colchetes.\n\nCONTEXTO:\n{contexto}"),
     ("human", "{pergunta}"),
 ])
 PROMPT_SEM_RAG = ChatPromptTemplate.from_messages([
@@ -142,12 +142,20 @@ class Assistente:
         try:
             if not self.base.pronta:
                 raise RuntimeError("índice pendente")
-            docs = await self.circuito_busca.chamar(lambda: self.base.buscar(pergunta, self.top_k))
+            docs = await self.circuito_busca.chamar(
+                lambda: self.base.buscar(pergunta, self.top_k),
+                tentativas=2,
+                backoff_inicial=0.4,
+            )
         except Exception as exc:  # índice não montado ou Ollama (embeddings) fora
             return Resposta(FALLBACK_LLM, "FALLBACK", motivo_fallback=f"busca: {_motivo(exc)}")
         entrada = {"fonte": FONTE, "contexto": _contexto(docs), "pergunta": pergunta}
         try:
-            msg = await self.circuito_llm.chamar(lambda: self.cadeia_rag.ainvoke(entrada))
+            msg = await self.circuito_llm.chamar(
+                lambda: self.cadeia_rag.ainvoke(entrada),
+                tentativas=2,
+                backoff_inicial=0.4,
+            )
         except Exception as exc:
             trecho = f" Enquanto isso, veja o trecho da Portaria [{docs[0].metadata['secao']}]: " \
                      f"{docs[0].page_content.split(': ', 1)[-1][:300]}" if docs else ""

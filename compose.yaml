@@ -165,7 +165,7 @@ services:
     image: ollama/ollama:0.9.6
     profiles: [ia]
     environment:
-      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}  # mantém o modelo carregado (evita cold start > 4 s)
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-2h}  # mantém os modelos carregados na RAM (evita cold start)
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-2}  # mantém chat + embeddings juntos na RAM
     volumes:
       - ollama-data:/root/.ollama
