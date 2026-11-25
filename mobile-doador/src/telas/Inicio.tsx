@@ -3,7 +3,8 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
@@ -67,24 +68,39 @@ export function Inicio() {
   const perfilNaoCadastrado = doador?.cadastrado === false;
 
   return (
-    <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
+    <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <View style={estilos.cabecalho}>
-          <View>
+          <View style={estilos.detalhesCabecalho}>
+            <Text style={estilos.marca}>StarTech</Text>
             <Text style={estilos.saudacao}>{nomeDoador ? `Olá, ${nomeDoador}` : 'Olá'}</Text>
             <Text style={estilos.subtitulo}>Que bom ter você por aqui.</Text>
           </View>
-          <Pressable
-            accessibilityLabel="Abrir meu perfil"
-            accessibilityRole="button"
-            onPress={() => navegacao.navigate('Perfil')}
-            style={({ pressed }) => [estilos.avatarPerfil, pressed && estilos.avatarPerfilPressionado]}
-          >
-            <Text style={estilos.iniciaisPerfil}>{obterIniciais(nomeDoador)}</Text>
-          </Pressable>
+          <View style={estilos.acoesCabecalho}>
+            <Pressable
+              accessibilityLabel="Atualizar informações da Home"
+              accessibilityRole="button"
+              accessibilityState={{ busy: estadoCarregamento === 'CARREGANDO', disabled: estadoCarregamento === 'CARREGANDO' }}
+              disabled={estadoCarregamento === 'CARREGANDO'}
+              onPress={() => void carregarHome()}
+              style={({ pressed }) => [estilos.botaoAtualizar, pressed && estadoCarregamento !== 'CARREGANDO' && estilos.botaoAtualizarPressionado]}
+            >
+              {estadoCarregamento === 'CARREGANDO' ? (
+                <ActivityIndicator color={cores.principalEscuro} size="small" />
+              ) : (
+                <Ionicons color={cores.principalEscuro} name="refresh" size={22} />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Abrir meu perfil"
+              accessibilityRole="button"
+              onPress={() => navegacao.navigate('Perfil')}
+              style={({ pressed }) => [estilos.avatarPerfil, pressed && estilos.avatarPerfilPressionado]}
+            >
+              <Text style={estilos.iniciaisPerfil}>{obterIniciais(nomeDoador)}</Text>
+            </Pressable>
+          </View>
         </View>
-
-        <SecaoAtalhos navegacao={navegacao} />
 
         {estadoCarregamento === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Carregando sua Home" />}
 
@@ -139,7 +155,19 @@ export function Inicio() {
             <View style={estilos.secao}>
               <View style={estilos.cabecalhoSecao}>
                 <Text style={estilos.tituloSecao}>{respostaHome.campanhasPersonalizadas ? 'Campanhas para você' : 'Campanhas vigentes'}</Text>
-                {!respostaHome.campanhasPersonalizadas && <Text style={estilos.avisoNaoPersonalizado}>Não personalizadas</Text>}
+                {respostaHome.campanhas.length > 1 ? (
+                  <Pressable
+                    accessibilityLabel="Ver todas as campanhas"
+                    accessibilityRole="button"
+                    onPress={() => navegacao.navigate('TodasCampanhas', {
+                      campanhas: respostaHome.campanhas,
+                      campanhasPersonalizadas: respostaHome.campanhasPersonalizadas,
+                    })}
+                    style={({ pressed }) => [estilos.botaoVerTodas, pressed && estilos.botaoVerTodasPressionado]}
+                  >
+                    <Text style={estilos.textoVerTodas}>Ver todas</Text>
+                  </Pressable>
+                ) : !respostaHome.campanhasPersonalizadas && <Text style={estilos.avisoNaoPersonalizado}>Não personalizadas</Text>}
               </View>
               {!respostaHome.campanhasPersonalizadas && (
                 <Text style={estilos.descricaoNaoPersonalizada}>Estas campanhas não foram filtradas pelo seu tipo sanguíneo.</Text>
@@ -147,7 +175,7 @@ export function Inicio() {
               {respostaHome.campanhas.length === 0 ? (
                 <EstadoFeedback descricao="Não há campanhas vigentes para mostrar no momento." tipo="vazio" titulo="Nenhuma campanha disponível" />
               ) : (
-                respostaHome.campanhas.map((campanha) => (
+                respostaHome.campanhas.slice(0, 1).map((campanha) => (
                   <Cartao estilo={estilos.cartaoCampanha} key={campanha.id}>
                     <View style={estilos.linhaCampanha}>
                       <View style={estilos.detalhesCampanha}>
@@ -166,6 +194,8 @@ export function Inicio() {
             </View>
           </>
         )}
+
+        <SecaoAtalhos navegacao={navegacao} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -219,9 +249,14 @@ function descreverServicosIndisponiveis(servicos: string[]): string {
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
   conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.gigante * 3 },
-  cabecalho: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  cabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio, justifyContent: 'space-between' },
+  detalhesCabecalho: { flex: 1, gap: espacamentos.minimo },
+  marca: { color: cores.principalEscuro, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   saudacao: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   subtitulo: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, marginTop: espacamentos.minimo },
+  acoesCabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
+  botaoAtualizar: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 44, justifyContent: 'center', width: 44 },
+  botaoAtualizarPressionado: { opacity: 0.72 },
   avatarPerfil: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 48, justifyContent: 'center', width: 48 },
   avatarPerfilPressionado: { opacity: 0.78 },
   iniciaisPerfil: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.negrito },
@@ -240,6 +275,9 @@ const estilos = StyleSheet.create({
   cabecalhoSecao: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   tituloSecao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   avisoNaoPersonalizado: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  botaoVerTodas: { justifyContent: 'center', minHeight: 40, paddingHorizontal: espacamentos.pequeno },
+  botaoVerTodasPressionado: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
+  textoVerTodas: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   descricaoNaoPersonalizada: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   gradeAtalhos: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.medio },
   atalho: { backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flexBasis: '47%', flexGrow: 1, gap: espacamentos.pequeno, minHeight: 108, padding: espacamentos.padrao },

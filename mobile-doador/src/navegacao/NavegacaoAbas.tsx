@@ -37,7 +37,7 @@ export function NavegacaoAbas() {
       }}
       tabBar={(propriedades) => <BarraNavegacaoFlutuante {...propriedades} />}
     >
-      <Abas.Screen component={Inicio} name="Inicio" options={{ title: 'Início' }} />
+      <Abas.Screen component={Inicio} name="Inicio" options={{ headerShown: false, title: 'Início' }} />
       <Abas.Screen component={Agendar} name="Agendar" options={{ title: 'Agendar' }} />
       <Abas.Screen component={MeusPedidos} name="MeusPedidos" options={{ title: 'Meus pedidos' }} />
       <Abas.Screen component={Assistente} name="Assistente" options={{ title: 'Assistente' }} />
