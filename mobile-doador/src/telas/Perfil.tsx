@@ -144,6 +144,7 @@ export function Perfil() {
             carregando={encerrandoSessao}
             titulo="Encerrar sessão"
           />
+          <Text style={estilos.versao}>v2.01</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -181,4 +182,5 @@ const estilos = StyleSheet.create({
   descricaoCategoria: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   areaSaida: { borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginTop: espacamentos.medio, paddingTop: espacamentos.grande },
   descricaoSaida: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, textAlign: 'center' },
+  versao: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, textAlign: 'center' },
 });
