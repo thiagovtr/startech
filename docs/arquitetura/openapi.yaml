@@ -1291,11 +1291,13 @@ components:
 
     DoadorPerfilResponse:
       type: object
-      required: [id, nome, tipoSanguineo]
+      required: [id, nome, tipoSanguineo, sexo]
       properties:
         id: { type: string, format: uuid, example: 11111111-1111-1111-1111-111111111111 }
         nome: { type: string, example: Maria Silva }
         tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
+        sexo: { type: string, enum: [M, F], example: F }
+        dataUltimaDoacao: { type: string, format: date, nullable: true, example: "2026-11-14" }
 
     HomeMobileResponse:
       type: object
@@ -1311,6 +1313,8 @@ components:
             id: { type: string }
             nome: { type: string }
             tipoSanguineo: { type: string }
+            sexo: { type: string, enum: [M, F] }
+            dataUltimaDoacao: { type: string, format: date, nullable: true }
             cadastrado: { type: boolean }
             statusDegradado: { type: boolean }
         tipoSanguineoCampanhas: { type: string, nullable: true, example: O- }
