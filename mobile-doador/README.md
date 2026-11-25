@@ -324,7 +324,7 @@ Configuração atualmente identificada no repositório:
 
 Os dois clients estão presentes em `keycloak/realm-export.json`, são públicos, utilizam Authorization Code com PKCE S256 e aceitam os redirecionamentos `exp://*` e `startech://*`. Para novas configurações, utilizar `startech-mobile`; em ambientes já configurados com o alias, utilizar o valor efetivamente disponibilizado pelo Keycloak.
 
-O aplicativo utiliza Expo SecureStore para armazenar os tokens e implementa restauração e renovação de sessão.
+O aplicativo utiliza Expo SecureStore para armazenar os tokens e implementa restauração e renovação de sessão. O e-mail é recuperado da claim OIDC recebida nos tokens e mantido na sessão segura; sessões anteriores podem recuperá-lo do access token armazenado quando a claim estiver disponível.
 
 O login real depende de configuração adequada do Keycloak e de um ambiente de execução compatível.
 
@@ -382,6 +382,8 @@ Endpoint:
 GET /api/mobile/home
 ```
 
+Conforme o contrato atual, o objeto `doador` também disponibiliza `sexo` e `dataUltimaDoacao`.
+
 Apresenta:
 
 - Cabeçalho StarTech integrado ao conteúdo e acesso ao Meu perfil pelo avatar.
@@ -400,8 +402,9 @@ A Home não realiza avaliação clínica da aptidão do doador.
 
 O avatar da Home abre a página Meu perfil. Ela organiza informações somente para leitura nas categorias Informações básicas, Segurança e Cadastro.
 
-- Nome completo é exibido quando retornado pela Home.
-- Nome de usuário, e-mail, sexo e data da última doação são apresentados como indisponíveis enquanto não forem fornecidos pelos contratos atuais.
+- Informações básicas apresenta o nome completo retornado pela Home e o e-mail real da sessão OIDC do Keycloak.
+- Cadastro apresenta, somente para leitura, o tipo sanguíneo, o sexo retornado pela API como Masculino ou Feminino e a data da última doação em `DD/MM/AAAA`.
+- Quando a data da última doação não foi cadastrada, o Cadastro apresenta "Não informado".
 - A opção de alteração de senha permanece desabilitada, pois não há suporte público disponível no aplicativo.
 - O logout está concentrado em Meu perfil; a opção de troca de usuário também permanece na conclusão obrigatória do cadastro.
 
@@ -583,14 +586,14 @@ Os testes abaixo foram realizados com sucesso em um iPhone, pelo Expo Go, conect
 
 1. Login, logout e restauração de sessão com Keycloak.
 2. Navegação entre Início, Agendar, Meus pedidos e Assistente pela navbar flutuante.
-3. Carregamento de nome, tipo sanguíneo, campanhas e acesso ao Meu perfil pela Home.
+3. Carregamento de nome, tipo sanguíneo, sexo, data da última doação, campanhas e acesso ao Meu perfil pela Home.
 4. Respostas, fontes e fallback do Assistente RAG, além de verificações básicas de estabilidade.
 5. Consulta, seleção e solicitação de um slot real pelo link `_links.agendar`.
 6. Acesso ao acompanhamento da SAGA após a solicitação e navegação da SAGA confirmada para os detalhes.
 7. Listagem e detalhes de agendamentos reais, incluindo atualização da lista ao retornar; oito testes manuais desse fluxo foram aprovados.
 8. Exibição condicional do cancelamento, confirmação, desistência, cancelamento real e atualização da situação e da listagem; oito testes manuais desse fluxo foram aprovados.
 9. Compensação automática da SAGA: um horário com 5 vagas foi solicitado, terminou como `CANCELADO` com mensagem de cancelamento e motivo de intervalo mínimo; após o retorno à tela Agendar, o mesmo horário permaneceu com 5 vagas. O cenário foi reproduzido em novas tentativas.
-10. Conclusão e salvamento do perfil, incluindo a seleção de tipo sanguíneo e a data opcional no formato brasileiro, realizados com sucesso no iPhone com Expo Go conectado à Azure.
+10. Conclusão e salvamento do perfil, incluindo a seleção de tipo sanguíneo e a data opcional no formato brasileiro, realizados com sucesso no iPhone com Expo Go conectado à Azure; os dados reais exibidos nas páginas de Perfil, incluindo e-mail, sexo e última doação, também foram verificados.
 11. Páginas de Perfil, cabeçalhos integrados, prévias de horários e pedidos, páginas de listagem completa e navegação de retorno validadas visualmente no Expo Go.
 
 Permanecem recomendados testes da sequência interna de compensação da SAGA, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
