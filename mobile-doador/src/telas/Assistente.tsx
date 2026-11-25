@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,13 +33,6 @@ const mensagemInicial: MensagemAssistente = {
   texto: 'Olá! Sou o Assistente StarTech. Envie uma pergunta para receber uma resposta do serviço de apoio ao doador.',
 };
 
-const sugestoesIniciais = [
-  'O que é preciso para doar sangue?',
-  'Fiz tatuagem há 3 meses, posso doar?',
-  'Qual o intervalo entre doações?',
-  'Onde posso doar sangue hoje?',
-];
-
 export function Assistente() {
   const { clienteHttp } = useContextoAutenticacao();
   const [pergunta, definirPergunta] = useState('');
@@ -48,8 +40,8 @@ export function Assistente() {
   const [carregando, definirCarregando] = useState(false);
   const [erroCampo, definirErroCampo] = useState('');
 
-  async function enviarPergunta(textoDireto?: string) {
-    const perguntaNormalizada = (textoDireto ?? pergunta).trim();
+  async function enviarPergunta() {
+    const perguntaNormalizada = pergunta.trim();
 
     if (!perguntaNormalizada) {
       definirErroCampo('Digite uma pergunta para continuar.');
@@ -111,23 +103,6 @@ export function Assistente() {
 
         <ScrollView contentContainerStyle={estilos.listaMensagens} keyboardShouldPersistTaps="handled">
           {mensagens.map((mensagem) => <Mensagem key={mensagem.id} mensagem={mensagem} />)}
-          {mensagens.length === 1 && !carregando && (
-            <View style={estilos.sugestoes}>
-              <Text style={estilos.tituloSugestoes}>Perguntas comuns</Text>
-              <View style={estilos.listaSugestoes}>
-                {sugestoesIniciais.map((sugestao) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={sugestao}
-                    onPress={() => void enviarPergunta(sugestao)}
-                    style={({ pressed }) => [estilos.chipSugestao, pressed && estilos.chipSugestaoPressionado]}
-                  >
-                    <Text style={estilos.textoSugestao}>{sugestao}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
           {carregando && (
             <Cartao estilo={estilos.mensagemAssistente}>
               <View style={estilos.carregamento}>
@@ -235,10 +210,4 @@ const estilos = StyleSheet.create({
   compositor: { backgroundColor: cores.cartao, borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginBottom: espacamentos.gigante * 3, padding: espacamentos.padrao },
   campoPergunta: { backgroundColor: cores.fundo, borderColor: cores.principalClaro, borderRadius: raiosBorda.media, borderWidth: 1, color: cores.texto, fontSize: tamanhosFonte.corpo, maxHeight: 120, minHeight: 52, paddingHorizontal: espacamentos.medio, paddingVertical: espacamentos.pequeno, textAlignVertical: 'top' },
   erroCampo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
-  sugestoes: { gap: espacamentos.pequeno, marginTop: espacamentos.pequeno },
-  tituloSugestoes: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
-  listaSugestoes: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.pequeno },
-  chipSugestao: { backgroundColor: cores.cartao, borderColor: cores.principalClaro, borderRadius: raiosBorda.media, borderWidth: 1, paddingHorizontal: espacamentos.medio, paddingVertical: espacamentos.pequeno },
-  chipSugestaoPressionado: { backgroundColor: cores.principalClaro },
-  textoSugestao: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
 });
