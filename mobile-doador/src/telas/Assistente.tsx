@@ -26,6 +26,7 @@ type MensagemAssistente = {
   degradado?: boolean;
   motivo?: string;
   erro?: boolean;
+  perguntaOriginal?: string;
 };
 
 const mensagemInicial: MensagemAssistente = {
@@ -104,6 +105,7 @@ export function Assistente() {
           fontes: resposta.fontes,
           modo: resposta.modo,
           motivo: resposta.motivo,
+          perguntaOriginal: perguntaNormalizada,
           texto: resposta.resposta ?? 'O assistente não retornou uma resposta em texto.',
         },
       ]);
@@ -114,6 +116,7 @@ export function Assistente() {
           id: `erro-${Date.now()}`,
           autor: 'ASSISTENTE',
           erro: true,
+          perguntaOriginal: perguntaNormalizada,
           texto: obterMensagemErro(erro),
         },
       ]);
@@ -131,7 +134,18 @@ export function Assistente() {
         </View>
 
         <ScrollView contentContainerStyle={estilos.listaMensagens} keyboardShouldPersistTaps="handled">
-          {mensagens.map((mensagem) => <Mensagem key={mensagem.id} mensagem={mensagem} />)}
+          {mensagens.map((mensagem) => (
+            <Mensagem
+              aoTentarNovamente={
+                mensagem.perguntaOriginal
+                  ? () => void enviarPergunta(mensagem.perguntaOriginal)
+                  : undefined
+              }
+              carregando={carregando}
+              key={mensagem.id}
+              mensagem={mensagem}
+            />
+          ))}
           {mensagens.length === 1 && !carregando && (
             <View style={estilos.sugestoesContainer}>
               <Text style={estilos.tituloSugestoes}>Sugestões de perguntas</Text>
@@ -181,9 +195,18 @@ export function Assistente() {
   );
 }
 
-function Mensagem({ mensagem }: { mensagem: MensagemAssistente }) {
+function Mensagem({
+  aoTentarNovamente,
+  carregando,
+  mensagem,
+}: {
+  aoTentarNovamente?: () => void;
+  carregando: boolean;
+  mensagem: MensagemAssistente;
+}) {
   const eUsuario = mensagem.autor === 'USUARIO';
   const eFallback = mensagem.modo === 'FALLBACK' || mensagem.degradado === true;
+  const podeTentarNovamente = (eFallback || mensagem.erro === true) && Boolean(aoTentarNovamente);
 
   return (
     <View style={[estilos.linhaMensagem, eUsuario && estilos.linhaMensagemUsuario]}>
@@ -194,6 +217,21 @@ function Mensagem({ mensagem }: { mensagem: MensagemAssistente }) {
           {eFallback && <Text style={estilos.avisoFallback}>Assistente temporariamente indisponível</Text>}
           {mensagem.erro && <Text style={estilos.avisoFallback}>Não foi possível consultar o assistente</Text>}
           <Text style={estilos.textoAssistente}>{mensagem.texto}</Text>
+          {podeTentarNovamente && (
+            <Pressable
+              accessibilityLabel="Tentar novamente"
+              accessibilityRole="button"
+              disabled={carregando}
+              onPress={aoTentarNovamente}
+              style={({ pressed }) => [
+                estilos.botaoTentarNovamente,
+                pressed && estilos.botaoTentarNovamentePressionado,
+                carregando && estilos.botaoDesabilitado,
+              ]}
+            >
+              <Text style={estilos.textoBotaoTentarNovamente}>Tentar novamente</Text>
+            </Pressable>
+          )}
           {mensagem.modo && <Text style={estilos.modo}>Modo: {mensagem.modo}</Text>}
           {mensagem.motivo && <Text style={estilos.motivo}>Detalhe: {mensagem.motivo}</Text>}
           {mensagem.fontes && mensagem.fontes.length > 0 && <Fontes fontes={mensagem.fontes} />}
@@ -242,6 +280,17 @@ const estilos = StyleSheet.create({
   textoUsuario: { color: cores.cartao, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 22 },
   textoAssistente: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, lineHeight: 22 },
   avisoFallback: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.negrito },
+  botaoTentarNovamente: {
+    alignSelf: 'flex-start',
+    backgroundColor: cores.principal,
+    borderRadius: raiosBorda.media,
+    marginTop: espacamentos.minimo,
+    paddingHorizontal: espacamentos.medio,
+    paddingVertical: espacamentos.pequeno,
+  },
+  botaoTentarNovamentePressionado: { backgroundColor: cores.principalEscuro },
+  botaoDesabilitado: { opacity: 0.5 },
+  textoBotaoTentarNovamente: { color: cores.cartao, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   modo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
   motivo: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
   fontes: { borderTopColor: cores.principalClaro, borderTopWidth: 1, gap: espacamentos.pequeno, marginTop: espacamentos.pequeno, paddingTop: espacamentos.pequeno },

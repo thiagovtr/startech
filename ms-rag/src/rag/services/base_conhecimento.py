@@ -30,7 +30,7 @@ _STOPWORDS = frozenset({
     "nos", "nas", "como", "qual", "quais", "quanto", "quanta", "quantos", "tempo", "mais", "menos", "muito",
     "mesmo", "minha", "meu", "meus", "minhas", "voce", "dia", "dias", "mes", "meses", "ano", "anos", "ontem",
     "hoje", "amanha", "depois", "antes", "sobre", "existe", "esta", "estao", "estar", "sao", "ser", "ter",
-    "sou", "tive", "fiz", "tomei", "tomo", "ir", "mim", "isso", "esse", "essa", "esta", "este", "aqui",
+    "sou", "tive", "fiz", "tomei", "tomo", "ir", "mim", "isso", "esse", "essa", "este", "aqui",
     "ainda", "agora", "quando", "onde", "porque", "causa", "apenas", "somente", "entre", "desde", "ate",
     "todos", "todas", "todo", "toda", "outro", "outra", "algum", "alguma", "recentemente", "proximo", "proxima",
 })
