@@ -80,6 +80,8 @@ tbody small { color: var(--texto-secundario); }
 .formulario label { margin-bottom: 20px; }
 .formulario .dupla { gap: 20px; }
 .formulario .dupla label { margin-bottom: 20px; }
+.mensagem-campo { color: var(--texto-secundario); font-size: .84rem; line-height: 1.45; margin: -8px 0 18px; }
+.mensagem-campo.erro { border: 1px solid #f5cfcc; border-radius: 10px; padding: 8px 10px; }
 .acoes { background: #fbfcfe; justify-content: flex-end; border-top: 1px solid var(--linha); margin-top: 4px; padding-top: 20px; }
 .entrada { max-width: 470px; margin: 12vh auto 0; padding: 32px; }
 .entrada h1 { font-size: 2rem; margin-top: 24px; }

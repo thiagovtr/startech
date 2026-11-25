@@ -1,5 +1,5 @@
-import { useRef, useState, type FormEvent } from "react";
-import { ErroCampanhas, mensagemErro, tiposSanguineos, type Campanha } from "./campanhas";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ErroCampanhas, mensagemErro, tiposSanguineos, type Campanha, type Hemocentro } from "./campanhas";
 import { campanhas } from "./sessao";
 
 interface Props {
@@ -11,19 +11,40 @@ export function Formulario({ aoCriar, voltar }: Props) {
   const [inicio, setInicio] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [hemocentros, setHemocentros] = useState<Hemocentro[] | null>(null);
+  const [erroHemocentros, setErroHemocentros] = useState("");
+  const [hemocentroSelecionado, setHemocentroSelecionado] = useState("");
   const emCurso = useRef(false);
+
+  useEffect(() => {
+    const consulta = new AbortController();
+    campanhas.listarHemocentros(consulta.signal).then(resultado => {
+      if (!consulta.signal.aborted) setHemocentros(resultado);
+    }).catch(falha => {
+      if (!consulta.signal.aborted) {
+        setHemocentros([]);
+        setErroHemocentros(mensagemErro(falha));
+      }
+    });
+    return () => consulta.abort();
+  }, []);
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (emCurso.current) return;
     const dados = new FormData(evento.currentTarget);
     const texto = (campo: string) => String(dados.get(campo) ?? "").trim();
+    const hemocentro = hemocentros?.find(item => item.id === texto("hemocentro"));
+    if (!hemocentro) {
+      setErro("Selecione um hemocentro válido para criar a campanha.");
+      return;
+    }
     const campanha = {
-      titulo: texto("titulo"), hemocentro: texto("hemocentro"), tipo_sanguineo: texto("tipo_sanguineo"),
+      titulo: texto("titulo"), hemocentro: hemocentro.nome, tipo_sanguineo: texto("tipo_sanguineo"),
       urgencia: texto("urgencia"), data_inicio: texto("data_inicio"), data_fim: texto("data_fim")
     };
-    if (campanha.titulo.length < 3 || campanha.hemocentro.length < 2) {
-      setErro("Informe ao menos três caracteres no título e dois no hemocentro, descontando espaços nas pontas.");
+    if (campanha.titulo.length < 3) {
+      setErro("Informe ao menos três caracteres no título, descontando espaços nas pontas.");
       return;
     }
     emCurso.current = true;
@@ -49,7 +70,16 @@ export function Formulario({ aoCriar, voltar }: Props) {
       <fieldset disabled={enviando}>
         <legend>Dados da campanha</legend>
         <label>Título<input autoFocus name="titulo" required minLength={3} maxLength={200} /></label>
-        <label>Hemocentro<input name="hemocentro" required minLength={2} maxLength={200} /></label>
+        <label>Hemocentro<select name="hemocentro" required value={hemocentroSelecionado}
+          onChange={e => setHemocentroSelecionado(e.target.value)} disabled={enviando || !hemocentros?.length}
+          aria-describedby={erroHemocentros ? "erro-hemocentros" : undefined}>
+          <option value="" disabled>{hemocentros === null ? "Carregando hemocentros…" : erroHemocentros ? "Não foi possível carregar" : "Selecione"}</option>
+          {hemocentros?.map(hemocentro => <option key={hemocentro.id} value={hemocentro.id}>
+            {hemocentro.nome}{hemocentro.cidade ? " — " + hemocentro.cidade : ""}
+          </option>)}
+        </select></label>
+        {erroHemocentros ? <p id="erro-hemocentros" className="mensagem-campo erro" role="alert">{erroHemocentros}</p>
+          : hemocentros?.length === 0 ? <p className="mensagem-campo" role="status">Nenhum hemocentro disponível no momento.</p> : null}
         <div className="dupla">
           <label>Tipo sanguíneo<select name="tipo_sanguineo" required defaultValue="">
             <option value="" disabled>Selecione</option>
@@ -66,7 +96,7 @@ export function Formulario({ aoCriar, voltar }: Props) {
       </fieldset>
       {erro && <p className="aviso erro" role="alert">{erro}</p>}
       <div className="acoes"><button type="button" onClick={voltar} disabled={enviando}>Cancelar</button>
-        <button className="primario" type="submit" disabled={enviando}>{enviando ? "Criando…" : "Criar campanha"}</button></div>
+        <button className="primario" type="submit" disabled={enviando || !hemocentros?.length || !hemocentroSelecionado}>{enviando ? "Criando…" : "Criar campanha"}</button></div>
     </form>
   </>;
 }

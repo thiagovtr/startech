@@ -30,6 +30,16 @@ test("consulta sem filtros distingue total desconhecido de zero", async t => {
   assert.deepEqual(await cliente.listar(semFiltros, 0), { itens: [], total: null });
 });
 
+test("consulta de hemocentros usa Gateway e Bearer do operador", async t => {
+  const hemocentros = [{ id: "hemominas-lavras", nome: "Hemominas Lavras", cidade: "Lavras - MG" }];
+  t.mock.method(globalThis, "fetch", async (url, opcoes) => {
+    assert.equal(url.origin + url.pathname, "http://localhost:8080/api/web/hemocentros");
+    assert.equal(opcoes.headers.get("Authorization"), "Bearer token-de-teste");
+    return Response.json(hemocentros);
+  });
+  assert.deepEqual(await cliente.listarHemocentros(), hemocentros);
+});
+
 test("criação usa somente os campos do comando e retorna o ID da escrita", async t => {
   const requisicao = t.mock.method(globalThis, "fetch", async (url, opcoes) => {
     assert.equal(url.pathname, "/api/web/campanhas");

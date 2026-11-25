@@ -14,6 +14,12 @@ export interface Campanha extends NovaCampanha {
   status: string;
 }
 
+export interface Hemocentro {
+  id: string;
+  nome: string;
+  cidade: string | null;
+}
+
 export interface Filtros {
   tipo: string;
   status: string;
@@ -55,6 +61,7 @@ async function verificarResposta(resposta: Response) {
 
 export function clienteCampanhas(gateway: string, obterToken: () => Promise<string>) {
   const rota = new URL("/api/web/campanhas", gateway);
+  const rotaHemocentros = new URL("/api/web/hemocentros", gateway);
   async function enviar(url: URL, opcoes: RequestInit) {
     const token = await obterToken();
     const headers = new Headers(opcoes.headers);
@@ -71,6 +78,10 @@ export function clienteCampanhas(gateway: string, obterToken: () => Promise<stri
     return resposta;
   }
   return {
+    async listarHemocentros(signal?: AbortSignal): Promise<Hemocentro[]> {
+      const resposta = await enviar(rotaHemocentros, { signal });
+      return resposta.json();
+    },
     async listar(filtros: Filtros, pagina: number, signal?: AbortSignal) {
       const url = new URL(rota);
       url.searchParams.set("limit", String(tamanhoPagina));
