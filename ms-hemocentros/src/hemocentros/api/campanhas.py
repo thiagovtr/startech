@@ -2,11 +2,12 @@ from datetime import date
 
 from fastapi import APIRouter, Query, Request, Response, status
 
-from hemocentros.models.campanha import Campanha, CampanhaCriar
+from hemocentros.models.campanha import Campanha, CampanhaAtualizar, CampanhaCriar, HemocentroOpcao
 from hemocentros.repositories import campanhas_view
 from hemocentros.services import campanhas as campanhas_service
 
 router = APIRouter(prefix="/api/v1/campanhas", tags=["campanhas"])
+hemocentros_router = APIRouter(prefix="/api/v1/hemocentros", tags=["hemocentros"])
 
 
 @router.get("", response_model=list[Campanha])
@@ -42,3 +43,18 @@ async def listar_campanhas(
 async def criar_campanha(dados: CampanhaCriar, request: Request) -> Campanha:
     campanha = await campanhas_service.criar_campanha(request.app.state.session_factory, dados)
     return Campanha.model_validate(campanha)
+
+
+@router.put("/{campanha_id}", response_model=Campanha, status_code=status.HTTP_200_OK)
+async def atualizar_campanha(campanha_id: str, dados: CampanhaAtualizar, request: Request) -> Campanha:
+    """Atualiza uma campanha existente no PostgreSQL e projeta a nova versão no MongoDB via Outbox."""
+    campanha = await campanhas_service.atualizar_campanha(request.app.state.session_factory, campanha_id, dados)
+    return Campanha.model_validate(campanha)
+
+
+@hemocentros_router.get("", response_model=list[HemocentroOpcao])
+async def listar_hemocentros(request: Request) -> list[HemocentroOpcao]:
+    """Lista os hemocentros disponíveis para preenchimento de campanhas."""
+    state = request.app.state
+    itens = await campanhas_view.listar_hemocentros(state.mongo_client, state.settings.mongo_db)
+    return [HemocentroOpcao.model_validate(item) for item in itens]

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response, status
 
 from bff_web.autorizacao import exigir_papel
 from bff_web.clients.hemocentros import HemocentrosClient, get_hemocentros_client
-from bff_web.models import Campanha, CampanhaCriar
+from bff_web.models import Campanha, CampanhaAtualizar, CampanhaCriar, HemocentroOpcao
 
 router = APIRouter(prefix="/bff-web", tags=["campanhas"], dependencies=[Depends(exigir_papel)])
 
@@ -42,3 +42,25 @@ async def listar_campanhas(
     if total is not None:
         response.headers["X-Total-Count"] = total
     return campanhas
+
+
+@router.put(
+    "/campanhas/{campanha_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=Campanha,
+    responses={
+        400: {"description": "Payload inválido (application/problem+json com `invalidParams`)"},
+        404: {"description": "Campanha não encontrada"},
+    },
+)
+async def atualizar_campanha(
+    campanha_id: str, client: Client, dados: CampanhaAtualizar, x_user_id: UserId = None
+) -> dict:
+    """Atualiza uma campanha existente no ms-hemocentros (CQRS + Outbox)."""
+    return await client.atualizar_campanha(campanha_id, dados.model_dump(mode="json", exclude_none=True), x_user_id)
+
+
+@router.get("/hemocentros", response_model=list[HemocentroOpcao])
+async def listar_hemocentros(client: Client, x_user_id: UserId = None) -> list[dict]:
+    """Lista hemocentros disponíveis para o dropdown de criação/edição de campanhas."""
+    return await client.listar_hemocentros(x_user_id)

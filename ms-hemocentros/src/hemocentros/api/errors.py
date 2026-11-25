@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 from sqlalchemy.exc import SQLAlchemyError
 
+from hemocentros.services.campanhas import CampanhaNaoEncontrada
+
 PROBLEM_JSON = "application/problem+json"
 
 
@@ -24,6 +26,12 @@ def register(app: FastAPI) -> None:
         return problem(
             request, 400, "urn:startech:error:payload-invalido", "Payload inválido",
             "A requisição contém campos ausentes ou inválidos.", invalidParams=params,
+        )
+
+    @app.exception_handler(CampanhaNaoEncontrada)
+    async def _nao_encontrada(request: Request, exc: CampanhaNaoEncontrada):
+        return problem(
+            request, 404, "urn:startech:error:campanha-nao-encontrada", "Campanha não encontrada", str(exc)
         )
 
     @app.exception_handler(PyMongoError)

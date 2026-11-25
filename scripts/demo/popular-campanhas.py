@@ -22,7 +22,7 @@ def main() -> None:
     form = urllib.parse.urlencode({
         "grant_type": "password",
         "client_id": "startech-web",
-        "username": "operador1",
+        "username": "operador1@startech.local",
         "password": "operador123",
     }).encode()
     tok_url = f"{KC}/realms/startech/protocol/openid-connect/token"
