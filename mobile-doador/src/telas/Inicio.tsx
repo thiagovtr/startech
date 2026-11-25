@@ -1,31 +1,41 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useContextoAutenticacao } from '../autenticacao';
-import { BotaoPrimario, Cartao, EstadoFeedback, SeloStatus } from '../componentes';
+import { Cartao, EstadoFeedback, SeloStatus } from '../componentes';
 import type { ParametrosAbas } from '../navegacao/NavegacaoAbas';
-import { ErroHttp, type RespostaHome } from '../servicos';
+import type { ParametrosRaiz } from '../navegacao/NavegacaoPrincipal';
+import { ErroHttp, listarAgendamentos, type Agendamento, type RespostaHome } from '../servicos';
 import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../tema';
 
 type DestinoAtalho = Exclude<keyof ParametrosAbas, 'Inicio'>;
+type NomeIcone = keyof typeof Ionicons.glyphMap;
 type EstadoCarregamento = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
+type NavegacaoInicio = CompositeNavigationProp<
+  BottomTabNavigationProp<ParametrosAbas>,
+  NativeStackNavigationProp<ParametrosRaiz>
+>;
 
-const atalhos: { titulo: string; icone: string; destino: DestinoAtalho }[] = [
-  { titulo: 'Agendar doação', icone: '+', destino: 'Agendar' },
-  { titulo: 'Meus pedidos', icone: '☰', destino: 'MeusPedidos' },
-  { titulo: 'Assistente', icone: '?', destino: 'Assistente' },
+const atalhos: { titulo: string; descricao: string; icone: NomeIcone; destino: DestinoAtalho }[] = [
+  { titulo: 'Agendar doação', descricao: 'Encontre horários', icone: 'calendar-outline', destino: 'Agendar' },
+  { titulo: 'Meus pedidos', descricao: 'Acompanhe pedidos', icone: 'clipboard-outline', destino: 'MeusPedidos' },
+  { titulo: 'Assistente', descricao: 'Tire suas dúvidas', icone: 'chatbubble-outline', destino: 'Assistente' },
 ];
 
 export function Inicio() {
-  const navegacao = useNavigation<BottomTabNavigationProp<ParametrosAbas>>();
-  const { clienteHttp, encerrarSessao } = useContextoAutenticacao();
+  const navegacao = useNavigation<NavegacaoInicio>();
+  const { clienteHttp } = useContextoAutenticacao();
   const [estadoCarregamento, definirEstadoCarregamento] = useState<EstadoCarregamento>('CARREGANDO');
   const [respostaHome, definirRespostaHome] = useState<RespostaHome | null>(null);
   const [mensagemErro, definirMensagemErro] = useState('');
-  const [encerrandoSessao, definirEncerrandoSessao] = useState(false);
+  const [proximoAgendamento, definirProximoAgendamento] = useState<Agendamento | null>(null);
+  const versaoConsultaAgendamentos = useRef(0);
 
   const carregarHome = useCallback(async (signal?: AbortSignal) => {
     definirEstadoCarregamento('CARREGANDO');
@@ -49,48 +59,68 @@ export function Inicio() {
     }
   }, [clienteHttp]);
 
-  useEffect(() => {
+  const carregarProximoAgendamento = useCallback(async () => {
+    const versaoAtual = ++versaoConsultaAgendamentos.current;
+
+    try {
+      const resposta = await listarAgendamentos(clienteHttp);
+      if (versaoAtual !== versaoConsultaAgendamentos.current) return;
+      definirProximoAgendamento(obterProximoAgendamentoConfirmado(resposta.itens));
+    } catch {
+      if (versaoAtual !== versaoConsultaAgendamentos.current) return;
+      definirProximoAgendamento(null);
+    }
+  }, [clienteHttp]);
+
+  const carregarDadosInicio = useCallback((signal?: AbortSignal) => {
+    void carregarHome(signal);
+    void carregarProximoAgendamento();
+  }, [carregarHome, carregarProximoAgendamento]);
+
+  useFocusEffect(useCallback(() => {
     const controlador = new AbortController();
-    void carregarHome(controlador.signal);
+    carregarDadosInicio(controlador.signal);
     return () => controlador.abort();
-  }, [carregarHome]);
+  }, [carregarDadosInicio]));
 
   const doador = respostaHome?.doador;
   const nomeDoador = doador?.nome;
   const tipoSanguineo = doador?.tipoSanguineo ?? doador?.tipo_sanguineo;
   const perfilNaoCadastrado = doador?.cadastrado === false;
 
-  async function sairDaConta() {
-    definirEncerrandoSessao(true);
-
-    try {
-      await encerrarSessao();
-    } finally {
-      definirEncerrandoSessao(false);
-    }
-  }
-
   return (
-    <SafeAreaView edges={['right', 'left']} style={estilos.areaSegura}>
+    <SafeAreaView edges={['top', 'right', 'left']} style={estilos.areaSegura}>
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <View style={estilos.cabecalho}>
-          <View>
+          <View style={estilos.detalhesCabecalho}>
+            <Text style={estilos.marca}>StarTech</Text>
             <Text style={estilos.saudacao}>{nomeDoador ? `Olá, ${nomeDoador}` : 'Olá'}</Text>
             <Text style={estilos.subtitulo}>Que bom ter você por aqui.</Text>
           </View>
-          <View accessibilityLabel="Perfil do doador" style={estilos.avatarPerfil}>
-            <Text style={estilos.iniciaisPerfil}>{obterIniciais(nomeDoador)}</Text>
+          <View style={estilos.acoesCabecalho}>
+            <Pressable
+              accessibilityLabel="Atualizar informações da Home"
+              accessibilityRole="button"
+              accessibilityState={{ busy: estadoCarregamento === 'CARREGANDO', disabled: estadoCarregamento === 'CARREGANDO' }}
+              disabled={estadoCarregamento === 'CARREGANDO'}
+              onPress={() => carregarDadosInicio()}
+              style={({ pressed }) => [estilos.botaoAtualizar, pressed && estadoCarregamento !== 'CARREGANDO' && estilos.botaoAtualizarPressionado]}
+            >
+              {estadoCarregamento === 'CARREGANDO' ? (
+                <ActivityIndicator color={cores.principalEscuro} size="small" />
+              ) : (
+                <Ionicons color={cores.principalEscuro} name="refresh" size={22} />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Abrir meu perfil"
+              accessibilityRole="button"
+              onPress={() => navegacao.navigate('Perfil')}
+              style={({ pressed }) => [estilos.avatarPerfil, pressed && estilos.avatarPerfilPressionado]}
+            >
+              <Text style={estilos.iniciaisPerfil}>{obterIniciais(nomeDoador)}</Text>
+            </Pressable>
           </View>
-        </View>
-
-        <SecaoAtalhos navegacao={navegacao} />
-
-        <View style={estilos.secaoSaida}>
-          <BotaoPrimario
-            aoPressionar={() => void sairDaConta()}
-            carregando={encerrandoSessao}
-            titulo="Sair da conta"
-          />
         </View>
 
         {estadoCarregamento === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Carregando sua Home" />}
@@ -136,6 +166,33 @@ export function Inicio() {
               )}
             </Cartao>
 
+            {proximoAgendamento && (
+              <Pressable
+                accessibilityLabel="Ver detalhes do seu próximo agendamento"
+                accessibilityRole="button"
+                onPress={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: proximoAgendamento._links.self })}
+                style={({ pressed }) => [estilos.bannerAgendamento, pressed && estilos.bannerAgendamentoPressionado]}
+              >
+                <Cartao estilo={estilos.cartaoAgendamento}>
+                  <View style={estilos.cabecalhoAgendamento}>
+                    <View style={estilos.iconeAgendamento}>
+                      <Ionicons color={cores.principalEscuro} name="calendar-outline" size={22} />
+                    </View>
+                    <View style={estilos.detalhesAgendamento}>
+                      <Text style={estilos.tituloAgendamento}>Seu próximo agendamento</Text>
+                      <Text style={estilos.statusAgendamento}>Confirmado</Text>
+                    </View>
+                    <Ionicons color={cores.principalEscuro} name="chevron-forward" size={20} />
+                  </View>
+                  <View style={estilos.informacoesAgendamento}>
+                    <Text style={estilos.postoAgendamento}>Posto: {proximoAgendamento.slot.postoId}</Text>
+                    <Text style={estilos.periodoAgendamento}>{formatarPeriodoAgendamento(proximoAgendamento)}</Text>
+                  </View>
+                  <Text style={estilos.acaoAgendamento}>Ver agendamento</Text>
+                </Cartao>
+              </Pressable>
+            )}
+
             {respostaHome.status === 'degradado' && (
               <Cartao estilo={estilos.avisoDegradado}>
                 <Text style={estilos.tituloAviso}>Algumas informações podem estar indisponíveis</Text>
@@ -146,7 +203,19 @@ export function Inicio() {
             <View style={estilos.secao}>
               <View style={estilos.cabecalhoSecao}>
                 <Text style={estilos.tituloSecao}>{respostaHome.campanhasPersonalizadas ? 'Campanhas para você' : 'Campanhas vigentes'}</Text>
-                {!respostaHome.campanhasPersonalizadas && <Text style={estilos.avisoNaoPersonalizado}>Não personalizadas</Text>}
+                {respostaHome.campanhas.length > 1 ? (
+                  <Pressable
+                    accessibilityLabel="Ver todas as campanhas"
+                    accessibilityRole="button"
+                    onPress={() => navegacao.navigate('TodasCampanhas', {
+                      campanhas: respostaHome.campanhas,
+                      campanhasPersonalizadas: respostaHome.campanhasPersonalizadas,
+                    })}
+                    style={({ pressed }) => [estilos.botaoVerTodas, pressed && estilos.botaoVerTodasPressionado]}
+                  >
+                    <Text style={estilos.textoVerTodas}>Ver todas</Text>
+                  </Pressable>
+                ) : !respostaHome.campanhasPersonalizadas && <Text style={estilos.avisoNaoPersonalizado}>Não personalizadas</Text>}
               </View>
               {!respostaHome.campanhasPersonalizadas && (
                 <Text style={estilos.descricaoNaoPersonalizada}>Estas campanhas não foram filtradas pelo seu tipo sanguíneo.</Text>
@@ -154,7 +223,7 @@ export function Inicio() {
               {respostaHome.campanhas.length === 0 ? (
                 <EstadoFeedback descricao="Não há campanhas vigentes para mostrar no momento." tipo="vazio" titulo="Nenhuma campanha disponível" />
               ) : (
-                respostaHome.campanhas.map((campanha) => (
+                respostaHome.campanhas.slice(0, 1).map((campanha) => (
                   <Cartao estilo={estilos.cartaoCampanha} key={campanha.id}>
                     <View style={estilos.linhaCampanha}>
                       <View style={estilos.detalhesCampanha}>
@@ -173,25 +242,29 @@ export function Inicio() {
             </View>
           </>
         )}
+
+        <SecaoAtalhos navegacao={navegacao} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SecaoAtalhos({ navegacao }: { navegacao: BottomTabNavigationProp<ParametrosAbas> }) {
+function SecaoAtalhos({ navegacao }: { navegacao: NavegacaoInicio }) {
   return (
     <View style={estilos.secao}>
       <Text style={estilos.tituloSecao}>Ações rápidas</Text>
       <View style={estilos.gradeAtalhos}>
-        {atalhos.map(({ titulo, icone, destino }) => (
+        {atalhos.map(({ titulo, descricao, icone, destino }) => (
           <Pressable
+            accessibilityLabel={`${titulo}. ${descricao}`}
             accessibilityRole="button"
             key={destino}
             onPress={() => navegacao.navigate(destino)}
             style={({ pressed }) => [estilos.atalho, pressed && estilos.atalhoPressionado]}
           >
-            <Text style={estilos.iconeAtalho}>{icone}</Text>
-            <Text style={estilos.tituloAtalho}>{titulo}</Text>
+            <Ionicons color={cores.principalEscuro} name={icone} size={24} />
+            <Text adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={2} style={estilos.tituloAtalho}>{titulo}</Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={2} style={estilos.descricaoAtalho}>{descricao}</Text>
           </Pressable>
         ))}
       </View>
@@ -207,6 +280,30 @@ function obterMensagemErro(erro: unknown): string {
 function obterIniciais(nome?: string): string {
   if (!nome) return '•';
   return nome.trim().split(/\s+/).slice(0, 2).map((parte) => parte[0]?.toUpperCase()).join('');
+}
+
+function obterProximoAgendamentoConfirmado(agendamentos: Agendamento[]): Agendamento | null {
+  const agora = Date.now();
+
+  const confirmadosFuturos = agendamentos.filter((agendamento) => {
+    const inicio = new Date(agendamento.slot.dataHoraInicio).getTime();
+    return agendamento.status === 'CONFIRMADO' && !Number.isNaN(inicio) && inicio > agora;
+  });
+
+  return confirmadosFuturos.sort((primeiro, segundo) => (
+    new Date(primeiro.slot.dataHoraInicio).getTime() - new Date(segundo.slot.dataHoraInicio).getTime()
+  ))[0] ?? null;
+}
+
+function formatarPeriodoAgendamento(agendamento: Agendamento): string {
+  const inicio = new Date(agendamento.slot.dataHoraInicio);
+  const fim = new Date(agendamento.slot.dataHoraFim);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return 'Período indisponível para exibição.';
+
+  const data = inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', weekday: 'long' });
+  const horarioInicio = inicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const horarioFim = fim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${data} · ${horarioInicio} às ${horarioFim}`;
 }
 
 function formatarPeriodo(dataInicio: string, dataFim: string): string {
@@ -225,20 +322,38 @@ function descreverServicosIndisponiveis(servicos: string[]): string {
 
 const estilos = StyleSheet.create({
   areaSegura: { backgroundColor: cores.fundo, flex: 1 },
-  conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.extraGrande },
-  cabecalho: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  conteudo: { gap: espacamentos.muitoGrande, padding: espacamentos.padrao, paddingBottom: espacamentos.gigante * 3 },
+  cabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio, justifyContent: 'space-between' },
+  detalhesCabecalho: { flex: 1, gap: espacamentos.minimo },
+  marca: { color: cores.principalEscuro, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   saudacao: { color: cores.texto, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
   subtitulo: { color: cores.textoSecundario, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.normal, marginTop: espacamentos.minimo },
+  acoesCabecalho: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno },
+  botaoAtualizar: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 44, justifyContent: 'center', width: 44 },
+  botaoAtualizarPressionado: { opacity: 0.72 },
   avatarPerfil: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.arredondada, height: 48, justifyContent: 'center', width: 48 },
+  avatarPerfilPressionado: { opacity: 0.78 },
   iniciaisPerfil: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.negrito },
-  cartaoPerfil: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.padrao, justifyContent: 'space-between' },
+  cartaoPerfil: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio, justifyContent: 'space-between', padding: espacamentos.medio },
   detalhesPerfil: { flex: 1, gap: espacamentos.minimo },
   rotuloCartao: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
-  nomeDoador: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.seminegrito },
+  nomeDoador: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   descricaoPerfil: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  tipoSanguineo: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, paddingHorizontal: espacamentos.medio, paddingVertical: espacamentos.pequeno },
+  tipoSanguineo: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, paddingHorizontal: espacamentos.pequeno, paddingVertical: espacamentos.minimo },
   rotuloTipoSanguineo: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
-  valorTipoSanguineo: { color: cores.principalEscuro, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
+  valorTipoSanguineo: { color: cores.principalEscuro, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
+  bannerAgendamento: { borderRadius: raiosBorda.grande },
+  bannerAgendamentoPressionado: { opacity: 0.78 },
+  cartaoAgendamento: { gap: espacamentos.padrao },
+  cabecalhoAgendamento: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.medio },
+  iconeAgendamento: { alignItems: 'center', backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media, height: 44, justifyContent: 'center', width: 44 },
+  detalhesAgendamento: { flex: 1, gap: espacamentos.minimo },
+  tituloAgendamento: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  statusAgendamento: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
+  informacoesAgendamento: { gap: espacamentos.minimo },
+  postoAgendamento: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  periodoAgendamento: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
+  acaoAgendamento: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   avisoDegradado: { backgroundColor: cores.principalClaro, gap: espacamentos.minimo },
   tituloAviso: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
   descricaoAviso: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
@@ -246,13 +361,15 @@ const estilos = StyleSheet.create({
   cabecalhoSecao: { alignItems: 'center', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   tituloSecao: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
   avisoNaoPersonalizado: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.medio },
+  botaoVerTodas: { justifyContent: 'center', minHeight: 40, paddingHorizontal: espacamentos.pequeno },
+  botaoVerTodasPressionado: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
+  textoVerTodas: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
   descricaoNaoPersonalizada: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal },
-  gradeAtalhos: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.medio },
-  secaoSaida: { gap: espacamentos.pequeno },
-  atalho: { backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flexBasis: '47%', flexGrow: 1, gap: espacamentos.pequeno, minHeight: 108, padding: espacamentos.padrao },
+  gradeAtalhos: { flexDirection: 'row', gap: espacamentos.pequeno },
+  atalho: { alignItems: 'center', backgroundColor: cores.cartao, borderRadius: raiosBorda.grande, flex: 1, gap: espacamentos.minimo, justifyContent: 'center', minHeight: 112, paddingHorizontal: espacamentos.minimo, paddingVertical: espacamentos.medio },
   atalhoPressionado: { backgroundColor: cores.principalClaro },
-  iconeAtalho: { color: cores.principal, fontSize: tamanhosFonte.titulo, fontWeight: pesosFonte.negrito },
-  tituloAtalho: { color: cores.texto, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
+  tituloAtalho: { color: cores.texto, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito, textAlign: 'center' },
+  descricaoAtalho: { color: cores.textoSecundario, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.normal, textAlign: 'center' },
   cartaoCampanha: { gap: espacamentos.padrao },
   linhaCampanha: { alignItems: 'flex-start', flexDirection: 'row', gap: espacamentos.pequeno, justifyContent: 'space-between' },
   detalhesCampanha: { flex: 1, gap: espacamentos.minimo },

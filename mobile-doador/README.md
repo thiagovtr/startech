@@ -368,7 +368,7 @@ O formulário envia os dados exclusivamente pelo Gateway:
 PUT /api/mobile/perfil
 ```
 
-Os campos são nome completo, tipo sanguíneo (`A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+` ou `O-`), sexo (`M` ou `F`) e data da última doação opcional, no formato `AAAA-MM-DD`. O aplicativo valida nome, data inexistente e data futura antes do envio; também apresenta falhas de conexão e os campos devolvidos em `invalidParams`.
+O formulário modernizado solicita nome completo, tipo sanguíneo (`A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+` ou `O-`) e sexo (`M` ou `F`), todos obrigatórios, além da data da última doação opcional. A data é digitada em `dd/mm/aaaa` e convertida para `AAAA-MM-DD` antes do envio. O aplicativo valida nome, data inexistente e data futura antes do envio; também apresenta falhas de conexão e os campos devolvidos em `invalidParams`.
 
 Após salvar, o aplicativo consulta a Home novamente e libera as abas somente se o perfil estiver cadastrado. A tela também permite encerrar a sessão para trocar de usuário.
 
@@ -384,14 +384,28 @@ GET /api/mobile/home
 
 Apresenta:
 
-- Informações do perfil do doador.
-- Nome e tipo sanguíneo quando disponíveis.
-- Campanhas personalizadas pelo tipo sanguíneo.
+- Cabeçalho StarTech integrado ao conteúdo e acesso ao Meu perfil pelo avatar.
+- Cartão de perfil do doador com nome e tipo sanguíneo quando disponíveis.
+- Banner condicional do próximo agendamento confirmado, com acesso aos detalhes pelo link HATEOAS recebido.
+- Prévia de campanhas personalizadas pelo tipo sanguíneo e página Todas as campanhas para os itens retornados pela Home.
 - Indicação de campanhas não personalizadas.
+- Três ações rápidas lado a lado para Agendar doação, Meus pedidos e Assistente.
+- Atualização por ícone.
 - Estados de carregamento, lista vazia e erro.
 - Indicação de resposta degradada quando algum serviço está indisponível.
 
 A Home não realiza avaliação clínica da aptidão do doador.
+
+### Meu perfil e navegação
+
+O avatar da Home abre a página Meu perfil. Ela organiza informações somente para leitura nas categorias Informações básicas, Segurança e Cadastro.
+
+- Nome completo é exibido quando retornado pela Home.
+- Nome de usuário, e-mail, sexo e data da última doação são apresentados como indisponíveis enquanto não forem fornecidos pelos contratos atuais.
+- A opção de alteração de senha permanece desabilitada, pois não há suporte público disponível no aplicativo.
+- O logout está concentrado em Meu perfil; a opção de troca de usuário também permanece na conclusão obrigatória do cadastro.
+
+A navegação principal utiliza uma navbar flutuante com quatro abas — Início, Agendar, Meus pedidos e Assistente —, ícones, áreas de toque adequadas e respeito às safe areas. Os cabeçalhos das telas foram integrados ao conteúdo para evitar barras superiores separadas.
 
 ### Solicitação de agendamento
 
@@ -408,7 +422,7 @@ O endpoint de solicitação recebe um `slotId` real e inicia o processamento da 
 
 Quando a solicitação é aceita, o BFF retorna HTTP `202 Accepted`, com identificadores e um link HATEOAS para acompanhamento.
 
-No aplicativo, a disponibilidade é carregada pelo Gateway, e o doador seleciona um slot real antes da confirmação. A solicitação utiliza exclusivamente o link HATEOAS `_links.agendar` retornado para esse slot.
+No aplicativo, a tela Agendamentos apresenta acesso rápido a Meus pedidos, a seção Agendar doação e uma prévia de até três horários. Quando houver outros itens retornados pelo Back-End, a página Todos os horários permite consultar a lista completa. Após selecionar um slot real, a página Resumo do agendamento apresenta os dados antes da confirmação. A solicitação utiliza exclusivamente o link HATEOAS `_links.agendar` retornado para esse slot.
 
 A consulta e a seleção de slots, bem como a solicitação real, foram testadas com sucesso no iPhone conectado à Azure.
 
@@ -422,23 +436,25 @@ _links.acompanhar.href
 
 O aplicativo não constrói manualmente o endereço de acompanhamento a partir do identificador da SAGA.
 
+Não existe modo demonstrativo: o acompanhamento depende obrigatoriamente do link HATEOAS real retornado pelo BFF.
+
 A interface contempla os estados:
 
 | Situação | Apresentação |
 |---|---|
-| `EM_ANDAMENTO` | Solicitação em processamento |
+| `EM_ANDAMENTO` | Solicitação em análise |
 | `CONFIRMADO` | Agendamento confirmado |
-| `RECUSADO` | Solicitação recusada |
-| `CANCELADO` | Solicitação compensada no contexto da SAGA |
-| `ERRO` | Falha no processamento ou na compensação |
+| `RECUSADO` | Solicitação não confirmada |
+| `CANCELADO` | Agendamento cancelado |
+| `ERRO` | Não foi possível concluir a solicitação |
 
 O BFF Mobile apresenta o estado de SAGA compensada como `CANCELADO`.
 
-Quando existir, o motivo retornado pelo Back-End é exibido ao doador.
+Quando existir, o motivo retornado pelo Back-End é exibido ao doador. As mensagens de apresentação foram ajustadas para linguagem natural, sem alterar os status técnicos nem o conteúdo útil retornado pelo serviço.
 
 O aplicativo realiza consultas periódicas controladas durante o processamento e as interrompe quando a operação termina ou a tela deixa de estar ativa.
 
-O cancelamento automático por compensação foi testado com sucesso no iPhone conectado à Azure. Após solicitar um horário com 5 vagas disponíveis, a SAGA terminou como `CANCELADO`, com a mensagem “Solicitação compensada” e o motivo de que a última doação ocorreu em 13/11/2026 e uma nova doação seria permitida a partir de 12/01/2027, respeitando o intervalo de 60 dias. Ao retornar à tela Agendar, o mesmo horário continuava com 5 vagas disponíveis; o comportamento foi reproduzido em novas tentativas.
+O cancelamento automático por compensação foi testado com sucesso no iPhone conectado à Azure. Após solicitar um horário com 5 vagas disponíveis, a SAGA terminou como `CANCELADO`, com a mensagem de cancelamento e o motivo de que a última doação ocorreu em 13/11/2026 e uma nova doação seria permitida a partir de 12/01/2027, respeitando o intervalo de 60 dias. Ao retornar à tela Agendar, o mesmo horário continuava com 5 vagas disponíveis; o comportamento foi reproduzido em novas tentativas.
 
 Esse resultado confirma o comportamento observado pelo aplicativo, mas não comprova diretamente nos bancos a reserva provisória nem a execução interna de `STEP1 COMPENSATE OK`.
 
@@ -458,7 +474,7 @@ POST /api/mobile/agendamentos/{id}/cancelamento
 
 O cancelamento somente é oferecido quando a representação fornecer o link HATEOAS `_links.cancelar`, com o método indicado. O corpo pode conter o motivo opcional do cancelamento.
 
-A aba lista os agendamentos reais do doador, abre os detalhes pelo link `_links.self` e é atualizada ao retornar da tela de detalhes. A listagem, os detalhes e o cancelamento real foram testados com sucesso no iPhone conectado à Azure.
+A aba destaca todos os agendamentos confirmados e apresenta uma prévia de até três pedidos anteriores. Quando houver mais pedidos anteriores, a página Pedidos anteriores apresenta a lista completa. A aba abre os detalhes pelo link `_links.self` e é atualizada ao retornar da tela de detalhes. A ordenação cronológica completa dos pedidos anteriores depende de um campo temporal que ainda não é fornecido pelo Back-End. A listagem, os detalhes e o cancelamento real foram testados com sucesso no iPhone conectado à Azure.
 
 ### Assistente de dúvidas
 
@@ -470,6 +486,7 @@ POST /api/mobile/assistente
 
 O aplicativo permite:
 
+- Utilizar cabeçalho integrado ao conteúdo, compatível com teclado e navbar flutuante.
 - Enviar perguntas ao assistente.
 - Exibir respostas retornadas pelo BFF Mobile.
 - Apresentar fontes quando fornecidas.
@@ -565,15 +582,16 @@ As verificações de compilação e tipagem não substituem testes funcionais de
 Os testes abaixo foram realizados com sucesso em um iPhone, pelo Expo Go, conectado à infraestrutura Azure:
 
 1. Login, logout e restauração de sessão com Keycloak.
-2. Navegação entre Início, Agendar, Meus pedidos e Assistente.
-3. Carregamento de nome, tipo sanguíneo e campanhas na Home.
+2. Navegação entre Início, Agendar, Meus pedidos e Assistente pela navbar flutuante.
+3. Carregamento de nome, tipo sanguíneo, campanhas e acesso ao Meu perfil pela Home.
 4. Respostas, fontes e fallback do Assistente RAG, além de verificações básicas de estabilidade.
 5. Consulta, seleção e solicitação de um slot real pelo link `_links.agendar`.
 6. Acesso ao acompanhamento da SAGA após a solicitação e navegação da SAGA confirmada para os detalhes.
 7. Listagem e detalhes de agendamentos reais, incluindo atualização da lista ao retornar; oito testes manuais desse fluxo foram aprovados.
 8. Exibição condicional do cancelamento, confirmação, desistência, cancelamento real e atualização da situação e da listagem; oito testes manuais desse fluxo foram aprovados.
-9. Compensação automática da SAGA: um horário com 5 vagas foi solicitado, terminou como `CANCELADO` com “Solicitação compensada” e motivo de intervalo mínimo; após o retorno à tela Agendar, o mesmo horário permaneceu com 5 vagas. O cenário foi reproduzido em novas tentativas.
-10. Conclusão e salvamento do perfil, incluindo a seleção de tipo sanguíneo, realizados com sucesso no iPhone com Expo Go conectado à Azure.
+9. Compensação automática da SAGA: um horário com 5 vagas foi solicitado, terminou como `CANCELADO` com mensagem de cancelamento e motivo de intervalo mínimo; após o retorno à tela Agendar, o mesmo horário permaneceu com 5 vagas. O cenário foi reproduzido em novas tentativas.
+10. Conclusão e salvamento do perfil, incluindo a seleção de tipo sanguíneo e a data opcional no formato brasileiro, realizados com sucesso no iPhone com Expo Go conectado à Azure.
+11. Páginas de Perfil, cabeçalhos integrados, prévias de horários e pedidos, páginas de listagem completa e navegação de retorno validadas visualmente no Expo Go.
 
 Permanecem recomendados testes da sequência interna de compensação da SAGA, conflitos de concorrência e indisponibilidade dos serviços. Registrar como concluídos somente os cenários efetivamente executados.
 

@@ -6,15 +6,43 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProvedorAutenticacao, useAutenticacao } from '../autenticacao';
 import { EstadoFeedback } from '../componentes';
-import { consultarHome, ErroHttp, type LinkAcompanharAgendamento, type LinkConsultarAgendamento } from '../servicos';
+import {
+  consultarHome,
+  ErroHttp,
+  type CampanhaHome,
+  type LinkAcompanharAgendamento,
+  type LinkConsultarAgendamento,
+  type SlotDisponivel,
+} from '../servicos';
 import { NavegacaoAbas } from './NavegacaoAbas';
-import { AcompanhamentoSaga, CompletarPerfil, DetalhesAgendamento, Login } from '../telas';
+import {
+  AcompanhamentoSaga,
+  CadastroPerfil,
+  CompletarPerfil,
+  DetalhesAgendamento,
+  InformacoesBasicas,
+  Login,
+  Perfil,
+  Seguranca,
+  TodasCampanhas,
+  TodosHorarios,
+  ResumoAgendamento,
+  TodosPedidosAnteriores,
+} from '../telas';
 import { cores } from '../tema';
 
 export type ParametrosRaiz = {
   Abas: undefined;
-  AcompanhamentoSaga: { linkAcompanhar?: LinkAcompanharAgendamento } | undefined;
+  AcompanhamentoSaga: { linkAcompanhar: LinkAcompanharAgendamento };
   DetalhesAgendamento: { linkConsultar: LinkConsultarAgendamento };
+  Perfil: undefined;
+  InformacoesBasicas: { nome?: string } | undefined;
+  Seguranca: undefined;
+  CadastroPerfil: { tipoSanguineo?: string } | undefined;
+  TodasCampanhas: { campanhas: CampanhaHome[]; campanhasPersonalizadas: boolean };
+  TodosHorarios: { slots: SlotDisponivel[] };
+  ResumoAgendamento: { slot: SlotDisponivel };
+  TodosPedidosAnteriores: undefined;
 };
 
 const PilhaRaiz = createNativeStackNavigator<ParametrosRaiz>();
@@ -88,6 +116,14 @@ export function NavegacaoPrincipal() {
             <PilhaRaiz.Screen component={NavegacaoAbas} name="Abas" />
             <PilhaRaiz.Screen component={AcompanhamentoSaga} name="AcompanhamentoSaga" />
             <PilhaRaiz.Screen component={DetalhesAgendamento} name="DetalhesAgendamento" />
+            <PilhaRaiz.Screen component={Perfil} name="Perfil" />
+            <PilhaRaiz.Screen component={InformacoesBasicas} name="InformacoesBasicas" />
+            <PilhaRaiz.Screen component={Seguranca} name="Seguranca" />
+            <PilhaRaiz.Screen component={CadastroPerfil} name="CadastroPerfil" />
+            <PilhaRaiz.Screen component={TodasCampanhas} name="TodasCampanhas" />
+            <PilhaRaiz.Screen component={TodosHorarios} name="TodosHorarios" />
+            <PilhaRaiz.Screen component={ResumoAgendamento} name="ResumoAgendamento" />
+            <PilhaRaiz.Screen component={TodosPedidosAnteriores} name="TodosPedidosAnteriores" />
           </PilhaRaiz.Navigator>
         ) : (
           <Login
