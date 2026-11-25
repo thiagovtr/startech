@@ -33,7 +33,7 @@ import { cores } from '../tema';
 
 export type ParametrosRaiz = {
   Abas: undefined;
-  AcompanhamentoSaga: { linkAcompanhar?: LinkAcompanharAgendamento } | undefined;
+  AcompanhamentoSaga: { linkAcompanhar: LinkAcompanharAgendamento };
   DetalhesAgendamento: { linkConsultar: LinkConsultarAgendamento };
   Perfil: undefined;
   InformacoesBasicas: { nome?: string } | undefined;

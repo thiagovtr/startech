@@ -27,14 +27,6 @@ type EstadoConsulta = 'CARREGANDO' | 'SUCESSO' | 'ERRO';
 
 const INTERVALO_CONSULTA_MS = 5000;
 
-const conteudoDemonstrativo: Record<SituacaoAcompanhamentoSaga, ConteudoSituacao> = {
-  EM_ANDAMENTO: { titulo: 'Solicitação em andamento', descricao: 'Sua solicitação demonstrativa está sendo processada.', selo: 'PENDENTE' },
-  CONFIRMADO: { titulo: 'Agendamento confirmado', descricao: 'A solicitação demonstrativa foi concluída com confirmação.', selo: 'CONFIRMADO' },
-  RECUSADO: { titulo: 'Solicitação recusada', descricao: 'A solicitação demonstrativa foi recusada.', selo: 'RECUSADO' },
-  CANCELADO: { titulo: 'Solicitação compensada', descricao: 'O processamento demonstrativo foi compensado.', selo: 'CANCELADO' },
-  ERRO: { titulo: 'Erro de compensação', descricao: 'A compensação demonstrativa não foi concluída.', selo: 'ERRO' },
-};
-
 const conteudoReal: Record<SituacaoAcompanhamentoSaga, ConteudoSituacao> = {
   EM_ANDAMENTO: { titulo: 'Solicitação em andamento', descricao: 'Sua solicitação está sendo processada.', selo: 'PENDENTE' },
   CONFIRMADO: { titulo: 'Agendamento confirmado', descricao: 'O BFF informou que a solicitação foi confirmada.', selo: 'CONFIRMADO' },
@@ -43,20 +35,11 @@ const conteudoReal: Record<SituacaoAcompanhamentoSaga, ConteudoSituacao> = {
   ERRO: { titulo: 'Erro de compensação', descricao: 'O BFF informou um erro durante a compensação.', selo: 'ERRO' },
 };
 
-const opcoesSituacao: { chave: SituacaoAcompanhamentoSaga; titulo: string }[] = [
-  { chave: 'EM_ANDAMENTO', titulo: 'Em andamento' },
-  { chave: 'CONFIRMADO', titulo: 'Confirmado' },
-  { chave: 'RECUSADO', titulo: 'Recusado' },
-  { chave: 'CANCELADO', titulo: 'Compensado' },
-  { chave: 'ERRO', titulo: 'Erro' },
-];
-
 export function AcompanhamentoSaga() {
   const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
   const rota = useRoute<RouteProp<ParametrosRaiz, 'AcompanhamentoSaga'>>();
   const { clienteHttp } = useContextoAutenticacao();
   const linkAcompanhar = rota.params?.linkAcompanhar;
-  const [situacaoDemonstrativa, definirSituacaoDemonstrativa] = useState<SituacaoAcompanhamentoSaga>('EM_ANDAMENTO');
   const [estadoConsulta, definirEstadoConsulta] = useState<EstadoConsulta>('CARREGANDO');
   const [respostaAcompanhamento, definirRespostaAcompanhamento] = useState<RespostaAcompanhamentoSaga>();
   const [mensagemErro, definirMensagemErro] = useState('');
@@ -108,8 +91,8 @@ export function AcompanhamentoSaga() {
     };
   }, [clienteHttp, linkAcompanhar, tentativaConsulta]));
 
-  const situacao = respostaAcompanhamento?.situacao ?? situacaoDemonstrativa;
-  const conteudo = linkAcompanhar ? conteudoReal[situacao] : conteudoDemonstrativo[situacao];
+  const situacao = respostaAcompanhamento?.situacao;
+  const conteudo = situacao ? conteudoReal[situacao] : undefined;
 
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={estilos.areaSegura}>
@@ -124,6 +107,13 @@ export function AcompanhamentoSaga() {
           <Text style={estilos.descricao}>Consulte a situação da sua solicitação de agendamento.</Text>
         </View>
 
+        {!linkAcompanhar && (
+          <EstadoFeedback
+            descricao="Não foi possível identificar a solicitação para acompanhamento. Volte e tente novamente a partir do agendamento."
+            tipo="erro"
+            titulo="Link de acompanhamento indisponível"
+          />
+        )}
         {linkAcompanhar && estadoConsulta === 'CARREGANDO' && <EstadoFeedback tipo="carregando" titulo="Consultando solicitação" />}
         {linkAcompanhar && estadoConsulta === 'ERRO' && (
           <EstadoFeedback
@@ -134,22 +124,21 @@ export function AcompanhamentoSaga() {
           />
         )}
 
-        {(!linkAcompanhar || (estadoConsulta === 'SUCESSO' && respostaAcompanhamento)) && (
+        {linkAcompanhar && estadoConsulta === 'SUCESSO' && respostaAcompanhamento && conteudo && (
           <Cartao estilo={estilos.cartaoSolicitacao}>
             <View style={estilos.linhaSolicitacao}>
               <View style={estilos.detalhesSolicitacao}>
-                <Text style={estilos.rotulo}>{linkAcompanhar ? 'Solicitação' : 'Solicitação demonstrativa'}</Text>
-                <Text style={estilos.identificador}>{respostaAcompanhamento?.sagaId ?? 'Demonstração visual'}</Text>
-                {respostaAcompanhamento && <Text style={estilos.textoSecundario}>Agendamento: {respostaAcompanhamento.agendamentoId}</Text>}
+                <Text style={estilos.rotulo}>Solicitação</Text>
+                <Text style={estilos.identificador}>{respostaAcompanhamento.sagaId}</Text>
+                <Text style={estilos.textoSecundario}>Agendamento: {respostaAcompanhamento.agendamentoId}</Text>
               </View>
               <SeloStatus situacao={conteudo.selo} />
             </View>
             <View style={estilos.divisor} />
             <Text style={estilos.tituloSituacao}>{conteudo.titulo}</Text>
             <Text style={estilos.descricaoSituacao}>{conteudo.descricao}</Text>
-            {respostaAcompanhamento?.motivo && <Motivo texto={respostaAcompanhamento.motivo} />}
-            {!linkAcompanhar && motivoDemonstrativo(situacao) && <Motivo texto={motivoDemonstrativo(situacao)!} />}
-            {respostaAcompanhamento?._links.agendamento && (
+            {respostaAcompanhamento.motivo && <Motivo texto={respostaAcompanhamento.motivo} />}
+            {respostaAcompanhamento._links.agendamento && (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => navegacao.navigate('DetalhesAgendamento', { linkConsultar: respostaAcompanhamento._links.agendamento! })}
@@ -161,28 +150,6 @@ export function AcompanhamentoSaga() {
           </Cartao>
         )}
 
-        {!linkAcompanhar && (
-          <View style={estilos.secaoDesenvolvimento}>
-            <Text style={estilos.tituloDesenvolvimento}>Ferramenta temporária de desenvolvimento</Text>
-            <Text style={estilos.textoSecundario}>Alterne a situação abaixo apenas para testar esta interface.</Text>
-            <View style={estilos.opcoesSituacao}>
-              {opcoesSituacao.map((opcao) => {
-                const estaSelecionada = situacaoDemonstrativa === opcao.chave;
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: estaSelecionada }}
-                    key={opcao.chave}
-                    onPress={() => definirSituacaoDemonstrativa(opcao.chave)}
-                    style={[estilos.opcaoSituacao, estaSelecionada && estilos.opcaoSituacaoSelecionada]}
-                  >
-                    <Text style={[estilos.textoOpcaoSituacao, estaSelecionada && estilos.textoOpcaoSituacaoSelecionada]}>{opcao.titulo}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -195,13 +162,6 @@ function Motivo({ texto }: { texto: string }) {
       <Text style={estilos.textoMotivo}>{texto}</Text>
     </View>
   );
-}
-
-function motivoDemonstrativo(situacao: SituacaoAcompanhamentoSaga): string | undefined {
-  if (situacao === 'RECUSADO') return 'Exemplo demonstrativo: não foi possível concluir a solicitação.';
-  if (situacao === 'CANCELADO') return 'Exemplo demonstrativo: a solicitação precisou ser desfeita durante o processamento.';
-  if (situacao === 'ERRO') return 'Exemplo demonstrativo: ocorreu uma falha técnica durante a compensação.';
-  return undefined;
 }
 
 function obterMensagemErro(erro: unknown): string {
@@ -232,11 +192,4 @@ const estilos = StyleSheet.create({
   acaoDetalhes: { alignItems: 'center', minHeight: 48, justifyContent: 'center' },
   acaoDetalhesPressionada: { backgroundColor: cores.principalClaro, borderRadius: raiosBorda.media },
   textoAcaoDetalhes: { color: cores.principalEscuro, fontSize: tamanhosFonte.corpo, fontWeight: pesosFonte.seminegrito },
-  secaoDesenvolvimento: { gap: espacamentos.medio },
-  tituloDesenvolvimento: { color: cores.texto, fontSize: tamanhosFonte.subtitulo, fontWeight: pesosFonte.negrito },
-  opcoesSituacao: { flexDirection: 'row', flexWrap: 'wrap', gap: espacamentos.pequeno },
-  opcaoSituacao: { backgroundColor: cores.cartao, borderRadius: raiosBorda.arredondada, justifyContent: 'center', minHeight: 44, paddingHorizontal: espacamentos.medio },
-  opcaoSituacaoSelecionada: { backgroundColor: cores.principal },
-  textoOpcaoSituacao: { color: cores.principalEscuro, fontSize: tamanhosFonte.legenda, fontWeight: pesosFonte.seminegrito },
-  textoOpcaoSituacaoSelecionada: { color: cores.cartao },
 });
