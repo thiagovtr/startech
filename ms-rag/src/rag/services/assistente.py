@@ -9,6 +9,7 @@ Fluxo de `responder`:
 """
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -54,10 +55,14 @@ PROMPT_RAG = ChatPromptTemplate.from_messages([
      "1. Use SOMENTE as regras do CONTEXTO ({fonte}); não invente valores, taxas, prazos ou exceções.\n"
      "2. Nunca contradiga o CONTEXTO; compare números e prazos com atenção antes de responder Sim ou Não.\n"
      "3. Se houver várias condições na pergunta, avalie cada uma separadamente.\n"
-     "4. Se a resposta não estiver no CONTEXTO, diga que não consta nos trechos da Portaria e oriente procurar a triagem.\n"
-     "5. Responda em português do Brasil, em no máximo 2 frases diretas, terminando com [Título do trecho].\n\n"
+     "4. Se a resposta não estiver no CONTEXTO, diga que não consta nos trechos da Portaria e oriente "
+     "procurar a triagem.\n"
+     "5. Fale diretamente com o usuário na 2ª pessoa (ex.: 'Não, você não pode...' ou 'Você deve "
+     "aguardar...'), nunca em 1ª pessoa ('eu não posso').\n"
+     "6. Responda em português do Brasil, em no máximo 2 frases diretas, sem usar colchetes nem repetir "
+     "o título da seção.\n\n"
      "Exemplo: Contexto: [Peso mínimo] Peso mínimo é 50 kg. | Pergunta: Peso 48 kg, posso doar? "
-     "| Resposta: Não, o peso mínimo para doar sangue é de 50 kg. [Peso mínimo]\n\n"
+     "| Resposta: Não, você não pode doar sangue com 48 kg, pois o peso mínimo exigido é de 50 kg.\n\n"
      "CONTEXTO:\n{contexto}"),
     ("human", "{pergunta}"),
 ])
@@ -169,7 +174,8 @@ class Assistente:
             trecho = f" Enquanto isso, veja o trecho da Portaria [{docs[0].metadata['secao']}]: " \
                      f"{docs[0].page_content.split(': ', 1)[-1][:300]}" if docs else ""
             return Resposta(FALLBACK_LLM + trecho, "FALLBACK", fontes=_fontes(docs), motivo_fallback=_motivo(exc))
-        return Resposta(f"{str(msg.content).strip()}\n\n{AVISO}", "RAG", fontes=_fontes(docs), uso=_uso(msg))
+        texto_limpo = _limpar_citacoes_colchetes(str(msg.content))
+        return Resposta(f"{texto_limpo}\n\n{AVISO}", "RAG", fontes=_fontes(docs), uso=_uso(msg))
 
     async def _sem_rag(self, pergunta: str) -> Resposta:
         try:
@@ -177,6 +183,12 @@ class Assistente:
         except Exception as exc:
             return Resposta(FALLBACK_LLM, "FALLBACK", motivo_fallback=_motivo(exc))
         return Resposta(str(msg.content).strip(), "SEM_RAG", uso=_uso(msg))
+
+
+def _limpar_citacoes_colchetes(texto: str) -> str:
+    """Remove citações residuais entre colchetes (ex.: '[Antibióticos]'), pois as fontes já vão no card do app."""
+    limpo = re.sub(r"\s*\[[^\]]+\]\.?", "", texto).strip()
+    return limpo or texto.strip()
 
 
 def _motivo(exc: BaseException) -> str:

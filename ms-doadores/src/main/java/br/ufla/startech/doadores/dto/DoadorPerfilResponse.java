@@ -11,6 +11,8 @@ public record DoadorPerfilResponse(
         String tipoSanguineo,
         String sexo,
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-        LocalDate dataUltimaDoacao
+        LocalDate dataUltimaDoacao,
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        LocalDate dataNascimento
 ) {
 }

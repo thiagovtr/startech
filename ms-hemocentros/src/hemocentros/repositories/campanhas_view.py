@@ -1,8 +1,8 @@
 """Leitura (Query side do CQRS): view desnormalizada `campanhas_view` no MongoDB."""
 
-from datetime import date
 import re
 import unicodedata
+from datetime import date
 
 from pymongo import AsyncMongoClient
 

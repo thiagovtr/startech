@@ -11,7 +11,8 @@ import { cores, espacamentos, pesosFonte, raiosBorda, tamanhosFonte } from '../t
 export function CadastroPerfil() {
   const navegacao = useNavigation<NativeStackNavigationProp<ParametrosRaiz>>();
   const rota = useRoute<RouteProp<ParametrosRaiz, 'CadastroPerfil'>>();
-  const dataUltimaDoacao = formatarDataUltimaDoacao(rota.params?.dataUltimaDoacao);
+  const dataNascimento = formatarData(rota.params?.dataNascimento);
+  const dataUltimaDoacao = formatarData(rota.params?.dataUltimaDoacao);
   const sexo = formatarSexo(rota.params?.sexo);
   const tipoSanguineo = rota.params?.tipoSanguineo;
 
@@ -29,6 +30,7 @@ export function CadastroPerfil() {
         <Cartao estilo={estilos.cartao}>
           <Informacao icone="heart-outline" rotulo="Tipo sanguíneo" valor={tipoSanguineo} />
           <Informacao icone="person-outline" rotulo="Sexo" valor={sexo} />
+          <Informacao icone="gift-outline" rotulo="Data de nascimento" valor={dataNascimento} />
           <Informacao icone="calendar-outline" rotulo="Data da última doação" valor={dataUltimaDoacao} />
         </Cartao>
       </ScrollView>
@@ -42,7 +44,7 @@ function formatarSexo(sexo?: 'M' | 'F'): string | undefined {
   return undefined;
 }
 
-function formatarDataUltimaDoacao(data?: string | null): string | undefined {
+function formatarData(data?: string | null): string | undefined {
   if (data === null) return 'Não informado';
   if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return undefined;
 

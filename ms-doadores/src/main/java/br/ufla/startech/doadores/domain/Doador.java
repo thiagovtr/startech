@@ -32,6 +32,9 @@ public class Doador {
     @Column(name = "data_ultima_doacao")
     private LocalDate dataUltimaDoacao;
 
+    @Column(name = "data_nascimento")
+    private LocalDate dataNascimento;
+
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 
@@ -41,23 +44,29 @@ public class Doador {
     protected Doador() {
     }
 
-    public Doador(UUID id, String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao) {
+    public Doador(UUID id, String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao, LocalDate dataNascimento) {
         Instant agora = Instant.now();
         this.id = id;
         this.nome = nome.trim();
         this.tipoSanguineo = tipoSanguineo;
         this.sexo = sexo;
         this.dataUltimaDoacao = dataUltimaDoacao;
+        this.dataNascimento = dataNascimento;
         this.criadoEm = agora;
         this.atualizadoEm = agora;
     }
 
-    public void atualizarPerfil(String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao) {
+    public void atualizarPerfil(
+            String nome, String tipoSanguineo, String sexo, LocalDate dataUltimaDoacao, LocalDate dataNascimento
+    ) {
         this.nome = nome.trim();
         this.tipoSanguineo = tipoSanguineo;
         this.sexo = sexo;
         if (dataUltimaDoacao != null) {
             this.dataUltimaDoacao = dataUltimaDoacao;
+        }
+        if (dataNascimento != null) {
+            this.dataNascimento = dataNascimento;
         }
         this.atualizadoEm = Instant.now();
     }
@@ -81,6 +90,10 @@ public class Doador {
     /** {@code null} se o doador ainda não doou. */
     public LocalDate getDataUltimaDoacao() {
         return dataUltimaDoacao;
+    }
+
+    public LocalDate getDataNascimento() {
+        return dataNascimento;
     }
 
     public void registrarDoacao(LocalDate data) {

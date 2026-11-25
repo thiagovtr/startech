@@ -74,6 +74,7 @@ export function Perfil() {
 
     if (destino === 'CadastroPerfil') {
       navegacao.navigate(destino, {
+        dataNascimento: doador?.dataNascimento,
         dataUltimaDoacao: doador?.dataUltimaDoacao,
         sexo: doador?.sexo,
         tipoSanguineo,

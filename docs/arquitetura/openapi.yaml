@@ -1357,6 +1357,7 @@ components:
         nome: { type: string, minLength: 2, maxLength: 120, example: Maria Silva }
         tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
         sexo: { type: string, enum: [M, F], example: F }
+        dataNascimento: { type: string, format: date, nullable: true, example: "1998-05-20" }
         dataUltimaDoacao: { type: string, format: date, nullable: true, example: "2026-01-10" }
 
     DoadorPerfilResponse:
@@ -1367,6 +1368,7 @@ components:
         nome: { type: string, example: Maria Silva }
         tipoSanguineo: { type: string, enum: [A+, A-, B+, B-, AB+, AB-, O+, O-], example: O- }
         sexo: { type: string, enum: [M, F], example: F }
+        dataNascimento: { type: string, format: date, nullable: true, example: "1998-05-20" }
         dataUltimaDoacao: { type: string, format: date, nullable: true, example: "2026-11-14" }
 
     HomeMobileResponse:
@@ -1384,6 +1386,7 @@ components:
             nome: { type: string }
             tipoSanguineo: { type: string }
             sexo: { type: string, enum: [M, F] }
+            dataNascimento: { type: string, format: date, nullable: true }
             dataUltimaDoacao: { type: string, format: date, nullable: true }
             cadastrado: { type: boolean }
             statusDegradado: { type: boolean }
