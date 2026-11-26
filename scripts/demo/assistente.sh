@@ -10,7 +10,8 @@ curl -s -w '\n%{time_total}\n' -X POST "$GATEWAY/api/mobile/assistente" -H "Auth
 import json, sys
 corpo, tempo = sys.stdin.read().strip().rsplit("\n", 1)
 d = json.loads(corpo)
-motivo = f" | motivo: {d['motivo']}" if d.get("motivo") else ""
+m = d.get("motivo")
+motivo = f" | motivo: {m}" if m else ""
 print("   modo:", d.get("modo"), "| degradado:", d.get("degradado"), "| tempo:", round(float(tempo) * 1000), "ms" + motivo)
 print("   resposta:", d.get("resposta"))
 for f in d.get("fontes") or []: print("   fonte:", f.get("fonte"), "/", f.get("secao"))'
