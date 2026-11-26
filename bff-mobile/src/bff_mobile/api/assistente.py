@@ -56,5 +56,12 @@ async def perguntar(
         r: dict[str, Any] = await rag.perguntar(corpo.pergunta, tipo)
     except ServicoIndisponivel as exc:
         return {"resposta": FALLBACK, "modo": "FALLBACK", "fontes": [], "degradado": True, "motivo": exc.motivo}
-    return {"resposta": r.get("resposta"), "modo": r.get("modo"), "fontes": r.get("fontes", []),
-            "degradado": r.get("modo") == "FALLBACK"}
+    resposta = {
+        "resposta": r.get("resposta"),
+        "modo": r.get("modo"),
+        "fontes": r.get("fontes", []),
+        "degradado": r.get("modo") == "FALLBACK",
+    }
+    if r.get("motivoFallback"):
+        resposta["motivo"] = r["motivoFallback"]
+    return resposta
